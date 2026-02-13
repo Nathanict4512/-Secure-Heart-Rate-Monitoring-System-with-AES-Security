@@ -44,7 +44,7 @@ except ImportError:
     st.stop()
 
 try:
-    import plotly.graph_objects as go
+    import plotly.graph_objects as pgo
     import plotly.express as px
 except ImportError:
     st.error("Missing: plotly. Add `plotly>=5.19.0` to requirements.txt")
@@ -1784,8 +1784,8 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                 try:
                     is_light  = st.session_state.get("theme", "dark") == "light"
                     title_col = "#4A5578" if is_light else "#8A97B8"
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(
+                    fig = pgo.Figure()
+                    fig.add_trace(pgo.Scatter(
                         y=buf,
                         x=list(range(len(buf))),
                         mode="lines",
@@ -1901,18 +1901,26 @@ elif st.session_state.page == "results":
         df = df.sort_values('test_date')
         df['color'] = df['bpm'].apply(lambda b: '#00E5A0' if 60<=b<=100 else '#FFD166' if 40<=b<60 or 101<=b<=120 else '#E84855')
 
-        fig = go.Figure()
-        fig.add_hrect(y0=60, y1=100, fillcolor="rgba(0,229,160,0.07)",
-                      annotation_text="Normal Zone", annotation_position="top left",
-                      line_width=0)
-        fig.add_trace(go.Scatter(x=df['test_date'], y=df['bpm'], mode='lines+markers',
-            line=dict(color='#E84855', width=2),
-            marker=dict(size=8, color=df['color'], line=dict(width=1, color='#0A0E1A')),
-            hovertemplate='<b>%{y} BPM</b><br>%{x}<extra></extra>',
-            name='Heart Rate'))
-        fig.update_layout(**plotly_dark(), height=280,
-                          title=dict(text="Heart Rate Over Time", font=dict(size=13, color='#E8EDF8')))
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
+        try:
+            fig = pgo.Figure()
+            fig.add_hrect(y0=60, y1=100, fillcolor="rgba(0,229,160,0.07)", line_width=0)
+            fig.add_trace(pgo.Scatter(
+                x=df['test_date'], y=df['bpm'], mode='lines+markers',
+                line=dict(color='#E84855', width=2),
+                marker=dict(size=8, color=df['color'],
+                            line=dict(width=1, color='#0A0E1A')),
+                hovertemplate='<b>%{y} BPM</b><br>%{x}<extra></extra>',
+                name='Heart Rate',
+            ))
+            fig.update_layout(
+                **plotly_dark(), height=280,
+                title=dict(text="Heart Rate Over Time",
+                           font=dict(size=13, color='#E8EDF8')),
+            )
+            st.plotly_chart(fig, use_container_width=True,
+                            config={'displayModeBar': False})
+        except Exception as _chart_err:
+            st.warning(f"Trend chart unavailable: {_chart_err}")
 
         st.divider()
         st.markdown("### 📋 Detailed Records")
@@ -1939,34 +1947,40 @@ elif st.session_state.page == "results":
                         st.markdown(f"<div style='font-size:0.8rem;color:var(--text2);margin:2px 0'>• {rec}</div>",
                                     unsafe_allow_html=True)
                 with c3:
-                    fig_g = go.Figure(go.Indicator(
-                        mode="gauge+number", value=r['bpm'],
-                        gauge={'axis':{'range':[0,200],'tickcolor':'#4A5578'},
-                               'bar':{'color':an['color']},
-                               'bgcolor':'rgba(0,0,0,0)',
-                               'bordercolor':'#253358',
-                               'steps':[{'range':[0,40],'color':'rgba(232,72,85,0.15)'},
-                                        {'range':[40,60],'color':'rgba(255,209,102,0.1)'},
-                                        {'range':[60,100],'color':'rgba(0,229,160,0.1)'},
-                                        {'range':[100,120],'color':'rgba(255,209,102,0.1)'},
-                                        {'range':[120,200],'color':'rgba(232,72,85,0.1)'}]},
-                        number={'font':{'size':28,'color':an['color'],'family':'DM Mono'}},
-                        domain={'x':[0,1],'y':[0,1]}))
-                    fig_g.update_layout(paper_bgcolor='rgba(0,0,0,0)',
-                                        height=180, margin=dict(l=10,r=10,t=20,b=10),
-                                        font=dict(color='#8A97B8'))
-                    st.plotly_chart(fig_g, use_container_width=True,
-                                    config={'displayModeBar':False},
-                                    key=f"gauge_hist_{r['test_id']}")
+                    try:
+                        fig_g = pgo.Figure(pgo.Indicator(
+                            mode="gauge+number", value=r['bpm'],
+                            gauge={'axis':{'range':[0,200],'tickcolor':'#4A5578'},
+                                   'bar':{'color':an['color']},
+                                   'bgcolor':'rgba(0,0,0,0)',
+                                   'bordercolor':'#253358',
+                                   'steps':[{'range':[0,40],'color':'rgba(232,72,85,0.15)'},
+                                            {'range':[40,60],'color':'rgba(255,209,102,0.1)'},
+                                            {'range':[60,100],'color':'rgba(0,229,160,0.1)'},
+                                            {'range':[100,120],'color':'rgba(255,209,102,0.1)'},
+                                            {'range':[120,200],'color':'rgba(232,72,85,0.1)'}]},
+                            number={'font':{'size':28,'color':an['color'],'family':'DM Mono'}},
+                            domain={'x':[0,1],'y':[0,1]}))
+                        fig_g.update_layout(paper_bgcolor='rgba(0,0,0,0)',
+                                            height=180, margin=dict(l=10,r=10,t=20,b=10),
+                                            font=dict(color='#8A97B8'))
+                        st.plotly_chart(fig_g, use_container_width=True,
+                                        config={'displayModeBar':False},
+                                        key=f"gauge_hist_{r['test_id']}")
+                    except Exception:
+                        st.metric("BPM", r['bpm'])
 
                 if r.get('signal_data'):
-                    fig_s = go.Figure(go.Scatter(y=r['signal_data'], mode='lines',
-                        line=dict(color='#E84855', width=1.2), fill='tozeroy',
-                        fillcolor='rgba(232,72,85,0.07)'))
-                    fig_s.update_layout(**plotly_dark(), height=100)
-                    st.plotly_chart(fig_s, use_container_width=True,
-                                    config={'displayModeBar':False},
-                                    key=f"sig_hist_{r['test_id']}")
+                    try:
+                        fig_s = pgo.Figure(pgo.Scatter(y=r['signal_data'], mode='lines',
+                            line=dict(color='#E84855', width=1.2), fill='tozeroy',
+                            fillcolor='rgba(232,72,85,0.07)'))
+                        fig_s.update_layout(**plotly_dark(), height=100)
+                        st.plotly_chart(fig_s, use_container_width=True,
+                                        config={'displayModeBar':False},
+                                        key=f"sig_hist_{r['test_id']}")
+                    except Exception:
+                        pass
 
         st.divider()
         export_df = pd.DataFrame({'Date':[r['test_date'] for r in results],
@@ -2014,19 +2028,21 @@ elif st.session_state.page == "admin_dashboard" and is_admin:
         c1, c2 = st.columns(2)
         with c1:
             # BPM distribution
-            fig_dist = go.Figure(go.Histogram(x=bpms_all, nbinsx=20,
-                marker_color='#E84855', opacity=0.8,
-                marker_line=dict(color='#0A0E1A', width=1)))
-            fig_dist.add_vrect(x0=60,x1=100,fillcolor="rgba(0,229,160,0.1)",
-                               annotation_text="Normal",line_width=0)
-            fig_dist.update_layout(**plotly_dark(), height=260,
-                                   title=dict(text="BPM Distribution",font=dict(size=12,color='#E8EDF8')),
-                                   xaxis_title="BPM", yaxis_title="Count")
-            st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar':False})
+            try:
+                fig_dist = pgo.Figure(pgo.Histogram(x=bpms_all, nbinsx=20,
+                    marker_color='#E84855', opacity=0.8,
+                    marker_line=dict(color='#0A0E1A', width=1)))
+                fig_dist.add_vrect(x0=60,x1=100,fillcolor="rgba(0,229,160,0.1)",
+                                   annotation_text="Normal",line_width=0)
+                fig_dist.update_layout(**plotly_dark(), height=260,
+                                       title=dict(text="BPM Distribution",font=dict(size=12,color='#E8EDF8')),
+                                       xaxis_title="BPM", yaxis_title="Count")
+                st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar':False})
+            except Exception: pass
 
         with c2:
             cats = df_all['analysis'].apply(lambda a: a['category']).value_counts()
-            fig_pie = go.Figure(go.Pie(labels=cats.index, values=cats.values,
+            fig_pie = pgo.Figure(pgo.Pie(labels=cats.index, values=cats.values,
                 hole=0.55, marker=dict(colors=['#00E5A0','#FFD166','#E84855','#00D4FF','#9B5DE5'],
                                        line=dict(color='#0A0E1A',width=2)),
                 textfont=dict(size=10)))
@@ -2148,7 +2164,7 @@ elif st.session_state.page == "admin_users" and is_admin:
                     df_u = pd.DataFrame(user_results)
                     df_u['test_date'] = pd.to_datetime(df_u['test_date'])
                     df_u = df_u.sort_values('test_date')
-                    fig_u = go.Figure(go.Scatter(
+                    fig_u = pgo.Figure(pgo.Scatter(
                         x=df_u['test_date'], y=df_u['bpm'], mode='lines+markers',
                         line=dict(color='#00D4FF',width=2),
                         marker=dict(size=7,color='#00D4FF')))
