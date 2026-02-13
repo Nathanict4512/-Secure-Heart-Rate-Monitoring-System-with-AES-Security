@@ -87,400 +87,362 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — matching uploaded React component design
+   ═══════════════════════════════════════════════════════════ */
 :root {
-    --bg: #0A0E1A;
-    --bg2: #0F1628;
-    --bg3: #141E35;
-    --card: #1A2540;
-    --card2: #1E2D4E;
-    --border: #253358;
-    --accent: #E84855;
-    --accent2: #FF6B6B;
-    --cyan: #00D4FF;
-    --green: #00E5A0;
-    --yellow: #FFD166;
-    --purple: #9B5DE5;
-    --text: #E8EDF8;
-    --text2: #8A97B8;
-    --text3: #4A5578;
-    --glow: rgba(232,72,85,0.3);
-    --glow-cyan: rgba(0,212,255,0.2);
+    /* Dark mode (default) — matches index.css exactly */
+    --bg:         hsl(222, 58%, 5%);
+    --bg2:        hsl(222, 50%, 8%);
+    --card:       hsl(222, 40%, 12%);
+    --card2:      hsl(222, 35%, 16%);
+    --border:     hsl(222, 30%, 22%);
+    --text:       hsl(220, 30%, 92%);
+    --text2:      hsl(220, 15%, 55%);
+    --text3:      hsl(222, 20%, 35%);
+    --accent:     hsl(355, 78%, 55%);
+    --accent2:    hsl(355, 78%, 68%);
+    --green:      hsl(160, 100%, 45%);
+    --yellow:     hsl(40,  100%, 70%);
+    --cyan:       hsl(195, 100%, 50%);
+    --purple:     hsl(265,  70%, 60%);
+    --glow:       hsla(355, 78%, 55%, 0.3);
+    --shadow:     rgba(0, 0, 0, 0.4);
+    --radius:     0.75rem;
+    --transition: 0.25s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/* ── Light mode — toggle via data-theme="light" on body ────── */
+[data-theme="light"] {
+    --bg:         hsl(220, 20%, 97%);
+    --bg2:        hsl(220, 20%, 93%);
+    --card:       hsl(0, 0%, 100%);
+    --card2:      hsl(220, 20%, 95%);
+    --border:     hsl(220, 20%, 84%);
+    --text:       hsl(222, 40%, 12%);
+    --text2:      hsl(222, 20%, 45%);
+    --text3:      hsl(222, 15%, 65%);
+    --accent:     hsl(355, 78%, 48%);
+    --accent2:    hsl(355, 78%, 58%);
+    --green:      hsl(160, 70%, 35%);
+    --yellow:     hsl(40,  80%, 42%);
+    --cyan:       hsl(195, 80%, 38%);
+    --purple:     hsl(265, 55%, 48%);
+    --glow:       hsla(355, 78%, 48%, 0.2);
+    --shadow:     rgba(0, 0, 0, 0.1);
+}
+
+/* ── Streamlit body inherits our CSS vars ───────────────────── */
+body, .stApp, [class*="css"] {
+    --muted-fg:      222 20% 45%;
+    --border:        220 15% 82%;
+    --cs-green:      160 70%  35%;
+    --cs-yellow:     38  90%  45%;
+    --cs-cyan:       195 80%  35%;
+}
+
+/* ── Base resets ────────────────────────────────────────────── */
 html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-    background-color: var(--bg) !important;
-    color: var(--text) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    background: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+    transition: background 0.35s ease, color 0.35s ease;
 }
 
 /* Hide Streamlit chrome */
 #MainMenu, footer, header { visibility: hidden; }
 .stDeployButton { display: none; }
-section[data-testid="stSidebar"] { display: none; }
 
-/* App background */
-.stApp {
-    background: radial-gradient(ellipse at 10% 20%, rgba(232,72,85,0.06) 0%, transparent 50%),
-                radial-gradient(ellipse at 90% 80%, rgba(0,212,255,0.05) 0%, transparent 50%),
-                var(--bg) !important;
-    min-height: 100vh;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: hsl(var(--background)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
 
-/* Main containers */
-.block-container {
-    padding: 1.5rem 2rem 2rem !important;
-    max-width: 1400px !important;
-}
+/* Main container */
+.block-container { padding: 0 !important; max-width: 100% !important; }
+.stApp { background: none !important; }
 
-/* Cards */
-.cs-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+/* ── Theme toggle button ────────────────────────────────────── */
+#cs-theme-btn {
+    position: fixed;
+    top: 14px; right: 16px;
+    z-index: 9999;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    transition: all 0.25s ease;
 }
-.cs-card-glow {
-    background: linear-gradient(135deg, var(--card), var(--card2));
-    border: 1px solid rgba(232,72,85,0.3);
-    border-radius: 16px;
-    padding: 1.5rem;
-    box-shadow: 0 0 30px var(--glow), 0 4px 24px rgba(0,0,0,0.4);
-}
+#cs-theme-btn:hover { transform: scale(1.1); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 
-/* Nav bar */
-.cs-nav {
-    background: linear-gradient(90deg, var(--card), var(--card2));
-    border-bottom: 1px solid var(--border);
-    border-radius: 16px 16px 0 0;
-    padding: 0.8rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+/* ── Radial background glow ─────────────────────────────────── */
+.bg-radial-glow {
+    background:
+        radial-gradient(ellipse at 10% 20%, hsl(var(--primary) / 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 80%, hsl(var(--cs-cyan) / 0.05) 0%, transparent 50%),
+        hsl(var(--background));
 }
 
-/* Hero header */
-.cs-hero {
-    text-align: center;
-    padding: 3rem 1rem 2rem;
+/* ── Navbar ─────────────────────────────────────────────────── */
+.cs-navbar {
+    position: sticky; top: 0; z-index: 50;
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--card) / 0.85);
+    backdrop-filter: blur(16px);
+    padding: 0.65rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    animation: cs-slide-down 0.5s cubic-bezier(.23,1,.32,1) both;
+    transition: background 0.35s ease;
 }
-.cs-hero-title {
+.cs-navbar-brand {
+    display: flex; align-items: center; gap: 0.6rem;
+    cursor: pointer;
+}
+.cs-navbar-brand span.logo-text {
     font-family: 'DM Serif Display', serif;
-    font-size: 3.5rem;
-    line-height: 1.1;
-    background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 40%, var(--cyan) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    color: hsl(var(--foreground));
 }
-.cs-hero-sub {
-    font-size: 1rem;
-    color: var(--text2);
-    font-weight: 300;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
-
-/* Metric cards */
-.metric-card {
-    background: var(--card2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.2rem;
-    text-align: center;
-}
-.metric-value {
+.cs-nav-badge {
+    border: 1px solid hsl(var(--border));
+    border-radius: 4px;
+    padding: 1px 7px;
     font-family: 'DM Mono', monospace;
-    font-size: 2rem;
-    font-weight: 500;
-    color: var(--accent);
+    font-size: 0.62rem;
+    color: hsl(var(--muted-fg));
 }
-.metric-label {
-    font-size: 0.75rem;
-    color: var(--text2);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-top: 0.2rem;
+.cs-nav-pills { display: flex; align-items: center; gap: 2px; }
+.cs-nav-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.84rem; font-weight: 500;
+    border: none; background: transparent;
+    color: hsl(var(--muted-fg));
+    cursor: pointer;
+    transition: all 0.18s;
 }
-.metric-sub {
-    font-size: 0.7rem;
-    color: var(--text3);
-    margin-top: 0.2rem;
+.cs-nav-pill:hover   { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+.cs-nav-pill.active  { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
+.cs-nav-right { display: flex; align-items: center; gap: 0.6rem; }
+.cs-admin-badge {
+    border: 1px solid hsl(var(--cs-yellow) / 0.4);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.7rem; font-weight: 500;
+    color: hsl(var(--cs-yellow));
 }
+.cs-btn-signout {
+    padding: 6px 14px; border-radius: 8px; font-size: 0.84rem;
+    border: 1px solid hsl(var(--border));
+    background: transparent; color: hsl(var(--muted-fg));
+    cursor: pointer; transition: all 0.18s;
+}
+.cs-btn-signout:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
 
-/* BPM display */
-.bpm-display {
-    font-family: 'DM Serif Display', serif;
-    font-size: 6rem;
+/* ── Cards ──────────────────────────────────────────────────── */
+.cs-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 16px;
+    padding: 1.4rem;
+    transition: background 0.35s ease, border-color 0.2s, transform 0.25s cubic-bezier(.23,1,.32,1), box-shadow 0.25s;
+}
+.cs-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 36px hsl(var(--background) / 0.6), 0 0 0 1px hsl(var(--primary) / 0.2);
+}
+.cs-metric-card {
+    background: hsl(var(--secondary));
+    border: 1px solid hsl(var(--border));
+    border-radius: 14px;
+    padding: 1rem;
     text-align: center;
-    line-height: 1;
-    animation: pulse-text 1.5s ease-in-out infinite;
+    transition: background 0.35s ease, border-color 0.25s, transform 0.25s;
 }
-@keyframes pulse-text {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+.cs-metric-card:hover {
+    border-color: hsl(var(--primary) / 0.5);
+    box-shadow: 0 0 22px hsl(var(--primary) / 0.12);
+    transform: translateY(-4px);
 }
-.bpm-normal { color: var(--green); }
-.bpm-warning { color: var(--yellow); }
-.bpm-danger { color: var(--accent); }
+.cs-metric-value { font-family: 'DM Mono', monospace; font-size: 1.9rem; font-weight: 500; color: hsl(var(--primary)); }
+.cs-metric-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: hsl(var(--muted-fg)); margin-top: 3px; }
+.cs-metric-sub   { font-size: 0.62rem; color: hsl(var(--muted-fg) / 0.6); margin-top: 2px; }
 
-/* Status badge */
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+/* ── BPM display ─────────────────────────────────────────────── */
+.cs-bpm {
+    font-family: 'DM Serif Display', serif;
+    font-size: 5rem; line-height: 1;
+    display: inline-block;
+    border-radius: 50%;
+    padding: 0.1em 0.6em;
+    animation: pulse-text 1.5s ease-in-out infinite,
+               heartbeat-ring 1.5s ease-out infinite;
 }
-.badge-normal { background: rgba(0,229,160,0.15); border: 1px solid rgba(0,229,160,0.4); color: var(--green); }
-.badge-warning { background: rgba(255,209,102,0.15); border: 1px solid rgba(255,209,102,0.4); color: var(--yellow); }
-.badge-danger { background: rgba(232,72,85,0.15); border: 1px solid rgba(232,72,85,0.4); color: var(--accent); }
-.badge-info { background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.4); color: var(--cyan); }
+.cs-bpm-normal  { color: hsl(var(--cs-green)); }
+.cs-bpm-warning { color: hsl(var(--cs-yellow)); }
+.cs-bpm-danger  { color: hsl(var(--primary)); }
 
-/* Tabs */
-.stTabs [data-baseweb="tab-list"] {
-    background: var(--bg2) !important;
-    border-radius: 12px !important;
-    padding: 4px !important;
-    gap: 4px !important;
-    border: 1px solid var(--border) !important;
+/* ── Progress bar ───────────────────────────────────────────── */
+.cs-progress-track {
+    height: 5px; border-radius: 3px;
+    background: hsl(var(--border));
+    overflow: hidden; margin-top: 6px;
 }
-.stTabs [data-baseweb="tab"] {
-    background: transparent !important;
-    color: var(--text2) !important;
-    border-radius: 8px !important;
-    font-size: 0.85rem !important;
-    font-weight: 500 !important;
-    padding: 0.5rem 1rem !important;
-    border: none !important;
-    transition: all 0.2s !important;
-}
-.stTabs [aria-selected="true"] {
-    background: var(--card) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
+.cs-progress-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--cs-cyan)));
+    transition: width 0.3s ease;
 }
 
-/* Inputs */
-.stTextInput input, .stSelectbox > div, .stTextArea textarea {
-    background: var(--bg2) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
-    color: var(--text) !important;
-    font-family: 'DM Sans', sans-serif !important;
-}
-.stTextInput input:focus {
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 0 2px rgba(232,72,85,0.2) !important;
+/* ── Badges ─────────────────────────────────────────────────── */
+.badge-normal  { background: hsl(var(--cs-green)  / 0.15); border: 1px solid hsl(var(--cs-green)  / 0.4); color: hsl(var(--cs-green));  }
+.badge-warning { background: hsl(var(--cs-yellow) / 0.15); border: 1px solid hsl(var(--cs-yellow) / 0.4); color: hsl(var(--cs-yellow)); }
+.badge-danger  { background: hsl(var(--primary)   / 0.15); border: 1px solid hsl(var(--primary)   / 0.4); color: hsl(var(--primary));   }
+.badge-info    { background: hsl(var(--cs-cyan)   / 0.15); border: 1px solid hsl(var(--cs-cyan)   / 0.4); color: hsl(var(--cs-cyan));   }
+.cs-status-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 500;
+    letter-spacing: 0.05em; text-transform: uppercase;
 }
 
-/* Buttons */
+/* ── Buttons ─────────────────────────────────────────────────── */
 .stButton > button {
-    background: linear-gradient(135deg, var(--accent), #C62A35) !important;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(355 78% 42%)) !important;
     color: white !important;
     border: none !important;
     border-radius: 10px !important;
     font-family: 'DM Sans', sans-serif !important;
     font-weight: 500 !important;
-    padding: 0.5rem 1.5rem !important;
     transition: all 0.2s !important;
-    letter-spacing: 0.03em !important;
 }
-.stButton > button:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 20px var(--glow) !important;
-}
+.stButton > button:hover { transform: translateY(-1px) !important; box-shadow: 0 4px 20px hsl(var(--primary) / 0.35) !important; }
 .stButton > button[kind="secondary"] {
-    background: var(--card) !important;
-    border: 1px solid var(--border) !important;
-    color: var(--text) !important;
+    background: hsl(var(--card)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
 }
 
-/* Expander */
-.streamlit-expanderHeader {
-    background: var(--card2) !important;
+/* ── Inputs ──────────────────────────────────────────────────── */
+.stTextInput input, .stSelectbox > div, .stTextArea textarea, .stNumberInput input {
+    background: hsl(var(--secondary)) !important;
+    border: 1px solid hsl(var(--border)) !important;
     border-radius: 10px !important;
-    border: 1px solid var(--border) !important;
-    color: var(--text) !important;
-    font-weight: 500 !important;
+    color: hsl(var(--foreground)) !important;
+    transition: background 0.35s ease !important;
 }
-.streamlit-expanderContent {
-    background: var(--bg2) !important;
-    border: 1px solid var(--border) !important;
-    border-top: none !important;
-    border-radius: 0 0 10px 10px !important;
+.stTextInput input:focus { border-color: hsl(var(--primary)) !important; box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important; }
+
+/* ── Tabs ────────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    background: hsl(var(--secondary)) !important;
+    border-radius: 12px !important; padding: 4px !important;
+    border: 1px solid hsl(var(--border)) !important;
 }
-
-/* Dataframe */
-.stDataFrame { border-radius: 10px; overflow: hidden; }
-
-/* Step indicator */
-.step-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    font-family: 'DM Mono', monospace;
-    font-weight: 500;
-    font-size: 0.85rem;
-    margin-right: 0.5rem;
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important; color: hsl(var(--muted-fg)) !important;
+    border-radius: 8px !important; font-size: 0.84rem !important;
+    border: none !important; transition: all 0.18s !important;
 }
-.step-pill-active { background: var(--accent); color: white; }
-.step-pill-done { background: var(--green); color: #0A0E1A; }
-.step-pill-todo { background: var(--card2); border: 1px solid var(--border); color: var(--text3); }
+.stTabs [aria-selected="true"] { background: hsl(var(--card)) !important; color: hsl(var(--foreground)) !important; }
 
-/* ECG line */
-.ecg-line {
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    animation: ecg-sweep 2s linear infinite;
-    margin: 0.5rem 0;
+/* ── Table ───────────────────────────────────────────────────── */
+.cs-table { width: 100%; border-collapse: collapse; }
+.cs-table th {
+    padding: 10px 16px; text-align: left;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: hsl(var(--muted-fg));
+    background: hsl(var(--secondary)); border-bottom: 1px solid hsl(var(--border));
 }
-@keyframes ecg-sweep { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+.cs-table td { padding: 10px 16px; border-bottom: 1px solid hsl(var(--border) / 0.5); font-size: 0.86rem; }
+.cs-table tr:hover td { background: hsl(var(--secondary) / 0.5); }
+.cs-table tr:last-child td { border-bottom: none; }
 
-/* Code blocks */
+/* ── Alerts ──────────────────────────────────────────────────── */
+.stAlert   { border-radius: 10px !important; border-left-width: 3px !important; }
+.stSuccess { background: hsl(var(--cs-green)  / 0.07) !important; border-color: hsl(var(--cs-green))  !important; }
+.stWarning { background: hsl(var(--cs-yellow) / 0.07) !important; border-color: hsl(var(--cs-yellow)) !important; }
+.stError   { background: hsl(var(--primary)   / 0.07) !important; border-color: hsl(var(--primary))   !important; }
+.stInfo    { background: hsl(var(--cs-cyan)   / 0.07) !important; border-color: hsl(var(--cs-cyan))   !important; }
+
+/* ── Code ────────────────────────────────────────────────────── */
 .stCode, code, pre {
-    background: var(--bg) !important;
-    border: 1px solid var(--border) !important;
+    background: hsl(var(--background)) !important;
+    border: 1px solid hsl(var(--border)) !important;
     border-radius: 8px !important;
     font-family: 'DM Mono', monospace !important;
-    color: var(--cyan) !important;
+    color: hsl(var(--cs-cyan)) !important;
 }
 
-/* Alerts */
-.stAlert { border-radius: 10px !important; border-left-width: 3px !important; }
-.stSuccess { border-color: var(--green) !important; background: rgba(0,229,160,0.07) !important; }
-.stWarning { border-color: var(--yellow) !important; background: rgba(255,209,102,0.07) !important; }
-.stError { border-color: var(--accent) !important; background: rgba(232,72,85,0.07) !important; }
-.stInfo { border-color: var(--cyan) !important; background: rgba(0,212,255,0.07) !important; }
-
-/* Section headers */
-.section-header {
-    font-family: 'DM Serif Display', serif;
-    font-size: 1.6rem;
-    color: var(--text);
-    margin-bottom: 0.3rem;
+/* ── ECG divider ─────────────────────────────────────────────── */
+.ecg-line {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
+    animation: ecg-sweep 2s linear infinite;
+    margin: 0.8rem 0;
 }
-.section-sub {
-    font-size: 0.85rem;
-    color: var(--text2);
-    margin-bottom: 1.2rem;
+@keyframes ecg-sweep { 0%,100% { opacity:0.3; } 50% { opacity:1; } }
+
+/* ── Gradient text ───────────────────────────────────────────── */
+.gradient-text-hero {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 40%, hsl(var(--cs-cyan)) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 
-/* Progress bar */
-.stProgress > div > div { background: linear-gradient(90deg, var(--accent), var(--cyan)) !important; border-radius: 4px !important; }
+/* ── Section headers ─────────────────────────────────────────── */
+.cs-section-header { font-family: 'DM Serif Display', serif; font-size: 1.55rem; color: hsl(var(--foreground)); margin-bottom: 2px; }
+.cs-section-sub    { font-size: 0.84rem; color: hsl(var(--muted-fg)); margin-bottom: 1rem; }
 
-/* Encryption step card */
+/* ── Sidebar ─────────────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+    display: block !important;
+    background: hsl(var(--card)) !important;
+    border-right: 1px solid hsl(var(--border)) !important;
+    transition: background 0.35s ease !important;
+}
+
+/* ── Enc step card ───────────────────────────────────────────── */
 .enc-step-card {
-    background: linear-gradient(135deg, var(--card), var(--bg2));
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
-    border-radius: 12px;
-    padding: 1.2rem 1.5rem;
+    background: linear-gradient(135deg, hsl(var(--card)), hsl(var(--secondary)));
+    border: 1px solid hsl(var(--border));
+    border-left: 3px solid hsl(var(--primary));
+    border-radius: 12px; padding: 1.2rem 1.5rem;
     margin-bottom: 1rem;
+    animation: cs-slide-down 0.5s ease both;
 }
-.enc-step-title {
-    font-family: 'DM Serif Display', serif;
-    font-size: 1.1rem;
-    color: var(--accent2);
-    margin-bottom: 0.4rem;
-}
-.enc-explanation {
-    font-size: 0.88rem;
-    color: var(--text2);
-    line-height: 1.7;
-}
+.enc-step-title { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: hsl(var(--primary)); margin-bottom: 5px; }
+.enc-explanation { font-size: 0.86rem; color: hsl(var(--muted-fg)); line-height: 1.75; }
 
-/* Divider */
-.cs-divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--border), transparent);
-    margin: 1.5rem 0;
-}
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes cs-slide-down { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes cs-fade-in    { from { opacity:0; } to { opacity:1; } }
+@keyframes cs-pop-in     { 0%{opacity:0;transform:scale(0.88) translateY(18px);} 70%{transform:scale(1.03);} 100%{opacity:1;transform:scale(1);} }
+@keyframes heartbeat     { 0%,100%{transform:scale(1);} 14%{transform:scale(1.15);} 28%{transform:scale(1);} 42%{transform:scale(1.08);} 56%{transform:scale(1);} }
+@keyframes pulse-text    { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+@keyframes heartbeat-ring { 0%{box-shadow:0 0 0 0 hsl(var(--primary)/0.5);} 50%{box-shadow:0 0 0 18px hsl(var(--primary)/0);} 100%{box-shadow:0 0 0 0 hsl(var(--primary)/0);} }
+@keyframes float         { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
 
-/* Nav pills */
-.nav-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
+.animate-heartbeat { animation: heartbeat 1.5s ease-in-out infinite; }
 
-/* Footer */
-.cs-footer {
-    text-align: center;
-    padding: 1.5rem;
-    color: var(--text3);
-    font-size: 0.75rem;
-    border-top: 1px solid var(--border);
-    margin-top: 2rem;
-}
-
-/* Print styles */
-@media print {
-    .stButton, .stSidebar, nav { display: none !important; }
-    .print-section { page-break-inside: avoid; }
-    body { background: white !important; color: black !important; }
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg2); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text3); }
-
-/* ── AOS base states (before init) ─────────────────────────── */
-[data-aos] {
-    pointer-events: none;
-}
-[data-aos].aos-animate {
-    pointer-events: auto;
-}
-
-/* fade-up */
-[data-aos="fade-up"]           { opacity:0; transform:translateY(40px);  transition:opacity 0.7s ease, transform 0.7s ease; }
-[data-aos="fade-up"].aos-animate { opacity:1; transform:translateY(0);   }
-
-/* fade-down */
-[data-aos="fade-down"]           { opacity:0; transform:translateY(-40px); transition:opacity 0.7s ease, transform 0.7s ease; }
+/* AOS (custom — works without external CDN dependency) */
+[data-aos] { pointer-events:none; }
+[data-aos].aos-animate { pointer-events:auto; }
+[data-aos="fade-up"]    { opacity:0; transform:translateY(36px);  transition:opacity 0.65s ease, transform 0.65s cubic-bezier(.23,1,.32,1); }
+[data-aos="fade-up"].aos-animate { opacity:1; transform:translateY(0); }
+[data-aos="fade-down"]  { opacity:0; transform:translateY(-36px); transition:opacity 0.65s ease, transform 0.65s ease; }
 [data-aos="fade-down"].aos-animate { opacity:1; transform:translateY(0); }
-
-/* fade-left (slide in from right) */
-[data-aos="fade-left"]           { opacity:0; transform:translateX(60px);  transition:opacity 0.7s ease, transform 0.7s ease; }
-[data-aos="fade-left"].aos-animate { opacity:1; transform:translateX(0);  }
-
-/* fade-right (slide in from left) */
-[data-aos="fade-right"]           { opacity:0; transform:translateX(-60px); transition:opacity 0.7s ease, transform 0.7s ease; }
+[data-aos="fade-right"] { opacity:0; transform:translateX(-56px); transition:opacity 0.65s ease, transform 0.65s ease; }
 [data-aos="fade-right"].aos-animate { opacity:1; transform:translateX(0); }
-
-/* zoom-in */
-[data-aos="zoom-in"]           { opacity:0; transform:scale(0.82);  transition:opacity 0.65s ease, transform 0.65s cubic-bezier(.175,.885,.32,1.275); }
-[data-aos="zoom-in"].aos-animate { opacity:1; transform:scale(1);   }
-
-/* flip-left */
-[data-aos="flip-left"]           { opacity:0; transform:perspective(400px) rotateY(-20deg); transition:opacity 0.8s ease, transform 0.8s ease; }
-[data-aos="flip-left"].aos-animate { opacity:1; transform:perspective(400px) rotateY(0);   }
-
-/* slide-up (harder bounce) */
-[data-aos="slide-up"]           { opacity:0; transform:translateY(80px);  transition:opacity 0.6s ease, transform 0.6s cubic-bezier(.23,1,.32,1); }
-[data-aos="slide-up"].aos-animate { opacity:1; transform:translateY(0);   }
-
-/* Stagger delay helpers (used inline with data-aos-delay) */
+[data-aos="fade-left"]  { opacity:0; transform:translateX(56px);  transition:opacity 0.65s ease, transform 0.65s ease; }
+[data-aos="fade-left"].aos-animate  { opacity:1; transform:translateX(0); }
+[data-aos="zoom-in"]    { opacity:0; transform:scale(0.84);       transition:opacity 0.6s ease, transform 0.6s cubic-bezier(.175,.885,.32,1.275); }
+[data-aos="zoom-in"].aos-animate    { opacity:1; transform:scale(1); }
 [data-aos-delay="100"]  { transition-delay:100ms !important; }
 [data-aos-delay="150"]  { transition-delay:150ms !important; }
 [data-aos-delay="200"]  { transition-delay:200ms !important; }
@@ -491,77 +453,140 @@ section[data-testid="stSidebar"] { display: none; }
 [data-aos-delay="450"]  { transition-delay:450ms !important; }
 [data-aos-delay="500"]  { transition-delay:500ms !important; }
 [data-aos-delay="600"]  { transition-delay:600ms !important; }
-[data-aos-delay="700"]  { transition-delay:700ms !important; }
-[data-aos-delay="800"]  { transition-delay:800ms !important; }
 
-/* ── Page-load entrance for hero / nav ──────────────────────── */
-@keyframes cs-slide-down {
-    from { opacity:0; transform:translateY(-24px); }
-    to   { opacity:1; transform:translateY(0);     }
-}
-@keyframes cs-fade-in {
-    from { opacity:0; } to { opacity:1; }
-}
-@keyframes cs-pop-in {
-    0%   { opacity:0; transform:scale(0.88) translateY(20px); }
-    70%  { transform:scale(1.03); }
-    100% { opacity:1; transform:scale(1) translateY(0); }
-}
-.cs-nav       { animation: cs-slide-down 0.55s cubic-bezier(.23,1,.32,1) both; }
-.cs-hero      { animation: cs-fade-in    0.8s ease 0.1s both; }
-.section-header { animation: cs-slide-down 0.5s ease both; }
+/* Step pill */
+.step-pill { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; font-family:'DM Mono',monospace; font-size:0.82rem; margin-right:6px; }
+.step-pill-active { background:hsl(var(--primary)); color:white; animation:cs-pop-in 0.4s cubic-bezier(.175,.885,.32,1.275) both; }
+.step-pill-done   { background:hsl(var(--cs-green)); color:#0A0E1A; }
+.step-pill-todo   { background:hsl(var(--secondary)); border:1px solid hsl(var(--border)); color:hsl(var(--muted-fg)); }
 
-/* ── Metric card hover lift ─────────────────────────────────── */
-.metric-card {
-    transition: transform 0.25s cubic-bezier(.23,1,.32,1),
-                box-shadow 0.25s ease,
-                border-color 0.25s ease;
-}
-.metric-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px var(--accent);
-    border-color: var(--accent);
+/* stProgress */
+.stProgress > div > div { background: linear-gradient(90deg,hsl(var(--primary)),hsl(var(--cs-cyan))) !important; border-radius:4px !important; }
+
+/* Footer */
+.cs-footer { text-align:center; padding:1.2rem; color:hsl(var(--muted-fg)); font-size:0.72rem; border-top:1px solid hsl(var(--border)); margin-top:1.5rem; }
+
+/* Light mode dataframe */
+[data-theme="light"] .stDataFrame { background: white !important; }
+
+/* Sidebar nav button active state */
+.stButton > button.nav-active {
+    background: hsl(var(--primary) / 0.12) !important;
+    color: hsl(var(--primary)) !important;
+    border: 1px solid hsl(var(--primary) / 0.3) !important;
 }
 
-/* ── Card hover lift ────────────────────────────────────────── */
-.cs-card {
-    transition: transform 0.25s cubic-bezier(.23,1,.32,1), box-shadow 0.25s ease;
+/* ── Light mode — Streamlit widget overrides ────────────────── */
+[data-theme="light"] .stButton > button {
+    background: linear-gradient(135deg, hsl(355,78%,48%), hsl(355,78%,38%)) !important;
+    box-shadow: 0 2px 12px rgba(232,72,85,0.3) !important;
 }
-.cs-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+[data-theme="light"] .stTextInput input,
+[data-theme="light"] .stNumberInput input,
+[data-theme="light"] .stSelectbox > div > div,
+[data-theme="light"] .stTextArea textarea {
+    background: hsl(220,20%,95%) !important;
+    color: hsl(222,40%,12%) !important;
+    border-color: hsl(220,20%,84%) !important;
 }
-
-/* ── Enc step card entrance ─────────────────────────────────── */
-.enc-step-card {
-    animation: cs-slide-down 0.5s ease both;
+[data-theme="light"] .stTabs [data-baseweb="tab-list"] {
+    background: hsl(220,20%,93%) !important;
+    border-color: hsl(220,20%,84%) !important;
 }
-
-/* ── Heartbeat ring on BPM ──────────────────────────────────── */
-@keyframes heartbeat-ring {
-    0%   { box-shadow: 0 0 0 0   rgba(232,72,85,0.5); }
-    50%  { box-shadow: 0 0 0 18px rgba(232,72,85,0);   }
-    100% { box-shadow: 0 0 0 0   rgba(232,72,85,0);    }
+[data-theme="light"] .stTabs [data-baseweb="tab"] { color: hsl(222,20%,45%) !important; }
+[data-theme="light"] .stTabs [aria-selected="true"] {
+    background: white !important; color: hsl(222,40%,12%) !important;
 }
-.bpm-display {
-    display:inline-block;
-    border-radius: 50%;
-    padding: 0.2rem 1rem;
-    animation: pulse-text 1.5s ease-in-out infinite,
-               heartbeat-ring 1.5s ease-out infinite;
+[data-theme="light"] .cs-card,
+[data-theme="light"] .cs-card-glow {
+    background: white !important;
+    border-color: hsl(220,20%,84%) !important;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08) !important;
 }
-
-/* ── Step pill pop ──────────────────────────────────────────── */
-.step-pill-active {
-    animation: cs-pop-in 0.4s cubic-bezier(.175,.885,.32,1.275) both;
+[data-theme="light"] .metric-card {
+    background: hsl(220,20%,97%) !important;
+    border-color: hsl(220,20%,84%) !important;
 }
-
-/* ── Login card entrance ────────────────────────────────────── */
-.stTabs { animation: cs-fade-in 0.6s ease 0.2s both; }
+[data-theme="light"] .cs-nav {
+    background: linear-gradient(90deg, white, hsl(220,20%,97%)) !important;
+    border-color: hsl(220,20%,84%) !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important;
+}
+[data-theme="light"] ::-webkit-scrollbar-track { background: hsl(220,20%,93%); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: hsl(220,20%,78%); }
+/* Smooth theme transition */
+*, *::before, *::after {
+    transition: background-color 0.25s ease, border-color 0.2s ease,
+                color 0.2s ease, box-shadow 0.25s ease !important;
+}
+[data-aos], .animate-heartbeat, .bpm-display, .ecg-line {
+    transition-property: opacity, transform !important;
+}
+/* Print */
+@media print {
+    .stButton, section[data-testid="stSidebar"], #cs-theme-btn { display:none !important; }
+    body { background:white !important; color:black !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Inject AOS.js from CDN + initialise ──────────────────────────────────────
+# ── AOS init + dark/light theme toggle ───────────────────────────────────────
+st.markdown("""
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
+<script>
+(function() {
+  // ── Theme persistence ────────────────────────────────────────────────────
+  var STORAGE_KEY = 'cardiosecure_theme';
+  var theme = localStorage.getItem(STORAGE_KEY) || 'dark';
+
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var btn = document.getElementById('cs-theme-btn');
+    if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+    localStorage.setItem(STORAGE_KEY, t);
+    theme = t;
+  }
+
+  function toggleTheme() {
+    applyTheme(theme === 'dark' ? 'light' : 'dark');
+  }
+
+  // Inject the toggle button into the page (outside Streamlit's DOM)
+  function injectBtn() {
+    if (document.getElementById('cs-theme-btn')) return;
+    var btn = document.createElement('button');
+    btn.id = 'cs-theme-btn';
+    btn.title = 'Toggle light / dark mode';
+    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    btn.onclick = toggleTheme;
+    document.body.appendChild(btn);
+  }
+
+  // ── AOS ──────────────────────────────────────────────────────────────────
+  function initAOS() {
+    if (typeof AOS !== 'undefined') {
+      AOS.init({ duration:680, easing:'cubic-bezier(0.23,1,0.32,1)',
+                 once:false, mirror:true, offset:55 });
+      new MutationObserver(function(){ AOS.refresh(); })
+        .observe(document.body, { childList:true, subtree:true });
+    } else { setTimeout(initAOS, 120); }
+  }
+
+  // ── Boot ─────────────────────────────────────────────────────────────────
+  function boot() {
+    applyTheme(theme);
+    injectBtn();
+    initAOS();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else { boot(); }
+  setTimeout(boot, 350); // retry after Streamlit rerender
+})();
+</script>
+""", unsafe_allow_html=True)# ── Inject AOS.js from CDN + initialise ──────────────────────────────────────
 st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
@@ -587,6 +612,28 @@ function initAOS() {
 }
 document.addEventListener('DOMContentLoaded', initAOS);
 setTimeout(initAOS, 300);
+</script>
+""", unsafe_allow_html=True)
+
+# Theme persistence on every rerun
+st.markdown("""
+<script>
+(function(){
+  var t=localStorage.getItem('cardiosecure_theme')||'dark';
+  function apply(th){
+    document.documentElement.setAttribute('data-theme',th);
+    document.querySelectorAll('.stApp,body').forEach(function(e){e.setAttribute('data-theme',th);});
+    var d=th==='dark';
+    document.querySelectorAll('.stApp').forEach(function(e){
+      e.style.background=d
+        ? 'radial-gradient(ellipse at 10% 20%,rgba(232,72,85,.06) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,rgba(0,212,255,.05) 0%,transparent 50%),hsl(222,58%,5%)'
+        : 'radial-gradient(ellipse at 10% 20%,rgba(232,72,85,.03) 0%,transparent 50%),hsl(220,20%,97%)';
+    });
+  }
+  apply(t);
+  new MutationObserver(function(){apply(localStorage.getItem('cardiosecure_theme')||'dark');})
+    .observe(document.body,{childList:true,subtree:true});
+})();
 </script>
 """, unsafe_allow_html=True)
 
@@ -618,141 +665,281 @@ class HybridEncryption:
 # DATABASE  (persistent across sessions via file)
 # ─────────────────────────────────────────────────────────────────────────────
 
-DB_PATH = "heart_monitor.db"
+# ── Bulletproof DB path — works locally AND on Streamlit Cloud ───────────────
+import tempfile
+
+def _probe_writable(path: str) -> bool:
+    """Return True if we can create/open an SQLite DB at path."""
+    try:
+        dir_ = os.path.dirname(path)
+        if dir_ and not os.path.exists(dir_):
+            os.makedirs(dir_, exist_ok=True)
+        conn = sqlite3.connect(path, timeout=5)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("CREATE TABLE IF NOT EXISTS _probe (x INTEGER)")
+        conn.execute("DROP TABLE IF EXISTS _probe")
+        conn.commit()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+def _get_db_path() -> str:
+    """Return a writable path for the SQLite database."""
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        script_dir = os.getcwd()
+
+    candidates = [
+        os.path.join(tempfile.gettempdir(), "cardiosecure.db"),
+        os.path.join(os.path.expanduser("~"), "cardiosecure.db"),
+        os.path.join(script_dir, "cardiosecure.db"),
+        os.path.join(os.getcwd(), "cardiosecure.db"),
+    ]
+
+    for path in candidates:
+        if _probe_writable(path):
+            return path
+
+    return ":memory:"
+
+DB_PATH = _get_db_path()
 
 def get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+    """Get a thread-safe DB connection with WAL mode enabled."""
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.row_factory = sqlite3.Row  # allows column access by name
+    return conn
+
+def _add_column_if_missing(cursor, table: str, column: str, col_def: str):
+    """Safely add a column to an existing table if it doesn't exist yet."""
+    try:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+    except sqlite3.OperationalError:
+        pass  # Column already exists — that's fine
 
 def init_database():
-    conn = get_conn(); c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        full_name TEXT NOT NULL,
-        age INTEGER DEFAULT 0,
-        gender TEXT DEFAULT '',
-        is_admin INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS test_results (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        encrypted_data BLOB NOT NULL,
-        encryption_key BLOB NOT NULL,
-        raw_bpm REAL,
-        raw_category TEXT,
-        raw_timestamp TEXT,
-        test_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id))''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS session_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        action TEXT,
-        details TEXT,
-        logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-
-    admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
+    """Create tables if they don't exist and run any needed migrations."""
     try:
-        c.execute("INSERT INTO users (username,password_hash,full_name,is_admin) VALUES (?,?,?,?)",
+        conn = get_conn(); c = conn.cursor()
+
+        # ── Users table ────────────────────────────────────────────────────────
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name     TEXT NOT NULL,
+            age           INTEGER DEFAULT 0,
+            gender        TEXT DEFAULT "",
+            is_admin      INTEGER DEFAULT 0,
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+
+        # Migration: add columns that may be missing from older DB versions
+        _add_column_if_missing(c, "users", "age",    "INTEGER DEFAULT 0")
+        _add_column_if_missing(c, "users", "gender", "TEXT DEFAULT ''")
+
+        # ── Test results table ─────────────────────────────────────────────────
+        c.execute('''CREATE TABLE IF NOT EXISTS test_results (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id        INTEGER NOT NULL,
+            encrypted_data BLOB NOT NULL,
+            encryption_key BLOB NOT NULL,
+            raw_bpm        REAL,
+            raw_category   TEXT,
+            raw_timestamp  TEXT,
+            test_date      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id))''')
+
+        # Migration: add columns that may be missing
+        _add_column_if_missing(c, "test_results", "raw_bpm",       "REAL")
+        _add_column_if_missing(c, "test_results", "raw_category",  "TEXT")
+        _add_column_if_missing(c, "test_results", "raw_timestamp", "TEXT")
+
+        # ── Session log table ──────────────────────────────────────────────────
+        c.execute('''CREATE TABLE IF NOT EXISTS session_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER NOT NULL,
+            action     TEXT,
+            details    TEXT,
+            logged_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+
+        # ── Seed admin account ─────────────────────────────────────────────────
+        admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
+        c.execute("""INSERT OR IGNORE INTO users
+                     (username, password_hash, full_name, is_admin)
+                     VALUES (?, ?, ?, ?)""",
                   ("admin", admin_hash, "System Administrator", 1))
-    except sqlite3.IntegrityError:
-        pass
-    conn.commit(); conn.close()
+
+        conn.commit()
+    except Exception as e:
+        st.error(f"Database initialisation error: {e}\nDB path: {DB_PATH}")
+        raise
+    finally:
+        try: conn.close()
+        except: pass
 
 def register_user(username, password, full_name, age=0, gender=''):
-    conn = get_conn(); c = conn.cursor()
-    h = hashlib.sha256(password.encode()).hexdigest()
+    conn = None
     try:
+        conn = get_conn(); c = conn.cursor()
+        h = hashlib.sha256(password.encode()).hexdigest()
         c.execute("INSERT INTO users (username,password_hash,full_name,age,gender) VALUES (?,?,?,?,?)",
                   (username, h, full_name, age, gender))
-        conn.commit(); conn.close()
+        conn.commit()
         return True, "Registration successful!"
     except sqlite3.IntegrityError:
-        conn.close()
         return False, "Username already exists."
+    except Exception as e:
+        return False, f"Database error: {e}"
+    finally:
+        if conn: conn.close()
 
 def login_user(username, password):
-    conn = get_conn(); c = conn.cursor()
-    h = hashlib.sha256(password.encode()).hexdigest()
-    c.execute("SELECT id,full_name,is_admin,age,gender FROM users WHERE username=? AND password_hash=?", (username,h))
-    r = c.fetchone(); conn.close()
-    if r:
-        return True, {"id":r[0],"username":username,"full_name":r[1],"is_admin":r[2],"age":r[3],"gender":r[4]}
-    return False, None
+    conn = None
+    try:
+        conn = get_conn(); c = conn.cursor()
+        h = hashlib.sha256(password.encode()).hexdigest()
+        c.execute("""SELECT id, full_name, is_admin,
+                            COALESCE(age, 0)    AS age,
+                            COALESCE(gender, '') AS gender
+                     FROM users
+                     WHERE username=? AND password_hash=?""", (username, h))
+        r = c.fetchone()
+        if r:
+            return True, {
+                "id": r[0], "username": username,
+                "full_name": r[1], "is_admin": r[2],
+                "age": r[3],       "gender": r[4]
+            }
+        return False, None
+    except Exception as e:
+        st.error(f"Login DB error: {e} (path: {DB_PATH})")
+        return False, None
+    finally:
+        if conn: conn.close()
 
 def log_action(user_id, action, details=""):
-    conn = get_conn(); c = conn.cursor()
-    c.execute("INSERT INTO session_log (user_id,action,details) VALUES (?,?,?)", (user_id,action,details))
-    conn.commit(); conn.close()
+    conn = None
+    try:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("INSERT INTO session_log (user_id,action,details) VALUES (?,?,?)",
+                  (user_id, action, details))
+        conn.commit()
+    except Exception:
+        pass  # Logging failure must never crash the app
+    finally:
+        if conn: conn.close()
 
 def save_test_result(user_id, bpm, signal_data, analysis):
-    conn = get_conn(); c = conn.cursor()
-    key = os.urandom(32)
-    data = {"bpm": bpm, "signal_data": signal_data[:100], "analysis": analysis,
-            "timestamp": datetime.now().isoformat()}
-    enc = HybridEncryption.encrypt_aes_gcm(json.dumps(data), key)
-    c.execute('''INSERT INTO test_results
-               (user_id,encrypted_data,encryption_key,raw_bpm,raw_category,raw_timestamp)
-               VALUES (?,?,?,?,?,?)''',
-              (user_id, enc, key, bpm, analysis['category'], data['timestamp']))
-    conn.commit(); conn.close()
+    conn = None
+    try:
+        conn = get_conn(); c = conn.cursor()
+        key = os.urandom(32)
+        data = {"bpm": bpm, "signal_data": signal_data[:100], "analysis": analysis,
+                "timestamp": datetime.now().isoformat()}
+        enc = HybridEncryption.encrypt_aes_gcm(json.dumps(data), key)
+        c.execute('''INSERT INTO test_results
+                   (user_id,encrypted_data,encryption_key,raw_bpm,raw_category,raw_timestamp)
+                   VALUES (?,?,?,?,?,?)''',
+                  (user_id, enc, key, bpm, analysis['category'], data['timestamp']))
+        conn.commit()
+    except Exception as e:
+        st.warning(f"Could not save result: {e}")
+    finally:
+        if conn: conn.close()
 
 def get_user_results(user_id):
-    conn = get_conn(); c = conn.cursor()
-    c.execute("SELECT id,encrypted_data,encryption_key,test_date FROM test_results WHERE user_id=? ORDER BY test_date DESC",
-              (user_id,))
-    rows = c.fetchall(); conn.close()
+    conn = None
+    try:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("""SELECT id, encrypted_data, encryption_key, test_date
+                     FROM test_results WHERE user_id=?
+                     ORDER BY test_date DESC""", (user_id,))
+        rows = c.fetchall()
+    except Exception:
+        return []
+    finally:
+        if conn: conn.close()
     out = []
     for r in rows:
         try:
-            dec = json.loads(HybridEncryption.decrypt_aes_gcm(r[1], r[2]))
+            dec = json.loads(HybridEncryption.decrypt_aes_gcm(bytes(r[1]), bytes(r[2])))
             dec['test_id'] = r[0]; dec['test_date'] = r[3]
             out.append(dec)
-        except: pass
+        except Exception:
+            pass
     return out
 
 def get_all_results_admin():
-    conn = get_conn(); c = conn.cursor()
-    c.execute('''SELECT t.id,u.id,u.username,u.full_name,u.age,u.gender,
-                        t.encrypted_data,t.encryption_key,t.test_date
-                 FROM test_results t JOIN users u ON t.user_id=u.id
-                 ORDER BY t.test_date DESC''')
-    rows = c.fetchall(); conn.close()
+    conn = None
+    try:
+        conn = get_conn(); c = conn.cursor()
+        c.execute('''SELECT t.id, u.id, u.username, u.full_name,
+                            COALESCE(u.age,0) AS age,
+                            COALESCE(u.gender,"") AS gender,
+                            t.encrypted_data, t.encryption_key, t.test_date
+                     FROM test_results t JOIN users u ON t.user_id=u.id
+                     ORDER BY t.test_date DESC''')
+        rows = c.fetchall()
+    except Exception:
+        return []
+    finally:
+        if conn: conn.close()
     out = []
     for r in rows:
         try:
-            dec = json.loads(HybridEncryption.decrypt_aes_gcm(r[6], r[7]))
+            dec = json.loads(HybridEncryption.decrypt_aes_gcm(bytes(r[6]), bytes(r[7])))
             out.append({'test_id':r[0],'user_id':r[1],'username':r[2],'full_name':r[3],
                         'age':r[4],'gender':r[5],'bpm':dec['bpm'],'test_date':r[8],
-                        'analysis':dec['analysis'],'encrypted_hex':r[6].hex(),
-                        'key_hex':r[7].hex()})
-        except: pass
+                        'analysis':dec['analysis'],'encrypted_hex':bytes(r[6]).hex(),
+                        'key_hex':bytes(r[7]).hex()})
+        except Exception:
+            pass
     return out
 
 def get_all_users():
-    conn = get_conn(); c = conn.cursor()
-    c.execute("SELECT id,username,full_name,age,gender,is_admin,created_at FROM users ORDER BY created_at DESC")
-    rows = c.fetchall(); conn.close()
-    return [{'id':r[0],'username':r[1],'full_name':r[2],'age':r[3],'gender':r[4],
-             'is_admin':r[5],'created_at':r[6]} for r in rows]
+    conn = None
+    try:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("""SELECT id, username, full_name,
+                            COALESCE(age,0)    AS age,
+                            COALESCE(gender,"") AS gender,
+                            is_admin, created_at
+                     FROM users ORDER BY created_at DESC""")
+        rows = c.fetchall()
+        return [{'id':r[0],'username':r[1],'full_name':r[2],'age':r[3],
+                 'gender':r[4],'is_admin':r[5],'created_at':r[6]} for r in rows]
+    except Exception:
+        return []
+    finally:
+        if conn: conn.close()
 
 def get_user_results_by_id(user_id):
     return get_user_results(user_id)
 
 def get_session_log(user_id=None, limit=50):
-    conn = get_conn(); c = conn.cursor()
-    if user_id:
-        c.execute('''SELECT l.id,u.username,l.action,l.details,l.logged_at
-                     FROM session_log l JOIN users u ON l.user_id=u.id
-                     WHERE l.user_id=? ORDER BY l.logged_at DESC LIMIT ?''', (user_id, limit))
-    else:
-        c.execute('''SELECT l.id,u.username,l.action,l.details,l.logged_at
-                     FROM session_log l JOIN users u ON l.user_id=u.id
-                     ORDER BY l.logged_at DESC LIMIT ?''', (limit,))
-    rows = c.fetchall(); conn.close()
-    return [{'id':r[0],'username':r[1],'action':r[2],'details':r[3],'logged_at':r[4]} for r in rows]
+    conn = None
+    try:
+        conn = get_conn(); c = conn.cursor()
+        if user_id:
+            c.execute('''SELECT l.id, u.username, l.action, l.details, l.logged_at
+                         FROM session_log l JOIN users u ON l.user_id=u.id
+                         WHERE l.user_id=? ORDER BY l.logged_at DESC LIMIT ?''',
+                      (user_id, limit))
+        else:
+            c.execute('''SELECT l.id, u.username, l.action, l.details, l.logged_at
+                         FROM session_log l JOIN users u ON l.user_id=u.id
+                         ORDER BY l.logged_at DESC LIMIT ?''', (limit,))
+        rows = c.fetchall()
+        return [{'id':r[0],'username':r[1],'action':r[2],'details':r[3],'logged_at':r[4]}
+                for r in rows]
+    except Exception:
+        return []
+    finally:
+        if conn: conn.close()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HEART RATE ENGINE  (rPPG + ML-inspired refinement)
@@ -858,18 +1045,34 @@ def analyze_heart_rate(bpm):
 # SESSION STATE
 # ─────────────────────────────────────────────────────────────────────────────
 
-init_database()
+# ── Run DB init with visible error if it fails ───────────────────────────────
+try:
+    init_database()
+except Exception as _db_err:
+    st.error(f"""
+    **Database initialisation failed.**
+
+    **Path tried:** `{DB_PATH}`
+
+    **Error:** `{_db_err}`
+
+    **Fix:** If running on Streamlit Cloud, this is a read-only filesystem error.
+    The app writes to `/tmp/cardiosecure.db` automatically. If you still see this,
+    check that your `packages.txt` and `requirements.txt` are correct.
+    """)
+    st.stop()
 
 defaults = {
     "logged_in": False, "user": None, "page": "login",
+    "theme": "dark",          # "dark" or "light"
     "data_buffer": deque(maxlen=300),
     "chrom_x": deque(maxlen=300),
     "chrom_y": deque(maxlen=300),
     "times": deque(maxlen=300),
     "bpm": 0, "bpm_history": [], "running": False,
     "test_complete": False, "last_result": None,
-    "enc_step": 0,        # current encryption walkthrough step
-    "enc_data": {},       # cached data for enc steps
+    "enc_step": 0,            # current encryption walkthrough step
+    "enc_data": {},           # cached data for enc steps
     "admin_selected_user": None,
 }
 for k, v in defaults.items():
@@ -891,12 +1094,16 @@ def logout():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def plotly_dark():
+    """Return Plotly layout config matching current light/dark theme."""
+    is_light = st.session_state.get("theme", "dark") == "light"
+    grid  = "#C8D0E0" if is_light else "#253358"
+    font_ = "#4A5578" if is_light else "#8A97B8"
     return dict(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='DM Sans', color='#8A97B8', size=11),
-        xaxis=dict(gridcolor='#253358', showgrid=True, zeroline=False),
-        yaxis=dict(gridcolor='#253358', showgrid=True, zeroline=False),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="DM Sans", color=font_, size=11),
+        xaxis=dict(gridcolor=grid, showgrid=True, zeroline=False),
+        yaxis=dict(gridcolor=grid, showgrid=True, zeroline=False),
         margin=dict(l=10, r=10, t=40, b=10),
     )
 
@@ -911,23 +1118,112 @@ def badge_class(status):
 
 def render_nav():
     u = st.session_state.user
+    if "theme" not in st.session_state:
+        st.session_state.theme = "dark"
+
+    admin_badge = ('<span style="color:var(--yellow);font-size:0.72rem;padding:2px 8px;'
+                   'border:1px solid rgba(255,209,102,0.3);border-radius:4px;margin-left:4px">ADMIN</span>'
+                   if u.get("is_admin") else "")
+
+    # Nav items based on role
+    if u.get("is_admin"):
+        nav_items = [
+            ("admin_dashboard", "🏠 Dashboard"),
+            ("monitor",         "❤️ Monitor"),
+            ("admin_users",     "👥 Users"),
+            ("all_records",     "📋 Records"),
+            ("encryption",      "🔒 Encryption Lab"),
+        ]
+    else:
+        nav_items = [
+            ("monitor",     "❤️ Monitor"),
+            ("results",     "📊 My Results"),
+            ("encryption",  "🔒 Encryption Lab"),
+            ("raw_data",    "📦 Data"),
+        ]
+
+    nav_links = ""
+    for page_id, label in nav_items:
+        active = ("style=\"color:var(--accent);background:rgba(232,72,85,0.1);border-radius:8px;\""
+                  if st.session_state.page == page_id else "")
+        nav_links += ("<span " + active + ' style="padding:4px 10px;font-size:0.82rem;'
+                      'cursor:pointer;color:var(--text2);transition:all 0.2s"'
+                      ' onclick="window.parent.postMessage({navTo:\''  + page_id + '\'}, \'*\')">'
+                      + label + "</span>")
+
+    theme_icon = "☀️" if st.session_state.theme == "dark" else "🌙"
+
     st.markdown(f"""
-    <div class="cs-nav">
-      <div style="display:flex;align-items:center;gap:0.6rem">
-        <span style="font-size:1.4rem">❤️</span>
-        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#E8EDF8">
+    <div class="cs-nav" id="cs-main-nav">
+      <!-- Logo -->
+      <div style="display:flex;align-items:center;gap:0.6rem;flex-shrink:0">
+        <span style="font-size:1.4rem;animation:heartbeat 1.5s ease-in-out infinite">❤️</span>
+        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text)">
           CardioSecure</span>
-        <span style="font-size:0.7rem;color:#4A5578;letter-spacing:0.12em;text-transform:uppercase;
-              padding:2px 8px;border:1px solid #253358;border-radius:4px;margin-left:6px">
-          v2.0</span>
+        <span style="font-size:0.65rem;color:var(--text3);letter-spacing:0.12em;
+              text-transform:uppercase;padding:2px 8px;border:1px solid var(--border);
+              border-radius:4px;margin-left:4px">v2.0</span>
       </div>
-      <div style="display:flex;align-items:center;gap:0.5rem">
-        <span style="color:#8A97B8;font-size:0.82rem">👤 {u['full_name']}</span>
-        {'<span style="color:#FFD166;font-size:0.75rem;padding:2px 8px;border:1px solid rgba(255,209,102,0.3);border-radius:4px;margin-left:4px">ADMIN</span>' if u.get('is_admin') else ''}
-        <span style="color:#4A5578;margin:0 4px">|</span>
-        <span style="color:#8A97B8;font-size:0.8rem">{datetime.now().strftime('%d %b %Y')}</span>
+
+      <!-- Nav items (desktop) -->
+      <div style="display:flex;align-items:center;gap:0.25rem">
+        {nav_links}
+      </div>
+
+      <!-- Right side: theme toggle + user info -->
+      <div style="display:flex;align-items:center;gap:0.7rem;flex-shrink:0">
+        <!-- Theme toggle button -->
+        <button id="theme-toggle-btn"
+          onclick="toggleTheme()"
+          style="background:var(--card2);border:1px solid var(--border);border-radius:8px;
+                 padding:4px 10px;cursor:pointer;font-size:0.9rem;color:var(--text);
+                 transition:all 0.2s;line-height:1"
+          title="Toggle light/dark mode">
+          {theme_icon}
+        </button>
+
+        <span style="color:var(--text2);font-size:0.82rem">👤 {u["full_name"]}</span>
+        {admin_badge}
+        <span style="color:var(--text3);margin:0 2px">|</span>
+        <span style="color:var(--text2);font-size:0.78rem">{datetime.now().strftime("%d %b %Y")}</span>
       </div>
     </div>
+
+    <script>
+    // ── Theme toggle ────────────────────────────────────────────────────────
+    (function() {{
+      // Apply saved theme on load
+      const saved = localStorage.getItem("cardiosecure_theme") || "dark";
+      applyTheme(saved);
+
+      window.toggleTheme = function() {{
+        const current = document.documentElement.getAttribute("data-theme") || "dark";
+        const next    = current === "dark" ? "light" : "dark";
+        applyTheme(next);
+        localStorage.setItem("cardiosecure_theme", next);
+        // Update button icon
+        const btn = document.getElementById("theme-toggle-btn");
+        if (btn) btn.textContent = next === "dark" ? "☀️" : "🌙";
+        // Tell Streamlit to update st.session_state.theme
+        window.parent.postMessage({{themeChange: next}}, "*");
+      }};
+
+      function applyTheme(theme) {{
+        document.documentElement.setAttribute("data-theme", theme);
+        // Also set on .stApp and body for Streamlit containers
+        document.querySelectorAll(".stApp, body").forEach(el => {{
+          el.setAttribute("data-theme", theme);
+        }});
+        // Update Streamlit background to match
+        const isDark = theme === "dark";
+        document.querySelectorAll(".stApp").forEach(el => {{
+          el.style.background = isDark
+            ? "radial-gradient(ellipse at 10% 20%, rgba(232,72,85,0.06) 0%, transparent 50%), radial-gradient(ellipse at 90% 80%, rgba(0,212,255,0.05) 0%, transparent 50%), hsl(222,58%,5%)"
+            : "radial-gradient(ellipse at 10% 20%, rgba(232,72,85,0.04) 0%, transparent 50%), hsl(220,20%,97%)";
+        }});
+      }}
+    }})();
+    </script>
     """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
