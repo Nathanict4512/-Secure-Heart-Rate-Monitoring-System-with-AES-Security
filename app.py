@@ -1498,59 +1498,157 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
 
         return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), bpm, sig_filtered,                (x, y, w, h), (rx, ry, rw, rh)
 
-    # ── st.camera_input: captures one frame per Streamlit rerun ──────────────
+    # ── st.camera_input: FIXED key so the widget persists across reruns ─────────
+    # Workflow:
+    #   1. User presses ▶ Start  → running = True, camera widget appears
+    #   2. User takes a photo    → cam_img is not None on THIS same rerun
+    #   3. We process it immediately (cv2 pipeline) and show the annotated frame
+    #   4. Progress bar + BPM update live in session_state
+    #   5. User retakes / next sample by clicking the camera shutter again
+    #   6. We accumulate up to 150 samples then mark test_complete
+    #   NO st.rerun() is called automatically — Streamlit reruns only on user action
+
     if st.session_state.running:
+        sample_count = len(st.session_state.data_buffer)
+
         with cam_area:
+            # Fixed key = widget survives reruns without resetting
             cam_img = st.camera_input(
-                "Point your face at the camera",
-                label_visibility="collapsed",
-                key=f"cam_{len(st.session_state.data_buffer)}"
+                f"📸 Take photo — sample {sample_count + 1}/150  "
+                f"(retake for more samples)",
+                key="rppg_camera",
             )
 
         if cam_img is not None:
+            # ── Process this frame immediately ────────────────────────────────
             img_bytes = cam_img.getvalue()
-            rgb_frame, bpm_val, sig_filtered, face_box, roi_box = process_frame_bytes(img_bytes)
+            rgb_frame, bpm_val, sig_filtered, face_box, roi_box =                 process_frame_bytes(img_bytes)
 
-            if rgb_frame is not None:
-                with cam_area:
+            # Show annotated frame below the camera widget
+            with cam_area:
+                if rgb_frame is not None:
                     st.image(rgb_frame, channels="RGB",
                              use_container_width=True,
-                             caption=f"📸 Frame {len(st.session_state.data_buffer)}")
+                             caption=f"✅ Processed — {len(st.session_state.data_buffer)} samples collected")
+                else:
+                    st.warning("⚠️ Could not decode frame — try again.")
 
+            # ── Update BPM and analysis ───────────────────────────────────────
             if bpm_val > 0:
                 st.session_state.bpm = bpm_val
                 analysis = analyze_heart_rate(bpm_val)
                 st.session_state.last_result = {
-                    "bpm": bpm_val,
-                    "analysis": analysis,
-                    "signal_data": sig_filtered
+                    "bpm":         bpm_val,
+                    "analysis":    analysis,
+                    "signal_data": sig_filtered,
                 }
-                if st.session_state.running:
+                # Mark complete once we have enough samples for a stable reading
+                if len(st.session_state.data_buffer) >= 30:
                     st.session_state.test_complete = True
 
-            # Auto-rerun while running to capture next frame
-            if st.session_state.running and len(st.session_state.data_buffer) < 300:
-                time.sleep(0.07)   # ~14 fps
+        # ── Show sample progress ──────────────────────────────────────────────
+        n = len(st.session_state.data_buffer)
+        if n > 0:
+            with cam_area:
+                pct = min(n / 150, 1.0)
+                st.markdown(
+                    f"""<div style="margin-top:.4rem">
+                    <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+                      <div style="height:100%;width:{pct*100:.0f}%;
+                           background:linear-gradient(90deg,var(--accent),var(--cyan));
+                           border-radius:3px;transition:width .3s"></div>
+                    </div>
+                    <div style="font-size:.7rem;color:var(--text3);margin-top:3px">
+                      {n} / 150 samples — keep retaking for better accuracy</div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+            if n >= 150:
+                st.session_state.running = False
+                st.success("✅ 150 samples collected! Press 💾 Save Result.")
                 st.rerun()
+
     else:
         with cam_area:
             st.markdown("""
-            <div style="height:280px;display:flex;flex-direction:column;align-items:center;
-                 justify-content:center;gap:0.5rem;background:var(--card2);border-radius:12px;
-                 border:1px dashed var(--border)">
+            <div style="height:260px;display:flex;flex-direction:column;
+                 align-items:center;justify-content:center;gap:.6rem;
+                 background:var(--card2);border-radius:12px;
+                 border:2px dashed var(--border)">
               <div style="font-size:3rem">📷</div>
-              <div style="color:var(--text2);font-size:.9rem">Camera inactive</div>
-              <div style="color:var(--text3);font-size:.75rem">Press ▶ Start to begin</div>
+              <div style="color:var(--text2);font-size:.9rem;font-weight:500">
+                Camera inactive</div>
+              <div style="color:var(--text3);font-size:.75rem">
+                Press ▶ Start then take photos</div>
             </div>""", unsafe_allow_html=True)
 
 
+    # ── BPM panel + status + signal chart rendered every rerun ─────────────
+    bpm_val      = st.session_state.bpm
+    sample_count = len(st.session_state.data_buffer)
+    cls          = bpm_class(bpm_val)
+    pct          = min(sample_count / 150 * 100, 100)
+    state_label  = '❤️ Live Heart Rate' if st.session_state.running else '📋 Last Reading'
+    bpm_disp     = str(bpm_val) if bpm_val else '&ndash;'
+
+    bpm_html = (
+        '<div class="cs-card" style="text-align:center;padding:1.5rem">'
+        f'<div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;'
+        f'letter-spacing:.1em;margin-bottom:.3rem">{state_label}</div>'
+        f'<div class="bpm-display {cls}" style="font-size:5rem">{bpm_disp}</div>'
+        '<div style="font-size:.85rem;color:var(--text2);margin-top:.2rem">BPM</div>'
+        '<div style="margin-top:.7rem">'
+        '<div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">'
+        f'<div style="height:100%;width:{pct:.0f}%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:3px"></div>'
+        '</div>'
+        f'<div style="font-size:.68rem;color:var(--text3);margin-top:3px">{sample_count} / 150 samples</div>'
+        '</div>'
+        '</div>'
+    )
+    bpm_placeholder.markdown(bpm_html, unsafe_allow_html=True)
+
+    if st.session_state.last_result:
+        an   = st.session_state.last_result['analysis']
+        bcls = badge_class(an['status'])
+        recs = ''.join(
+            f'<div style="font-size:.75rem;color:var(--text2);margin-top:3px">• {x}</div>'
+            for x in an['recommendations']
+        )
+        stat_html = (
+            '<div class="cs-card">'
+            f'<div style="margin-bottom:.6rem">'
+            f'<span class="status-badge {bcls}">{an["icon"]} {an["category"]}</span>'
+            '</div>'
+            f'<div style="font-size:.82rem;color:var(--text2)">{an["description"]}</div>'
+            '<div style="margin-top:.8rem;font-size:.75rem;color:var(--text3);font-weight:600">Recommendations:</div>'
+            f'{recs}'
+            '</div>'
+        )
+        status_placeholder.markdown(stat_html, unsafe_allow_html=True)
+
+        if st.session_state.data_buffer:
+            buf = list(st.session_state.data_buffer)[-80:]
+            fig = go.Figure(go.Scatter(
+                y=buf, mode='lines',
+                line=dict(color='#E84855', width=1.5),
+                fill='tozeroy', fillcolor='rgba(232,72,85,0.1)'
+            ))
+            fig.update_layout(**plotly_dark(), height=130,
+                              title=dict(text='rPPG Signal',
+                                         font=dict(size=11)))
+            signal_placeholder.plotly_chart(
+                fig, use_container_width=True,
+                config={'displayModeBar': False}
+            )
+
+    # ── Save result ───────────────────────────────────────────────────────────
     if save_btn and st.session_state.test_complete and st.session_state.last_result:
         r = st.session_state.last_result
         save_test_result(user['id'], r['bpm'],
                          list(st.session_state.data_buffer), r['analysis'])
-        log_action(user['id'], "RESULT_SAVED",
+        log_action(user['id'], 'RESULT_SAVED',
                    f"BPM={r['bpm']}, Cat={r['analysis']['category']}")
-        st.success("✅ Result encrypted and saved to database!")
+        st.success('✅ Result encrypted and saved to database!')
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE: MY RESULTS
