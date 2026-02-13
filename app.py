@@ -561,18 +561,23 @@ def save_test_result(user_id, bpm, signal_data, analysis):
     try:
         conn = get_conn(); c = conn.cursor()
         key = os.urandom(32)
+        ts  = datetime.now().isoformat()
         data = {"bpm": bpm, "signal_data": signal_data[:100], "analysis": analysis,
-                "timestamp": datetime.now().isoformat()}
+                "timestamp": ts}
         enc = HybridEncryption.encrypt_aes_gcm(json.dumps(data), key)
-        c.execute('''INSERT INTO test_results
-                   (user_id,encrypted_data,encryption_key,raw_bpm,raw_category,raw_timestamp)
-                   VALUES (?,?,?,?,?,?)''',
-                  (user_id, enc, key, bpm, analysis['category'], data['timestamp']))
+        c.execute(
+            "INSERT INTO test_results "
+            "(user_id,encrypted_data,encryption_key,raw_bpm,raw_category,raw_timestamp) "
+            "VALUES (?,?,?,?,?,?)",
+            (user_id, enc, key, bpm, analysis.get("category",""), ts)
+        )
         conn.commit()
     except Exception as e:
-        st.warning(f"Could not save result: {e}")
+        raise RuntimeError(f"DB save failed: {e}") from e
     finally:
-        if conn: conn.close()
+        if conn:
+            try: conn.close()
+            except: pass
 
 def get_user_results(user_id):
     conn = None
@@ -1547,8 +1552,9 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         with ctrl2:
             stop_btn  = st.button("⏹ Stop",  type="secondary", use_container_width=True)
         with ctrl3:
+            can_save  = st.session_state.test_complete and (st.session_state.last_result is not None)
             save_btn  = st.button("💾 Save",  type="secondary", use_container_width=True,
-                                  disabled=not st.session_state.test_complete)
+                                  disabled=not can_save)
 
         if start_btn:
             st.session_state.running          = True
@@ -1775,41 +1781,42 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             # ── rPPG Signal chart ─────────────────────────────────────────────
             buf = list(st.session_state.data_buffer)
             if len(buf) >= 3:
-                # Build chart with BPM zone bands
-                bpm_ref = bpm_now or 70
-                fig = go.Figure()
-                fig.add_hrect(y0=-0.5, y1=0.5,
-                              fillcolor="rgba(0,229,160,0.06)",
-                              line_width=0, annotation_text="",)
-                fig.add_trace(go.Scatter(
-                    y=buf, x=list(range(len(buf))),
-                    mode="lines",
-                    line=dict(color="#E84855", width=2),
-                    fill="tozeroy",
-                    fillcolor="rgba(232,72,85,0.08)",
-                    name="rPPG signal",
-                    hovertemplate="Sample %{x}: %{y:.4f}<extra></extra>"
-                ))
-                fig.update_layout(
-                    **plotly_dark(),
-                    height=170,
-                    title=dict(
-                        text=f"rPPG Green-Channel Signal  ({len(buf)} samples)",
-                        font=dict(size=11, color="var(--text2)")
-                    ),
-                    xaxis_title="",
-                    yaxis_title="Intensity",
-                    showlegend=False,
-                    margin=dict(l=4, r=4, t=30, b=4),
-                )
-                st.plotly_chart(fig, use_container_width=True,
-                                config={"displayModeBar": False})
+                try:
+                    is_light  = st.session_state.get("theme", "dark") == "light"
+                    title_col = "#4A5578" if is_light else "#8A97B8"
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        y=buf,
+                        x=list(range(len(buf))),
+                        mode="lines",
+                        line=dict(color="#E84855", width=2),
+                        fill="tozeroy",
+                        fillcolor="rgba(232,72,85,0.10)",
+                        name="rPPG signal",
+                        hovertemplate="Sample %{x}: %{y:.4f}<extra></extra>",
+                    ))
+                    fig.update_layout(
+                        **plotly_dark(),
+                        height=170,
+                        title=dict(
+                            text=f"rPPG Signal — {len(buf)} samples",
+                            font=dict(size=11, color=title_col),
+                        ),
+                        xaxis=dict(title="", showgrid=False),
+                        yaxis=dict(title="Green ch.", showgrid=True),
+                        showlegend=False,
+                        margin=dict(l=4, r=4, t=32, b=4),
+                    )
+                    st.plotly_chart(fig, use_container_width=True,
+                                    config={"displayModeBar": False})
+                except Exception as chart_err:
+                    st.caption(f"Chart unavailable: {chart_err}")
             else:
                 st.markdown(
                     '<div class="cs-card" style="text-align:center;padding:2rem;'
                     'color:var(--text3);font-size:.85rem">'
-                    '📊 Chart will appear after 3+ samples</div>',
-                    unsafe_allow_html=True
+                    '📊 Chart appears after 3+ samples</div>',
+                    unsafe_allow_html=True,
                 )
         else:
             # Waiting state
@@ -1828,13 +1835,24 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             )
 
     # ── Save handler (outside columns) ────────────────────────────────────────
-    if save_btn and st.session_state.test_complete and st.session_state.last_result:
+    if save_btn and st.session_state.last_result:
         r = st.session_state.last_result
-        save_test_result(user['id'], r['bpm'],
-                         list(st.session_state.data_buffer), r['analysis'])
-        log_action(user['id'], "RESULT_SAVED",
-                   f"BPM={r['bpm']}, Cat={r['analysis']['category']}")
-        st.success("✅ Result encrypted and saved!")
+        try:
+            save_test_result(user['id'], r['bpm'],
+                             list(st.session_state.data_buffer), r['analysis'])
+            log_action(user['id'], "RESULT_SAVED",
+                       f"BPM={r['bpm']}, Cat={r['analysis']['category']}")
+            # Mark as saved so button disables — clear result to prevent double-save
+            st.session_state.test_complete = False
+            st.session_state.last_result   = None
+            st.session_state.data_buffer   = deque(maxlen=60)
+            st.session_state.times         = deque(maxlen=60)
+            st.session_state.bpm           = 0
+            st.session_state.running       = False
+            st.success("✅ Result encrypted and saved! Go to 📊 My Results to view it.")
+            st.rerun()
+        except Exception as save_err:
+            st.error(f"❌ Save failed: {save_err}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE: MY RESULTS
