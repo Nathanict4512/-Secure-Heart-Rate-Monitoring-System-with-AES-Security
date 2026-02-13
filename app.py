@@ -277,16 +277,14 @@ section[data-testid="stSidebar"]{display:none}
 /* ═══════════════════════════ TRANSITIONS ═══════════════════════════ */
 *,*::before,*::after{transition:background-color .25s ease,border-color .2s ease,color .2s ease,box-shadow .25s ease !important}
 [data-aos],.bpm-display,.ecg-line,.animate-heartbeat{transition-property:opacity,transform !important}
-.metric-glow:hover { border-color: hsl(var(--primary) / 0.5); box-shadow: 0 0 20px hsl(var(--primary) / 0.15); }
-.card-hover { transition: all .3s cubic-bezier(.23,1,.32,1); }
-.card-hover:hover { transform: translateY(-5px); box-shadow: 0 12px 32px hsl(var(--background) / 0.5), 0 0 0 1px hsl(var(--primary) / 0.3); }
-/* badge classes already exist in your original CSS */
+
 /* ═══════════════════════════ PRINT ═══════════════════════════ */
 @media print{.stButton,#cs-theme-btn{display:none !important}body{background:white !important;color:black !important}}
 </style>
 """, unsafe_allow_html=True)
 
-# ── AOS + Theme toggle (React-style, fixed Unicode) ─────────────────────────
+# ── AOS + Theme toggle via components.html (correct way in Streamlit) ─────────
+# This runs in the parent document context through postMessage
 components.html("""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
@@ -314,7 +312,7 @@ components.html("""<!DOCTYPE html>
           : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
       });
       var btn = p.getElementById('cs-theme-btn');
-      if(btn) btn.textContent = (t === 'dark') ? String.fromCharCode(0x2600, 0xFE0F) : String.fromCharCode(0xD83C, 0xDF19);
+      if(btn) btn.textContent = (t === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
     } catch(e){}
   }
 
@@ -325,7 +323,7 @@ components.html("""<!DOCTYPE html>
       var btn = p.createElement('button');
       btn.id = 'cs-theme-btn';
       btn.title = 'Toggle light / dark mode';
-      btn.textContent = (theme === 'dark') ? String.fromCharCode(0x2600, 0xFE0F) : String.fromCharCode(0xD83C, 0xDF19);
+      btn.textContent = (theme === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
       btn.onclick = function(){ applyTheme(theme === 'dark' ? 'light' : 'dark'); };
       p.body.appendChild(btn);
     } catch(e){}
@@ -959,57 +957,182 @@ def render_nav():
 
 
 def render_landing():
-    st.markdown("""
-    <div class="bg-radial-glow min-h-screen">
-      <!-- Hero -->
-      <section class="relative flex min-h-[90vh] flex-col items-center justify-center px-6 text-center">
-        <div data-aos="fade-up" data-aos-delay="0" class="mb-6">
-          <span class="animate-heartbeat inline-block text-7xl">❤️</span>
+    """Full landing page matching the React LandingPage.tsx design."""
+    st.markdown(f"""
+    <style>
+    .landing-hero{{
+      min-height:90vh;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;text-align:center;padding:2rem 1rem;
+      background:radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.08) 0%,transparent 50%),
+                 radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.06) 0%,transparent 50%);
+    }}
+    .hero-title{{
+      font-family:'DM Serif Display',serif;font-size:clamp(3rem,7vw,5rem);
+      line-height:1.05;
+      background:linear-gradient(135deg,hsl(355,78%,68%) 0%,hsl(355,78%,55%) 40%,hsl(195,100%,50%) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      margin:1rem 0 .5rem;
+    }}
+    [data-theme="light"] .hero-title{{
+      background:linear-gradient(135deg,hsl(355,78%,55%) 0%,hsl(355,78%,42%) 40%,hsl(195,80%,38%) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }}
+    .hero-sub{{
+      font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;
+      color:var(--text2);margin-bottom:.6rem;
+    }}
+    .hero-desc{{color:var(--text2);max-width:520px;line-height:1.65;margin-bottom:2rem;font-size:.95rem}}
+    .hero-btns{{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}}
+    .btn-primary{{
+      padding:.8rem 2.2rem;border-radius:12px;font-weight:500;font-size:.95rem;cursor:pointer;
+      background:linear-gradient(135deg,var(--accent),hsl(355,78%,38%));
+      color:white;border:none;
+      box-shadow:0 4px 20px hsla(355,78%,55%,.3);
+      transition:transform .2s,box-shadow .2s;
+    }}
+    .btn-primary:hover{{transform:translateY(-2px);box-shadow:0 8px 28px hsla(355,78%,55%,.4)}}
+    .btn-secondary{{
+      padding:.8rem 2.2rem;border-radius:12px;font-weight:500;font-size:.95rem;cursor:pointer;
+      background:var(--card);border:1px solid var(--border);color:var(--text);
+      transition:transform .2s,border-color .2s;
+    }}
+    .btn-secondary:hover{{transform:translateY(-2px);border-color:hsla(355,78%,55%,.4)}}
+    .feature-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.2rem;margin:3rem 0}}
+    .feature-card{{
+      background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.6rem;
+      transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s;
+    }}
+    .feature-card:hover{{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.35)}}
+    [data-theme="light"] .feature-card{{background:white;box-shadow:0 2px 12px rgba(0,0,0,.07)}}
+    .how-section{{
+      background:hsla(222,40%,12%,.5);border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);padding:4rem 1rem;margin:0 -2rem;
+    }}
+    [data-theme="light"] .how-section{{background:hsla(220,20%,93%,.6)}}
+    .how-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem;max-width:900px;margin:2rem auto 0}}
+    .how-card{{
+      background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;
+      border-top-width:3px;
+    }}
+    [data-theme="light"] .how-card{{background:white}}
+    .step-num{{font-family:'DM Mono',monospace;font-size:2.5rem;font-weight:300;
+               color:var(--border);margin-bottom:.8rem;line-height:1}}
+    </style>
+
+    <!-- HERO -->
+    <div class="landing-hero">
+      <div data-aos="fade-up" style="animation:heartbeat 1.5s ease-in-out infinite;margin-bottom:1rem">
+        {LOGO_SVG_LG}
+      </div>
+      <p class="hero-sub" data-aos="fade-up" data-aos-delay="100">Hybrid-Encrypted Heart Rate Monitor</p>
+      <h1 class="hero-title" data-aos="fade-up" data-aos-delay="150">CardioSecure</h1>
+      <p class="hero-desc" data-aos="fade-up" data-aos-delay="200">
+        Real-time rPPG measurement via webcam with AES-256-GCM + ECC-SECP256R1 end-to-end encryption.
+        Research-grade cardiac monitoring, fully secured.
+      </p>
+      <div class="hero-btns" data-aos="fade-up" data-aos-delay="280">
+        <button class="btn-primary" onclick="window.parent.document.querySelector('[data-testid=stButton]').click()">
+          Get Started →</button>
+        <button class="btn-secondary"
+          onclick="window.scrollTo({{top:window.innerHeight,behavior:'smooth'}})">
+          Learn More ↓</button>
+      </div>
+      <div data-aos="fade-up" data-aos-delay="350"
+           style="margin-top:1.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text3)">
+        EBSU/PG/PhD/2021/10930 · Yunisa Sunday
+      </div>
+      <div data-aos="fade-up" data-aos-delay="400"
+           style="margin-top:.8rem;padding:4px 14px;border:1px solid hsla(195,100%,50%,.25);
+                  border-radius:20px;background:hsla(195,100%,50%,.06);font-size:.68rem;
+                  color:var(--cyan);letter-spacing:.06em">
+        🔒 AES-256-GCM + ECC-SECP256R1 End-to-End Encrypted
+      </div>
+    </div>
+
+    <div class="ecg-line"></div>
+
+    <!-- FEATURES -->
+    <div style="max-width:1100px;margin:0 auto;padding:4rem 1rem 2rem">
+      <h2 data-aos="fade-up"
+          style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text);margin-bottom:.5rem">
+        Clinical-Grade Features</h2>
+      <p data-aos="fade-up" data-aos-delay="100"
+         style="text-align:center;color:var(--text2);margin-bottom:0">
+        Powered by advanced computer vision and military-grade encryption</p>
+
+      <div class="feature-grid">
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
+          <div style="font-size:2rem;margin-bottom:.8rem">❤️</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            rPPG Detection</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            Non-contact heart rate via CHROM method with 4th-order Butterworth bandpass and FFT analysis.</p>
         </div>
-
-        <h1 data-aos="fade-up" data-aos-delay="100" class="gradient-text-hero mb-4 font-display text-5xl leading-tight md:text-7xl">
-          CardioSecure
-        </h1>
-
-        <p data-aos="fade-up" data-aos-delay="200" class="mb-2 text-sm font-light uppercase tracking-[0.2em] text-muted-foreground">
-          Hybrid-Encrypted Heart Rate Monitor
-        </p>
-
-        <p data-aos="fade-up" data-aos-delay="250" class="mb-8 max-w-xl text-muted-foreground">
-          Real-time rPPG measurement via webcam with AES-256-GCM + ECC-SECP256R1 end-to-end encryption. Research-grade cardiac monitoring, secured.
-        </p>
-
-        <div data-aos="fade-up" data-aos-delay="300" class="flex gap-4">
-          <button onclick="window.parent.document.querySelector('[data-testid=stButton]').click()" 
-                  class="rounded-xl bg-primary px-8 py-3 font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/30">
-            Get Started →
-          </button>
-          <button onclick="window.parent.document.querySelector('[data-testid=stButton]').click()" 
-                  class="rounded-xl border border-border bg-card px-8 py-3 font-medium text-foreground transition-all hover:-translate-y-1 hover:border-primary/30">
-            View Demo
-          </button>
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="150">
+          <div style="font-size:2rem;margin-bottom:.8rem">🛡️</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Hybrid Encryption</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            AES-256-GCM symmetric + ECC-SECP256R1 asymmetric key exchange for end-to-end security.</p>
         </div>
-
-        <div data-aos="fade-up" data-aos-delay="400" class="mt-6 font-mono text-xs text-muted-foreground">
-          EBSU/PG/PhD/2021/10930 · Yunisa Sunday
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+          <div style="font-size:2rem;margin-bottom:.8rem">📈</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            ML Refinement</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            Contextual prior model validates against rolling history, age-ceiling estimates, temporal consistency.</p>
         </div>
-
-        <div class="absolute bottom-8 animate-float">
-          <span class="text-muted-foreground">↓</span>
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="450">
+          <div style="font-size:2rem;margin-bottom:.8rem">⚡</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Real-Time Analysis</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            Instant cardiac classification with personalised WHO-guideline recommendations.</p>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <!-- ECG Line -->
-      <div class="ecg-line"></div>
+    <!-- HOW IT WORKS -->
+    <div class="how-section">
+      <h2 data-aos="fade-up"
+          style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text)">
+        How It Works</h2>
+      <div class="how-grid">
+        <div class="how-card" data-aos="fade-up" data-aos-delay="0"
+             style="border-top-color:var(--cyan)">
+          <div class="step-num">01</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Face Detection</h3>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            Haar Cascade isolates forehead/cheek ROI regions with dense vasculature.</p>
+        </div>
+        <div class="how-card" data-aos="fade-up" data-aos-delay="200"
+             style="border-top-color:var(--accent)">
+          <div class="step-num">02</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Signal Processing</h3>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            CHROM chrominance + Butterworth bandpass (0.67–4.0 Hz) + FFT peak detection.</p>
+        </div>
+        <div class="how-card" data-aos="fade-up" data-aos-delay="400"
+             style="border-top-color:var(--green)">
+          <div class="step-num">03</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Encrypt &amp; Store</h3>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            Results encrypted with AES-256-GCM, ECDH key exchange, stored in secure SQLite DB.</p>
+        </div>
+      </div>
+    </div>
 
-      <!-- Features + How it Works (exact React version) -->
-      <!-- ... (the rest of the React LandingPage HTML is identical to what you already had, so the original sections stay) ... -->
+    <!-- FOOTER -->
+    <div style="text-align:center;padding:2rem 1rem;border-top:1px solid var(--border);margin-top:0">
+      <p style="font-size:.72rem;color:var(--text3)">
+        🔒 End-to-end encrypted with AES-256-GCM + ECC-SECP256R1 &nbsp;·&nbsp;
+        ⚠️ For research &amp; educational purposes only &nbsp;·&nbsp; Not a certified medical device
+      </p>
     </div>
     """, unsafe_allow_html=True)
-
-    # Hidden button that the JS clicks
-    if st.button("Get Started →", key="landing_cta", type="primary"):
-        go("login")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE: LOGIN / REGISTER
