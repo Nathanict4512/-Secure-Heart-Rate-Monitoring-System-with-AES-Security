@@ -86,556 +86,292 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css');
 
-/* ═══════════════════════════════════════════════════════════
-   DESIGN TOKENS — matching uploaded React component design
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════ DESIGN TOKENS ═══════════════════════════ */
 :root {
-    /* Dark mode (default) — matches index.css exactly */
-    --bg:         hsl(222, 58%, 5%);
-    --bg2:        hsl(222, 50%, 8%);
-    --card:       hsl(222, 40%, 12%);
-    --card2:      hsl(222, 35%, 16%);
-    --border:     hsl(222, 30%, 22%);
-    --text:       hsl(220, 30%, 92%);
-    --text2:      hsl(220, 15%, 55%);
-    --text3:      hsl(222, 20%, 35%);
-    --accent:     hsl(355, 78%, 55%);
-    --accent2:    hsl(355, 78%, 68%);
-    --green:      hsl(160, 100%, 45%);
-    --yellow:     hsl(40,  100%, 70%);
-    --cyan:       hsl(195, 100%, 50%);
-    --purple:     hsl(265,  70%, 60%);
-    --glow:       hsla(355, 78%, 55%, 0.3);
-    --shadow:     rgba(0, 0, 0, 0.4);
-    --radius:     0.75rem;
-    --transition: 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+  --bg:      hsl(222,58%,5%);   --bg2:     hsl(222,50%,8%);
+  --card:    hsl(222,40%,12%);  --card2:   hsl(222,35%,16%);
+  --border:  hsl(222,30%,22%);
+  --text:    hsl(220,30%,92%);  --text2:   hsl(220,15%,55%);  --text3:  hsl(222,20%,35%);
+  --accent:  hsl(355,78%,55%);  --accent2: hsl(355,78%,68%);
+  --green:   hsl(160,100%,45%); --yellow:  hsl(40,100%,70%);
+  --cyan:    hsl(195,100%,50%); --purple:  hsl(265,70%,60%);
+  --glow:    hsla(355,78%,55%,.3);
+  --r: .75rem;
 }
-
-/* ── Light mode — toggle via data-theme="light" on body ────── */
 [data-theme="light"] {
-    --bg:         hsl(220, 20%, 97%);
-    --bg2:        hsl(220, 20%, 93%);
-    --card:       hsl(0, 0%, 100%);
-    --card2:      hsl(220, 20%, 95%);
-    --border:     hsl(220, 20%, 84%);
-    --text:       hsl(222, 40%, 12%);
-    --text2:      hsl(222, 20%, 45%);
-    --text3:      hsl(222, 15%, 65%);
-    --accent:     hsl(355, 78%, 48%);
-    --accent2:    hsl(355, 78%, 58%);
-    --green:      hsl(160, 70%, 35%);
-    --yellow:     hsl(40,  80%, 42%);
-    --cyan:       hsl(195, 80%, 38%);
-    --purple:     hsl(265, 55%, 48%);
-    --glow:       hsla(355, 78%, 48%, 0.2);
-    --shadow:     rgba(0, 0, 0, 0.1);
+  --bg:     hsl(220,20%,97%);  --bg2:    hsl(220,20%,93%);
+  --card:   hsl(0,0%,100%);    --card2:  hsl(220,20%,95%);
+  --border: hsl(220,20%,84%);
+  --text:   hsl(222,40%,12%);  --text2:  hsl(222,20%,45%);  --text3: hsl(222,15%,65%);
+  --accent: hsl(355,78%,48%);  --accent2:hsl(355,78%,58%);
+  --green:  hsl(160,70%,35%);  --yellow: hsl(40,80%,42%);
+  --cyan:   hsl(195,80%,38%);  --purple: hsl(265,55%,48%);
+  --glow:   hsla(355,78%,48%,.2);
 }
 
-/* ── Streamlit body inherits our CSS vars ───────────────────── */
-body, .stApp, [class*="css"] {
-    --muted-fg:      222 20% 45%;
-    --border:        220 15% 82%;
-    --cs-green:      160 70%  35%;
-    --cs-yellow:     38  90%  45%;
-    --cs-cyan:       195 80%  35%;
+/* ═══════════════════════════ BASE ═══════════════════════════ */
+html,body,[class*="css"],.stApp {
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg) !important;
+  color:var(--text) !important;
 }
+[data-theme="light"] .stApp {
+  background:radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.04) 0%,transparent 50%),hsl(220,20%,97%) !important;
+}
+#MainMenu,footer,header{visibility:hidden}
+.stDeployButton{display:none}
+section[data-testid="stSidebar"]{display:none}
+.block-container{padding:1.5rem 2rem 2rem !important;max-width:1400px !important}
 
-/* ── Base resets ────────────────────────────────────────────── */
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif !important;
-    background: hsl(var(--background)) !important;
-    color: hsl(var(--foreground)) !important;
-    transition: background 0.35s ease, color 0.35s ease;
-}
-
-/* Hide Streamlit chrome */
-#MainMenu, footer, header { visibility: hidden; }
-.stDeployButton { display: none; }
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: hsl(var(--background)); }
-::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
-
-/* Main container */
-.block-container { padding: 0 !important; max-width: 100% !important; }
-.stApp { background: none !important; }
-
-/* ── Theme toggle button ────────────────────────────────────── */
-#cs-theme-btn {
-    position: fixed;
-    top: 14px; right: 16px;
-    z-index: 9999;
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--card));
-    color: hsl(var(--foreground));
-    font-size: 1.1rem;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-    transition: all 0.25s ease;
-}
-#cs-theme-btn:hover { transform: scale(1.1); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-
-/* ── Radial background glow ─────────────────────────────────── */
-.bg-radial-glow {
-    background:
-        radial-gradient(ellipse at 10% 20%, hsl(var(--primary) / 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 90% 80%, hsl(var(--cs-cyan) / 0.05) 0%, transparent 50%),
-        hsl(var(--background));
-}
-
-/* ── Navbar ─────────────────────────────────────────────────── */
-.cs-navbar {
-    position: sticky; top: 0; z-index: 50;
-    border-bottom: 1px solid hsl(var(--border));
-    background: hsl(var(--card) / 0.85);
-    backdrop-filter: blur(16px);
-    padding: 0.65rem 1.5rem;
-    display: flex; align-items: center; justify-content: space-between;
-    animation: cs-slide-down 0.5s cubic-bezier(.23,1,.32,1) both;
-    transition: background 0.35s ease;
-}
-.cs-navbar-brand {
-    display: flex; align-items: center; gap: 0.6rem;
-    cursor: pointer;
-}
-.cs-navbar-brand span.logo-text {
-    font-family: 'DM Serif Display', serif;
-    font-size: 1.1rem;
-    color: hsl(var(--foreground));
-}
-.cs-nav-badge {
-    border: 1px solid hsl(var(--border));
-    border-radius: 4px;
-    padding: 1px 7px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    color: hsl(var(--muted-fg));
-}
-.cs-nav-pills { display: flex; align-items: center; gap: 2px; }
-.cs-nav-pill {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 0.84rem; font-weight: 500;
-    border: none; background: transparent;
-    color: hsl(var(--muted-fg));
-    cursor: pointer;
-    transition: all 0.18s;
-}
-.cs-nav-pill:hover   { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
-.cs-nav-pill.active  { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
-.cs-nav-right { display: flex; align-items: center; gap: 0.6rem; }
-.cs-admin-badge {
-    border: 1px solid hsl(var(--cs-yellow) / 0.4);
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 0.7rem; font-weight: 500;
-    color: hsl(var(--cs-yellow));
-}
-.cs-btn-signout {
-    padding: 6px 14px; border-radius: 8px; font-size: 0.84rem;
-    border: 1px solid hsl(var(--border));
-    background: transparent; color: hsl(var(--muted-fg));
-    cursor: pointer; transition: all 0.18s;
-}
-.cs-btn-signout:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
-
-/* ── Cards ──────────────────────────────────────────────────── */
+/* ═══════════════════════════ CARDS ═══════════════════════════ */
 .cs-card {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 16px;
-    padding: 1.4rem;
-    transition: background 0.35s ease, border-color 0.2s, transform 0.25s cubic-bezier(.23,1,.32,1), box-shadow 0.25s;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:1.5rem;margin-bottom:1rem;
+  box-shadow:0 4px 24px rgba(0,0,0,.3);
+  transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s ease;
 }
-.cs-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 14px 36px hsl(var(--background) / 0.6), 0 0 0 1px hsl(var(--primary) / 0.2);
+.cs-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.45)}
+[data-theme="light"] .cs-card{background:white;border-color:var(--border);box-shadow:0 2px 16px rgba(0,0,0,.08)}
+.metric-card {
+  background:var(--card2);border:1px solid var(--border);border-radius:12px;
+  padding:1.2rem;text-align:center;
+  transition:transform .25s cubic-bezier(.23,1,.32,1),border-color .25s,box-shadow .25s;
 }
-.cs-metric-card {
-    background: hsl(var(--secondary));
-    border: 1px solid hsl(var(--border));
-    border-radius: 14px;
-    padding: 1rem;
-    text-align: center;
-    transition: background 0.35s ease, border-color 0.25s, transform 0.25s;
-}
-.cs-metric-card:hover {
-    border-color: hsl(var(--primary) / 0.5);
-    box-shadow: 0 0 22px hsl(var(--primary) / 0.12);
-    transform: translateY(-4px);
-}
-.cs-metric-value { font-family: 'DM Mono', monospace; font-size: 1.9rem; font-weight: 500; color: hsl(var(--primary)); }
-.cs-metric-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: hsl(var(--muted-fg)); margin-top: 3px; }
-.cs-metric-sub   { font-size: 0.62rem; color: hsl(var(--muted-fg) / 0.6); margin-top: 2px; }
+.metric-card:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 12px 32px rgba(0,0,0,.5)}
+[data-theme="light"] .metric-card{background:var(--card2);border-color:var(--border)}
 
-/* ── BPM display ─────────────────────────────────────────────── */
-.cs-bpm {
-    font-family: 'DM Serif Display', serif;
-    font-size: 5rem; line-height: 1;
-    display: inline-block;
-    border-radius: 50%;
-    padding: 0.1em 0.6em;
-    animation: pulse-text 1.5s ease-in-out infinite,
-               heartbeat-ring 1.5s ease-out infinite;
+/* ═══════════════════════════ NAV ═══════════════════════════ */
+.cs-nav {
+  background:linear-gradient(90deg,var(--card),var(--card2));
+  border-bottom:1px solid var(--border);border-radius:0;
+  padding:.8rem 1.5rem;display:flex;align-items:center;
+  justify-content:space-between;margin-bottom:1.5rem;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+  animation:slideDown .55s cubic-bezier(.23,1,.32,1) both;
+  position:sticky;top:0;z-index:100;
 }
-.cs-bpm-normal  { color: hsl(var(--cs-green)); }
-.cs-bpm-warning { color: hsl(var(--cs-yellow)); }
-.cs-bpm-danger  { color: hsl(var(--primary)); }
-
-/* ── Progress bar ───────────────────────────────────────────── */
-.cs-progress-track {
-    height: 5px; border-radius: 3px;
-    background: hsl(var(--border));
-    overflow: hidden; margin-top: 6px;
-}
-.cs-progress-fill {
-    height: 100%; border-radius: 3px;
-    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--cs-cyan)));
-    transition: width 0.3s ease;
+[data-theme="light"] .cs-nav{
+  background:linear-gradient(90deg,white,hsl(220,20%,97%));
+  border-color:var(--border);box-shadow:0 2px 12px rgba(0,0,0,.1);
 }
 
-/* ── Badges ─────────────────────────────────────────────────── */
-.badge-normal  { background: hsl(var(--cs-green)  / 0.15); border: 1px solid hsl(var(--cs-green)  / 0.4); color: hsl(var(--cs-green));  }
-.badge-warning { background: hsl(var(--cs-yellow) / 0.15); border: 1px solid hsl(var(--cs-yellow) / 0.4); color: hsl(var(--cs-yellow)); }
-.badge-danger  { background: hsl(var(--primary)   / 0.15); border: 1px solid hsl(var(--primary)   / 0.4); color: hsl(var(--primary));   }
-.badge-info    { background: hsl(var(--cs-cyan)   / 0.15); border: 1px solid hsl(var(--cs-cyan)   / 0.4); color: hsl(var(--cs-cyan));   }
-.cs-status-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 12px; border-radius: 20px;
-    font-size: 0.72rem; font-weight: 500;
-    letter-spacing: 0.05em; text-transform: uppercase;
+/* ═══════════════════════════ TYPOGRAPHY ═══════════════════════════ */
+.section-header{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--text);margin-bottom:.3rem}
+.section-sub{font-size:.85rem;color:var(--text2);margin-bottom:1.2rem}
+.gradient-text{
+  background:linear-gradient(135deg,var(--accent2) 0%,var(--accent) 45%,var(--cyan) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
 }
+.metric-value{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;color:var(--accent)}
+.metric-label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}
+.metric-sub{font-size:.7rem;color:var(--text3);margin-top:.2rem}
 
-/* ── Buttons ─────────────────────────────────────────────────── */
-.stButton > button {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(355 78% 42%)) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 10px !important;
-    font-family: 'DM Sans', sans-serif !important;
-    font-weight: 500 !important;
-    transition: all 0.2s !important;
+/* ═══════════════════════════ BPM ═══════════════════════════ */
+@keyframes pulse-text{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes heartbeat-ring{0%{box-shadow:0 0 0 0 hsla(355,78%,55%,.5)}50%{box-shadow:0 0 0 18px hsla(355,78%,55%,0)}100%{box-shadow:0 0 0 0 hsla(355,78%,55%,0)}}
+.bpm-display{
+  font-family:'DM Serif Display',serif;font-size:6rem;line-height:1;
+  display:inline-block;border-radius:50%;padding:.2rem 1rem;
+  animation:pulse-text 1.5s ease-in-out infinite,heartbeat-ring 1.5s ease-out infinite;
 }
-.stButton > button:hover { transform: translateY(-1px) !important; box-shadow: 0 4px 20px hsl(var(--primary) / 0.35) !important; }
-.stButton > button[kind="secondary"] {
-    background: hsl(var(--card)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-}
+.bpm-normal{color:var(--green)} .bpm-warning{color:var(--yellow)} .bpm-danger{color:var(--accent)}
 
-/* ── Inputs ──────────────────────────────────────────────────── */
-.stTextInput input, .stSelectbox > div, .stTextArea textarea, .stNumberInput input {
-    background: hsl(var(--secondary)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    border-radius: 10px !important;
-    color: hsl(var(--foreground)) !important;
-    transition: background 0.35s ease !important;
-}
-.stTextInput input:focus { border-color: hsl(var(--primary)) !important; box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important; }
+/* ═══════════════════════════ BADGES ═══════════════════════════ */
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+.badge-normal {background:hsla(160,100%,45%,.15);border:1px solid hsla(160,100%,45%,.4);color:var(--green)}
+.badge-warning{background:hsla(40,100%,70%,.15); border:1px solid hsla(40,100%,70%,.4); color:var(--yellow)}
+.badge-danger {background:hsla(355,78%,55%,.15); border:1px solid hsla(355,78%,55%,.4); color:var(--accent)}
+.badge-info   {background:hsla(195,100%,50%,.15);border:1px solid hsla(195,100%,50%,.4);color:var(--cyan)}
 
-/* ── Tabs ────────────────────────────────────────────────────── */
-.stTabs [data-baseweb="tab-list"] {
-    background: hsl(var(--secondary)) !important;
-    border-radius: 12px !important; padding: 4px !important;
-    border: 1px solid hsl(var(--border)) !important;
-}
-.stTabs [data-baseweb="tab"] {
-    background: transparent !important; color: hsl(var(--muted-fg)) !important;
-    border-radius: 8px !important; font-size: 0.84rem !important;
-    border: none !important; transition: all 0.18s !important;
-}
-.stTabs [aria-selected="true"] { background: hsl(var(--card)) !important; color: hsl(var(--foreground)) !important; }
+/* ═══════════════════════════ ECG ═══════════════════════════ */
+@keyframes ecg{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+.ecg-line{height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:ecg 2s linear infinite;margin:.5rem 0}
 
-/* ── Table ───────────────────────────────────────────────────── */
-.cs-table { width: 100%; border-collapse: collapse; }
-.cs-table th {
-    padding: 10px 16px; text-align: left;
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
-    color: hsl(var(--muted-fg));
-    background: hsl(var(--secondary)); border-bottom: 1px solid hsl(var(--border));
+/* ═══════════════════════════ INPUTS / BUTTONS ═══════════════════════════ */
+.stTextInput input,.stSelectbox>div,.stTextArea textarea,.stNumberInput input{
+  background:var(--bg2) !important;border:1px solid var(--border) !important;
+  border-radius:10px !important;color:var(--text) !important;font-family:'DM Sans',sans-serif !important;
 }
-.cs-table td { padding: 10px 16px; border-bottom: 1px solid hsl(var(--border) / 0.5); font-size: 0.86rem; }
-.cs-table tr:hover td { background: hsl(var(--secondary) / 0.5); }
-.cs-table tr:last-child td { border-bottom: none; }
+.stTextInput input:focus{border-color:var(--accent) !important;box-shadow:0 0 0 2px hsla(355,78%,55%,.2) !important}
+.stButton>button{
+  background:linear-gradient(135deg,var(--accent),hsl(355,78%,38%)) !important;
+  color:white !important;border:none !important;border-radius:10px !important;
+  font-family:'DM Sans',sans-serif !important;font-weight:500 !important;
+  padding:.5rem 1.5rem !important;transition:all .2s !important;
+}
+.stButton>button:hover{transform:translateY(-1px) !important;box-shadow:0 4px 20px var(--glow) !important}
+.stButton>button[kind="secondary"]{background:var(--card) !important;border:1px solid var(--border) !important;color:var(--text) !important}
+[data-theme="light"] .stButton>button{
+  background:linear-gradient(135deg,hsl(355,78%,48%),hsl(355,78%,36%)) !important;
+  box-shadow:0 2px 12px hsla(355,78%,48%,.3) !important;
+}
+[data-theme="light"] .stTextInput input,[data-theme="light"] .stSelectbox>div>div,[data-theme="light"] .stNumberInput input{background:var(--card2) !important;color:var(--text) !important;border-color:var(--border) !important}
 
-/* ── Alerts ──────────────────────────────────────────────────── */
-.stAlert   { border-radius: 10px !important; border-left-width: 3px !important; }
-.stSuccess { background: hsl(var(--cs-green)  / 0.07) !important; border-color: hsl(var(--cs-green))  !important; }
-.stWarning { background: hsl(var(--cs-yellow) / 0.07) !important; border-color: hsl(var(--cs-yellow)) !important; }
-.stError   { background: hsl(var(--primary)   / 0.07) !important; border-color: hsl(var(--primary))   !important; }
-.stInfo    { background: hsl(var(--cs-cyan)   / 0.07) !important; border-color: hsl(var(--cs-cyan))   !important; }
+/* ═══════════════════════════ TABS ═══════════════════════════ */
+.stTabs [data-baseweb="tab-list"]{background:var(--bg2) !important;border-radius:12px !important;padding:4px !important;gap:4px !important;border:1px solid var(--border) !important}
+.stTabs [data-baseweb="tab"]{background:transparent !important;color:var(--text2) !important;border-radius:8px !important;font-size:.85rem !important;font-weight:500 !important;padding:.5rem 1rem !important;border:none !important;transition:all .2s !important}
+.stTabs [aria-selected="true"]{background:var(--card) !important;color:var(--text) !important;border:1px solid var(--border) !important}
+[data-theme="light"] .stTabs [data-baseweb="tab-list"]{background:hsl(220,20%,93%) !important}
+[data-theme="light"] .stTabs [aria-selected="true"]{background:white !important;color:var(--text) !important}
 
-/* ── Code ────────────────────────────────────────────────────── */
-.stCode, code, pre {
-    background: hsl(var(--background)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-    border-radius: 8px !important;
-    font-family: 'DM Mono', monospace !important;
-    color: hsl(var(--cs-cyan)) !important;
-}
+/* ═══════════════════════════ STEP PILLS ═══════════════════════════ */
+.step-pill{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;font-family:'DM Mono',monospace;font-weight:500;font-size:.85rem;margin-right:.5rem}
+.step-pill-active{background:var(--accent);color:white;animation:popIn .4s cubic-bezier(.175,.885,.32,1.275) both}
+.step-pill-done{background:var(--green);color:hsl(222,58%,5%)}
+.step-pill-todo{background:var(--card2);border:1px solid var(--border);color:var(--text3)}
 
-/* ── ECG divider ─────────────────────────────────────────────── */
-.ecg-line {
-    height: 2px;
-    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
-    animation: ecg-sweep 2s linear infinite;
-    margin: 0.8rem 0;
-}
-@keyframes ecg-sweep { 0%,100% { opacity:0.3; } 50% { opacity:1; } }
+/* ═══════════════════════════ ENC CARDS ═══════════════════════════ */
+.enc-step-card{animation:slideDown .5s ease both}
 
-/* ── Gradient text ───────────────────────────────────────────── */
-.gradient-text-hero {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 40%, hsl(var(--cs-cyan)) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
+/* ═══════════════════════════ ANIMATIONS ═══════════════════════════ */
+@keyframes slideDown{from{opacity:0;transform:translateY(-24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes popIn{0%{opacity:0;transform:scale(.88) translateY(20px)}70%{transform:scale(1.03)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes heartbeat{0%,100%{transform:scale(1)}14%{transform:scale(1.15)}28%{transform:scale(1)}42%{transform:scale(1.08)}56%{transform:scale(1)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+.cs-nav{animation:slideDown .55s cubic-bezier(.23,1,.32,1) both}
 
-/* ── Section headers ─────────────────────────────────────────── */
-.cs-section-header { font-family: 'DM Serif Display', serif; font-size: 1.55rem; color: hsl(var(--foreground)); margin-bottom: 2px; }
-.cs-section-sub    { font-size: 0.84rem; color: hsl(var(--muted-fg)); margin-bottom: 1rem; }
+/* ═══════════════════════════ AOS OVERRIDES ═══════════════════════════ */
+[data-aos]{pointer-events:none}
+[data-aos].aos-animate{pointer-events:auto}
+[data-aos="fade-up"]{opacity:0;transform:translateY(40px);transition:opacity .7s ease,transform .7s ease}
+[data-aos="fade-up"].aos-animate{opacity:1;transform:translateY(0)}
+[data-aos="fade-down"]{opacity:0;transform:translateY(-40px);transition:opacity .7s ease,transform .7s ease}
+[data-aos="fade-down"].aos-animate{opacity:1;transform:translateY(0)}
+[data-aos="fade-left"]{opacity:0;transform:translateX(60px);transition:opacity .7s ease,transform .7s ease}
+[data-aos="fade-left"].aos-animate{opacity:1;transform:translateX(0)}
+[data-aos="fade-right"]{opacity:0;transform:translateX(-60px);transition:opacity .7s ease,transform .7s ease}
+[data-aos="fade-right"].aos-animate{opacity:1;transform:translateX(0)}
+[data-aos="zoom-in"]{opacity:0;transform:scale(.82);transition:opacity .65s ease,transform .65s cubic-bezier(.175,.885,.32,1.275)}
+[data-aos="zoom-in"].aos-animate{opacity:1;transform:scale(1)}
+[data-aos-delay="100"]{transition-delay:100ms !important}[data-aos-delay="150"]{transition-delay:150ms !important}
+[data-aos-delay="200"]{transition-delay:200ms !important}[data-aos-delay="250"]{transition-delay:250ms !important}
+[data-aos-delay="300"]{transition-delay:300ms !important}[data-aos-delay="350"]{transition-delay:350ms !important}
+[data-aos-delay="400"]{transition-delay:400ms !important}[data-aos-delay="450"]{transition-delay:450ms !important}
+[data-aos-delay="500"]{transition-delay:500ms !important}[data-aos-delay="600"]{transition-delay:600ms !important}
+[data-aos-delay="700"]{transition-delay:700ms !important}[data-aos-delay="800"]{transition-delay:800ms !important}
 
-/* ── Sidebar ─────────────────────────────────────────────────── */
-section[data-testid="stSidebar"] {
-    display: block !important;
-    background: hsl(var(--card)) !important;
-    border-right: 1px solid hsl(var(--border)) !important;
-    transition: background 0.35s ease !important;
+/* ═══════════════════════════ THEME TOGGLE BUTTON ═══════════════════════════ */
+#cs-theme-btn{
+  position:fixed;bottom:1.2rem;right:1.2rem;z-index:9999;
+  width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--border);background:var(--card);color:var(--text);
+  font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(0,0,0,.45);
+  transition:transform .2s,box-shadow .2s,background .25s,border-color .25s;
 }
+#cs-theme-btn:hover{transform:scale(1.12);box-shadow:0 6px 28px hsla(355,78%,55%,.4)}
+[data-theme="light"] #cs-theme-btn{background:white;border-color:hsl(220,20%,84%);box-shadow:0 2px 12px rgba(0,0,0,.15)}
 
-/* ── Enc step card ───────────────────────────────────────────── */
-.enc-step-card {
-    background: linear-gradient(135deg, hsl(var(--card)), hsl(var(--secondary)));
-    border: 1px solid hsl(var(--border));
-    border-left: 3px solid hsl(var(--primary));
-    border-radius: 12px; padding: 1.2rem 1.5rem;
-    margin-bottom: 1rem;
-    animation: cs-slide-down 0.5s ease both;
-}
-.enc-step-title { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: hsl(var(--primary)); margin-bottom: 5px; }
-.enc-explanation { font-size: 0.86rem; color: hsl(var(--muted-fg)); line-height: 1.75; }
+/* ═══════════════════════════ SCROLLBAR ═══════════════════════════ */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+[data-theme="light"] ::-webkit-scrollbar-track{background:hsl(220,20%,93%)}
+[data-theme="light"] ::-webkit-scrollbar-thumb{background:hsl(220,20%,78%)}
 
-/* ── Animations ──────────────────────────────────────────────── */
-@keyframes cs-slide-down { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
-@keyframes cs-fade-in    { from { opacity:0; } to { opacity:1; } }
-@keyframes cs-pop-in     { 0%{opacity:0;transform:scale(0.88) translateY(18px);} 70%{transform:scale(1.03);} 100%{opacity:1;transform:scale(1);} }
-@keyframes heartbeat     { 0%,100%{transform:scale(1);} 14%{transform:scale(1.15);} 28%{transform:scale(1);} 42%{transform:scale(1.08);} 56%{transform:scale(1);} }
-@keyframes pulse-text    { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
-@keyframes heartbeat-ring { 0%{box-shadow:0 0 0 0 hsl(var(--primary)/0.5);} 50%{box-shadow:0 0 0 18px hsl(var(--primary)/0);} 100%{box-shadow:0 0 0 0 hsl(var(--primary)/0);} }
-@keyframes float         { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+/* ═══════════════════════════ TRANSITIONS ═══════════════════════════ */
+*,*::before,*::after{transition:background-color .25s ease,border-color .2s ease,color .2s ease,box-shadow .25s ease !important}
+[data-aos],.bpm-display,.ecg-line,.animate-heartbeat{transition-property:opacity,transform !important}
 
-.animate-heartbeat { animation: heartbeat 1.5s ease-in-out infinite; }
-
-/* AOS (custom — works without external CDN dependency) */
-[data-aos] { pointer-events:none; }
-[data-aos].aos-animate { pointer-events:auto; }
-[data-aos="fade-up"]    { opacity:0; transform:translateY(36px);  transition:opacity 0.65s ease, transform 0.65s cubic-bezier(.23,1,.32,1); }
-[data-aos="fade-up"].aos-animate { opacity:1; transform:translateY(0); }
-[data-aos="fade-down"]  { opacity:0; transform:translateY(-36px); transition:opacity 0.65s ease, transform 0.65s ease; }
-[data-aos="fade-down"].aos-animate { opacity:1; transform:translateY(0); }
-[data-aos="fade-right"] { opacity:0; transform:translateX(-56px); transition:opacity 0.65s ease, transform 0.65s ease; }
-[data-aos="fade-right"].aos-animate { opacity:1; transform:translateX(0); }
-[data-aos="fade-left"]  { opacity:0; transform:translateX(56px);  transition:opacity 0.65s ease, transform 0.65s ease; }
-[data-aos="fade-left"].aos-animate  { opacity:1; transform:translateX(0); }
-[data-aos="zoom-in"]    { opacity:0; transform:scale(0.84);       transition:opacity 0.6s ease, transform 0.6s cubic-bezier(.175,.885,.32,1.275); }
-[data-aos="zoom-in"].aos-animate    { opacity:1; transform:scale(1); }
-[data-aos-delay="100"]  { transition-delay:100ms !important; }
-[data-aos-delay="150"]  { transition-delay:150ms !important; }
-[data-aos-delay="200"]  { transition-delay:200ms !important; }
-[data-aos-delay="250"]  { transition-delay:250ms !important; }
-[data-aos-delay="300"]  { transition-delay:300ms !important; }
-[data-aos-delay="350"]  { transition-delay:350ms !important; }
-[data-aos-delay="400"]  { transition-delay:400ms !important; }
-[data-aos-delay="450"]  { transition-delay:450ms !important; }
-[data-aos-delay="500"]  { transition-delay:500ms !important; }
-[data-aos-delay="600"]  { transition-delay:600ms !important; }
-
-/* Step pill */
-.step-pill { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; font-family:'DM Mono',monospace; font-size:0.82rem; margin-right:6px; }
-.step-pill-active { background:hsl(var(--primary)); color:white; animation:cs-pop-in 0.4s cubic-bezier(.175,.885,.32,1.275) both; }
-.step-pill-done   { background:hsl(var(--cs-green)); color:#0A0E1A; }
-.step-pill-todo   { background:hsl(var(--secondary)); border:1px solid hsl(var(--border)); color:hsl(var(--muted-fg)); }
-
-/* stProgress */
-.stProgress > div > div { background: linear-gradient(90deg,hsl(var(--primary)),hsl(var(--cs-cyan))) !important; border-radius:4px !important; }
-
-/* Footer */
-.cs-footer { text-align:center; padding:1.2rem; color:hsl(var(--muted-fg)); font-size:0.72rem; border-top:1px solid hsl(var(--border)); margin-top:1.5rem; }
-
-/* Light mode dataframe */
-[data-theme="light"] .stDataFrame { background: white !important; }
-
-/* Sidebar nav button active state */
-.stButton > button.nav-active {
-    background: hsl(var(--primary) / 0.12) !important;
-    color: hsl(var(--primary)) !important;
-    border: 1px solid hsl(var(--primary) / 0.3) !important;
-}
-
-/* ── Light mode — Streamlit widget overrides ────────────────── */
-[data-theme="light"] .stButton > button {
-    background: linear-gradient(135deg, hsl(355,78%,48%), hsl(355,78%,38%)) !important;
-    box-shadow: 0 2px 12px rgba(232,72,85,0.3) !important;
-}
-[data-theme="light"] .stTextInput input,
-[data-theme="light"] .stNumberInput input,
-[data-theme="light"] .stSelectbox > div > div,
-[data-theme="light"] .stTextArea textarea {
-    background: hsl(220,20%,95%) !important;
-    color: hsl(222,40%,12%) !important;
-    border-color: hsl(220,20%,84%) !important;
-}
-[data-theme="light"] .stTabs [data-baseweb="tab-list"] {
-    background: hsl(220,20%,93%) !important;
-    border-color: hsl(220,20%,84%) !important;
-}
-[data-theme="light"] .stTabs [data-baseweb="tab"] { color: hsl(222,20%,45%) !important; }
-[data-theme="light"] .stTabs [aria-selected="true"] {
-    background: white !important; color: hsl(222,40%,12%) !important;
-}
-[data-theme="light"] .cs-card,
-[data-theme="light"] .cs-card-glow {
-    background: white !important;
-    border-color: hsl(220,20%,84%) !important;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.08) !important;
-}
-[data-theme="light"] .metric-card {
-    background: hsl(220,20%,97%) !important;
-    border-color: hsl(220,20%,84%) !important;
-}
-[data-theme="light"] .cs-nav {
-    background: linear-gradient(90deg, white, hsl(220,20%,97%)) !important;
-    border-color: hsl(220,20%,84%) !important;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important;
-}
-[data-theme="light"] ::-webkit-scrollbar-track { background: hsl(220,20%,93%); }
-[data-theme="light"] ::-webkit-scrollbar-thumb { background: hsl(220,20%,78%); }
-/* Smooth theme transition */
-*, *::before, *::after {
-    transition: background-color 0.25s ease, border-color 0.2s ease,
-                color 0.2s ease, box-shadow 0.25s ease !important;
-}
-[data-aos], .animate-heartbeat, .bpm-display, .ecg-line {
-    transition-property: opacity, transform !important;
-}
-/* Print */
-@media print {
-    .stButton, section[data-testid="stSidebar"], #cs-theme-btn { display:none !important; }
-    body { background:white !important; color:black !important; }
-}
+/* ═══════════════════════════ PRINT ═══════════════════════════ */
+@media print{.stButton,#cs-theme-btn{display:none !important}body{background:white !important;color:black !important}}
 </style>
 """, unsafe_allow_html=True)
 
-# ── AOS init + dark/light theme toggle ───────────────────────────────────────
-st.markdown("""
+# ── AOS + Theme toggle via components.html (correct way in Streamlit) ─────────
+# This runs in the parent document context through postMessage
+components.html("""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
-<script>
-(function() {
-  // ── Theme persistence ────────────────────────────────────────────────────
-  var STORAGE_KEY = 'cardiosecure_theme';
-  var theme = localStorage.getItem(STORAGE_KEY) || 'dark';
-
-  function applyTheme(t) {
-    document.documentElement.setAttribute('data-theme', t);
-    var btn = document.getElementById('cs-theme-btn');
-    if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
-    localStorage.setItem(STORAGE_KEY, t);
-    theme = t;
-  }
-
-  function toggleTheme() {
-    applyTheme(theme === 'dark' ? 'light' : 'dark');
-  }
-
-  // Inject the toggle button into the page (outside Streamlit's DOM)
-  function injectBtn() {
-    if (document.getElementById('cs-theme-btn')) return;
-    var btn = document.createElement('button');
-    btn.id = 'cs-theme-btn';
-    btn.title = 'Toggle light / dark mode';
-    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-    btn.onclick = toggleTheme;
-    document.body.appendChild(btn);
-  }
-
-  // ── AOS ──────────────────────────────────────────────────────────────────
-  function initAOS() {
-    if (typeof AOS !== 'undefined') {
-      AOS.init({ duration:680, easing:'cubic-bezier(0.23,1,0.32,1)',
-                 once:false, mirror:true, offset:55 });
-      new MutationObserver(function(){ AOS.refresh(); })
-        .observe(document.body, { childList:true, subtree:true });
-    } else { setTimeout(initAOS, 120); }
-  }
-
-  // ── Boot ─────────────────────────────────────────────────────────────────
-  function boot() {
-    applyTheme(theme);
-    injectBtn();
-    initAOS();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else { boot(); }
-  setTimeout(boot, 350); // retry after Streamlit rerender
-})();
-</script>
-""", unsafe_allow_html=True)# ── Inject AOS.js from CDN + initialise ──────────────────────────────────────
-st.markdown("""
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
-<script>
-// Wait for Streamlit to finish rendering, then init AOS
-function initAOS() {
-    if (typeof AOS !== 'undefined') {
-        AOS.init({
-            duration:    700,
-            easing:      'cubic-bezier(0.23, 1, 0.32, 1)',
-            once:        false,     // re-animate on every scroll into view
-            mirror:      true,      // animate out when scrolling past
-            offset:      60,        // px from bottom of viewport before triggering
-            delay:       0,
-            anchorPlacement: 'top-bottom',
-        });
-        // Re-refresh after Streamlit DOM mutations (page changes)
-        const observer = new MutationObserver(() => { AOS.refresh(); });
-        observer.observe(document.body, { childList: true, subtree: true });
-    } else {
-        setTimeout(initAOS, 150);
-    }
-}
-document.addEventListener('DOMContentLoaded', initAOS);
-setTimeout(initAOS, 300);
-</script>
-""", unsafe_allow_html=True)
-
-# Theme persistence on every rerun
-st.markdown("""
+</head>
+<body style="margin:0;padding:0;background:transparent;overflow:hidden;height:0">
 <script>
 (function(){
-  var t=localStorage.getItem('cardiosecure_theme')||'dark';
-  function apply(th){
-    document.documentElement.setAttribute('data-theme',th);
-    document.querySelectorAll('.stApp,body').forEach(function(e){e.setAttribute('data-theme',th);});
-    var d=th==='dark';
-    document.querySelectorAll('.stApp').forEach(function(e){
-      e.style.background=d
-        ? 'radial-gradient(ellipse at 10% 20%,rgba(232,72,85,.06) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,rgba(0,212,255,.05) 0%,transparent 50%),hsl(222,58%,5%)'
-        : 'radial-gradient(ellipse at 10% 20%,rgba(232,72,85,.03) 0%,transparent 50%),hsl(220,20%,97%)';
-    });
+  var KEY = 'cs_theme';
+  var theme = localStorage.getItem(KEY) || 'dark';
+
+  function applyTheme(t){
+    theme = t;
+    localStorage.setItem(KEY, t);
+    try {
+      var p = window.parent.document;
+      p.documentElement.setAttribute('data-theme', t);
+      [].forEach.call(p.querySelectorAll('.stApp,body'), function(el){
+        el.setAttribute('data-theme', t);
+      });
+      var isDark = t === 'dark';
+      [].forEach.call(p.querySelectorAll('.stApp'), function(el){
+        el.style.background = isDark
+          ? 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),hsl(222,58%,5%)'
+          : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
+      });
+      var btn = p.getElementById('cs-theme-btn');
+      if(btn) btn.textContent = (t === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+    } catch(e){}
   }
-  apply(t);
-  new MutationObserver(function(){apply(localStorage.getItem('cardiosecure_theme')||'dark');})
-    .observe(document.body,{childList:true,subtree:true});
+
+  function injectBtn(){
+    try {
+      var p = window.parent.document;
+      if(p.getElementById('cs-theme-btn')) return;
+      var btn = p.createElement('button');
+      btn.id = 'cs-theme-btn';
+      btn.title = 'Toggle light / dark mode';
+      btn.textContent = (theme === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+      btn.onclick = function(){ applyTheme(theme === 'dark' ? 'light' : 'dark'); };
+      p.body.appendChild(btn);
+    } catch(e){}
+  }
+
+  function initAOS(){
+    try {
+      var p = window.parent;
+      if(p.AOS){
+        p.AOS.init({duration:700,easing:'cubic-bezier(0.23,1,0.32,1)',once:false,mirror:true,offset:60});
+        new p.MutationObserver(function(){ p.AOS.refresh(); })
+          .observe(p.document.body,{childList:true,subtree:true});
+      } else { setTimeout(initAOS, 150); }
+    } catch(e){ setTimeout(initAOS, 150); }
+  }
+
+  function loadAOS(cb){
+    try {
+      var p = window.parent;
+      if(p.AOS){ cb(); return; }
+      var d = p.document;
+      if(!d.querySelector('link[href*="aos"]')){
+        var l=d.createElement('link');l.rel='stylesheet';
+        l.href='https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css';
+        d.head.appendChild(l);
+      }
+      if(!d.querySelector('script[src*="aos.min"]')){
+        var s=d.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js';
+        s.onload=cb; d.head.appendChild(s);
+      } else { cb(); }
+    } catch(e){ setTimeout(function(){ loadAOS(cb); }, 200); }
+  }
+
+  function boot(){
+    applyTheme(theme);
+    injectBtn();
+    loadAOS(initAOS);
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  } else { boot(); }
+  setTimeout(boot, 500);
 })();
 </script>
-""", unsafe_allow_html=True)
+</body></html>
+""", height=0, scrolling=False)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENCRYPTION ENGINE
@@ -1063,7 +799,7 @@ except Exception as _db_err:
     st.stop()
 
 defaults = {
-    "logged_in": False, "user": None, "page": "login",
+    "logged_in": False, "user": None, "page": "landing",
     "theme": "dark",          # "dark" or "light"
     "data_buffer": deque(maxlen=300),
     "chrom_x": deque(maxlen=300),
@@ -1086,7 +822,7 @@ def go(page):
 def logout():
     for k in defaults:
         st.session_state[k] = defaults[k]
-    st.session_state.page = "login"
+    st.session_state.page = "landing"
     st.rerun()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1116,17 +852,21 @@ def badge_class(status):
     return {"success":"badge-normal","warning":"badge-warning",
             "danger":"badge-danger","info":"badge-info"}.get(status,"badge-info")
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS  (navigation + rendering utilities)
+# ─────────────────────────────────────────────────────────────────────────────
+
+LOGO_SVG_SM = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="34" height="34" style="filter:drop-shadow(0 0 8px rgba(232,72,85,.55))"><path d="M40 62C40 62 14 46 14 28C14 19 21 13 28 13C33 13 37 16 40 20C43 16 47 13 52 13C59 13 66 19 66 28C66 46 40 62 40 62Z" fill="url(#sg)"/><polyline points="16,40 22,40 25,32 28,48 32,28 36,40 40,40 44,36 48,44 52,40 64,40" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/><defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="100%" stop-color="#C62A35"/></linearGradient></defs></svg>"""
+
+LOGO_SVG_LG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="76" height="76" style="filter:drop-shadow(0 0 22px rgba(232,72,85,.6))"><path d="M40 62C40 62 14 46 14 28C14 19 21 13 28 13C33 13 37 16 40 20C43 16 47 13 52 13C59 13 66 19 66 28C66 46 40 62 40 62Z" fill="url(#lg)"/><polyline points="16,40 22,40 25,32 28,48 32,28 36,40 40,40 44,36 48,44 52,40 64,40" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="55%" stop-color="#E84855"/><stop offset="100%" stop-color="#C62A35"/></linearGradient></defs></svg>"""
+
+
 def render_nav():
+    """Sticky navbar — SVG logo, nav links, theme toggle (floating button injected via components.html)."""
     u = st.session_state.user
-    if "theme" not in st.session_state:
-        st.session_state.theme = "dark"
 
-    admin_badge = ('<span style="color:var(--yellow);font-size:0.72rem;padding:2px 8px;'
-                   'border:1px solid rgba(255,209,102,0.3);border-radius:4px;margin-left:4px">ADMIN</span>'
-                   if u.get("is_admin") else "")
-
-    # Nav items based on role
-    if u.get("is_admin"):
+    if u and u.get("is_admin"):
         nav_items = [
             ("admin_dashboard", "🏠 Dashboard"),
             ("monitor",         "❤️ Monitor"),
@@ -1134,96 +874,264 @@ def render_nav():
             ("all_records",     "📋 Records"),
             ("encryption",      "🔒 Encryption Lab"),
         ]
-    else:
+    elif u:
         nav_items = [
             ("monitor",     "❤️ Monitor"),
             ("results",     "📊 My Results"),
             ("encryption",  "🔒 Encryption Lab"),
             ("raw_data",    "📦 Data"),
         ]
+    else:
+        nav_items = []
 
-    nav_links = ""
-    for page_id, label in nav_items:
-        active = ("style=\"color:var(--accent);background:rgba(232,72,85,0.1);border-radius:8px;\""
-                  if st.session_state.page == page_id else "")
-        nav_links += ("<span " + active + ' style="padding:4px 10px;font-size:0.82rem;'
-                      'cursor:pointer;color:var(--text2);transition:all 0.2s"'
-                      ' onclick="window.parent.postMessage({navTo:\''  + page_id + '\'}, \'*\')">'
-                      + label + "</span>")
+    nav_links_html = ""
+    for pid, label in nav_items:
+        is_active = st.session_state.page == pid
+        style = ("color:var(--accent);background:hsla(355,78%,55%,.1);border-radius:8px;"
+                 if is_active else "color:var(--text2);")
+        nav_links_html += (
+            f'<span style="padding:5px 11px;font-size:.83rem;font-weight:500;cursor:pointer;'
+            f'transition:all .2s;{style}" '
+            f'class="nav-item" data-page="{pid}">{label}</span>'
+        )
 
-    theme_icon = "☀️" if st.session_state.theme == "dark" else "🌙"
+    user_html = ""
+    if u:
+        admin_badge = ""
+        if u.get("is_admin"):
+            admin_badge = ('<span style="color:var(--yellow);font-size:.7rem;padding:2px 8px;'
+                          'border:1px solid hsla(40,100%,70%,.3);border-radius:4px;margin-left:3px">ADMIN</span>')
+        user_html = (
+            f'<span style="color:var(--text2);font-size:.82rem">👤 {u["full_name"]}</span>'
+            f'{admin_badge}'
+            f'<span style="color:var(--text3);margin:0 4px">|</span>'
+        )
 
     st.markdown(f"""
-    <div class="cs-nav" id="cs-main-nav">
-      <!-- Logo -->
-      <div style="display:flex;align-items:center;gap:0.6rem;flex-shrink:0">
-        <span style="font-size:1.4rem;animation:heartbeat 1.5s ease-in-out infinite">❤️</span>
-        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text)">
-          CardioSecure</span>
-        <span style="font-size:0.65rem;color:var(--text3);letter-spacing:0.12em;
-              text-transform:uppercase;padding:2px 8px;border:1px solid var(--border);
-              border-radius:4px;margin-left:4px">v2.0</span>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
+    <div class="cs-nav" id="cs-navbar">
+      <div style="display:flex;align-items:center;gap:.65rem;flex-shrink:0">
+        <div style="animation:heartbeat 1.5s ease-in-out infinite;display:flex">
+          {LOGO_SVG_SM}
+        </div>
+        <div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.05rem;
+                      color:var(--text);line-height:1">CardioSecure</div>
+          <div style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
+                      text-transform:uppercase;margin-top:1px">Heart Rate Monitor</div>
+        </div>
+        <span style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;
+                     padding:2px 6px;border:1px solid var(--border);border-radius:4px;
+                     margin-left:2px;align-self:flex-start;margin-top:3px">v2.0</span>
       </div>
 
-      <!-- Nav items (desktop) -->
-      <div style="display:flex;align-items:center;gap:0.25rem">
-        {nav_links}
+      <div style="display:flex;align-items:center;gap:.2rem" id="cs-nav-links">
+        {nav_links_html}
       </div>
 
-      <!-- Right side: theme toggle + user info -->
-      <div style="display:flex;align-items:center;gap:0.7rem;flex-shrink:0">
-        <!-- Theme toggle button -->
-        <button id="theme-toggle-btn"
-          onclick="toggleTheme()"
-          style="background:var(--card2);border:1px solid var(--border);border-radius:8px;
-                 padding:4px 10px;cursor:pointer;font-size:0.9rem;color:var(--text);
-                 transition:all 0.2s;line-height:1"
-          title="Toggle light/dark mode">
-          {theme_icon}
-        </button>
+      <div style="display:flex;align-items:center;gap:.6rem;flex-shrink:0">
+        {user_html}
+        <span style="color:var(--text2);font-size:.78rem">
+          {datetime.now().strftime("%d %b %Y")}</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+    # Sign In button for unauthenticated pages (landing / login)
+    if not u:
+        if st.session_state.page == "landing":
+            _, cb, _ = st.columns([5, 1, 0.3])
+            with cb:
+                if st.button("Sign In", key="nav_signin", type="primary"):
+                    go("login")
+        elif st.session_state.page == "login":
+            _, cb, _ = st.columns([5, 1.2, 0.3])
+            with cb:
+                if st.button("← Home", key="nav_home"):
+                    go("landing")
+    else:
+        # Sign Out button for authenticated users
+        _, cb, _ = st.columns([5, 1, 0.3])
+        with cb:
+            if st.button("Sign Out", key="nav_signout"):
+                logout()
 
-        <span style="color:var(--text2);font-size:0.82rem">👤 {u["full_name"]}</span>
-        {admin_badge}
-        <span style="color:var(--text3);margin:0 2px">|</span>
-        <span style="color:var(--text2);font-size:0.78rem">{datetime.now().strftime("%d %b %Y")}</span>
+
+def render_landing():
+    """Full landing page matching the React LandingPage.tsx design."""
+    st.markdown(f"""
+    <style>
+    .landing-hero{{
+      min-height:90vh;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;text-align:center;padding:2rem 1rem;
+      background:radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.08) 0%,transparent 50%),
+                 radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.06) 0%,transparent 50%);
+    }}
+    .hero-title{{
+      font-family:'DM Serif Display',serif;font-size:clamp(3rem,7vw,5rem);
+      line-height:1.05;
+      background:linear-gradient(135deg,hsl(355,78%,68%) 0%,hsl(355,78%,55%) 40%,hsl(195,100%,50%) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      margin:1rem 0 .5rem;
+    }}
+    [data-theme="light"] .hero-title{{
+      background:linear-gradient(135deg,hsl(355,78%,55%) 0%,hsl(355,78%,42%) 40%,hsl(195,80%,38%) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }}
+    .hero-sub{{
+      font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;
+      color:var(--text2);margin-bottom:.6rem;
+    }}
+    .hero-desc{{color:var(--text2);max-width:520px;line-height:1.65;margin-bottom:2rem;font-size:.95rem}}
+    .hero-btns{{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}}
+    .btn-primary{{
+      padding:.8rem 2.2rem;border-radius:12px;font-weight:500;font-size:.95rem;cursor:pointer;
+      background:linear-gradient(135deg,var(--accent),hsl(355,78%,38%));
+      color:white;border:none;
+      box-shadow:0 4px 20px hsla(355,78%,55%,.3);
+      transition:transform .2s,box-shadow .2s;
+    }}
+    .btn-primary:hover{{transform:translateY(-2px);box-shadow:0 8px 28px hsla(355,78%,55%,.4)}}
+    .btn-secondary{{
+      padding:.8rem 2.2rem;border-radius:12px;font-weight:500;font-size:.95rem;cursor:pointer;
+      background:var(--card);border:1px solid var(--border);color:var(--text);
+      transition:transform .2s,border-color .2s;
+    }}
+    .btn-secondary:hover{{transform:translateY(-2px);border-color:hsla(355,78%,55%,.4)}}
+    .feature-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.2rem;margin:3rem 0}}
+    .feature-card{{
+      background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.6rem;
+      transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s;
+    }}
+    .feature-card:hover{{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.35)}}
+    [data-theme="light"] .feature-card{{background:white;box-shadow:0 2px 12px rgba(0,0,0,.07)}}
+    .how-section{{
+      background:hsla(222,40%,12%,.5);border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);padding:4rem 1rem;margin:0 -2rem;
+    }}
+    [data-theme="light"] .how-section{{background:hsla(220,20%,93%,.6)}}
+    .how-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem;max-width:900px;margin:2rem auto 0}}
+    .how-card{{
+      background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;
+      border-top-width:3px;
+    }}
+    [data-theme="light"] .how-card{{background:white}}
+    .step-num{{font-family:'DM Mono',monospace;font-size:2.5rem;font-weight:300;
+               color:var(--border);margin-bottom:.8rem;line-height:1}}
+    </style>
+
+    <!-- HERO -->
+    <div class="landing-hero">
+      <div data-aos="fade-up" style="animation:heartbeat 1.5s ease-in-out infinite;margin-bottom:1rem">
+        {LOGO_SVG_LG}
+      </div>
+      <p class="hero-sub" data-aos="fade-up" data-aos-delay="100">Hybrid-Encrypted Heart Rate Monitor</p>
+      <h1 class="hero-title" data-aos="fade-up" data-aos-delay="150">CardioSecure</h1>
+      <p class="hero-desc" data-aos="fade-up" data-aos-delay="200">
+        Real-time rPPG measurement via webcam with AES-256-GCM + ECC-SECP256R1 end-to-end encryption.
+        Research-grade cardiac monitoring, fully secured.
+      </p>
+      <div class="hero-btns" data-aos="fade-up" data-aos-delay="280">
+        <button class="btn-primary" onclick="window.parent.document.querySelector('[data-testid=stButton]').click()">
+          Get Started →</button>
+        <button class="btn-secondary"
+          onclick="window.scrollTo({{top:window.innerHeight,behavior:'smooth'}})">
+          Learn More ↓</button>
+      </div>
+      <div data-aos="fade-up" data-aos-delay="350"
+           style="margin-top:1.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text3)">
+        EBSU/PG/PhD/2021/10930 · Yunisa Sunday
+      </div>
+      <div data-aos="fade-up" data-aos-delay="400"
+           style="margin-top:.8rem;padding:4px 14px;border:1px solid hsla(195,100%,50%,.25);
+                  border-radius:20px;background:hsla(195,100%,50%,.06);font-size:.68rem;
+                  color:var(--cyan);letter-spacing:.06em">
+        🔒 AES-256-GCM + ECC-SECP256R1 End-to-End Encrypted
       </div>
     </div>
 
-    <script>
-    // ── Theme toggle ────────────────────────────────────────────────────────
-    (function() {{
-      // Apply saved theme on load
-      const saved = localStorage.getItem("cardiosecure_theme") || "dark";
-      applyTheme(saved);
+    <div class="ecg-line"></div>
 
-      window.toggleTheme = function() {{
-        const current = document.documentElement.getAttribute("data-theme") || "dark";
-        const next    = current === "dark" ? "light" : "dark";
-        applyTheme(next);
-        localStorage.setItem("cardiosecure_theme", next);
-        // Update button icon
-        const btn = document.getElementById("theme-toggle-btn");
-        if (btn) btn.textContent = next === "dark" ? "☀️" : "🌙";
-        // Tell Streamlit to update st.session_state.theme
-        window.parent.postMessage({{themeChange: next}}, "*");
-      }};
+    <!-- FEATURES -->
+    <div style="max-width:1100px;margin:0 auto;padding:4rem 1rem 2rem">
+      <h2 data-aos="fade-up"
+          style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text);margin-bottom:.5rem">
+        Clinical-Grade Features</h2>
+      <p data-aos="fade-up" data-aos-delay="100"
+         style="text-align:center;color:var(--text2);margin-bottom:0">
+        Powered by advanced computer vision and military-grade encryption</p>
 
-      function applyTheme(theme) {{
-        document.documentElement.setAttribute("data-theme", theme);
-        // Also set on .stApp and body for Streamlit containers
-        document.querySelectorAll(".stApp, body").forEach(el => {{
-          el.setAttribute("data-theme", theme);
-        }});
-        // Update Streamlit background to match
-        const isDark = theme === "dark";
-        document.querySelectorAll(".stApp").forEach(el => {{
-          el.style.background = isDark
-            ? "radial-gradient(ellipse at 10% 20%, rgba(232,72,85,0.06) 0%, transparent 50%), radial-gradient(ellipse at 90% 80%, rgba(0,212,255,0.05) 0%, transparent 50%), hsl(222,58%,5%)"
-            : "radial-gradient(ellipse at 10% 20%, rgba(232,72,85,0.04) 0%, transparent 50%), hsl(220,20%,97%)";
-        }});
-      }}
-    }})();
-    </script>
+      <div class="feature-grid">
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
+          <div style="font-size:2rem;margin-bottom:.8rem">❤️</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            rPPG Detection</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            Non-contact heart rate via CHROM method with 4th-order Butterworth bandpass and FFT analysis.</p>
+        </div>
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="150">
+          <div style="font-size:2rem;margin-bottom:.8rem">🛡️</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Hybrid Encryption</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            AES-256-GCM symmetric + ECC-SECP256R1 asymmetric key exchange for end-to-end security.</p>
+        </div>
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+          <div style="font-size:2rem;margin-bottom:.8rem">📈</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            ML Refinement</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            Contextual prior model validates against rolling history, age-ceiling estimates, temporal consistency.</p>
+        </div>
+        <div class="feature-card" data-aos="fade-up" data-aos-delay="450">
+          <div style="font-size:2rem;margin-bottom:.8rem">⚡</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Real-Time Analysis</h3>
+          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
+            Instant cardiac classification with personalised WHO-guideline recommendations.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="how-section">
+      <h2 data-aos="fade-up"
+          style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text)">
+        How It Works</h2>
+      <div class="how-grid">
+        <div class="how-card" data-aos="fade-up" data-aos-delay="0"
+             style="border-top-color:var(--cyan)">
+          <div class="step-num">01</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Face Detection</h3>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            Haar Cascade isolates forehead/cheek ROI regions with dense vasculature.</p>
+        </div>
+        <div class="how-card" data-aos="fade-up" data-aos-delay="200"
+             style="border-top-color:var(--accent)">
+          <div class="step-num">02</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Signal Processing</h3>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            CHROM chrominance + Butterworth bandpass (0.67–4.0 Hz) + FFT peak detection.</p>
+        </div>
+        <div class="how-card" data-aos="fade-up" data-aos-delay="400"
+             style="border-top-color:var(--green)">
+          <div class="step-num">03</div>
+          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
+            Encrypt &amp; Store</h3>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            Results encrypted with AES-256-GCM, ECDH key exchange, stored in secure SQLite DB.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="text-align:center;padding:2rem 1rem;border-top:1px solid var(--border);margin-top:0">
+      <p style="font-size:.72rem;color:var(--text3)">
+        🔒 End-to-end encrypted with AES-256-GCM + ECC-SECP256R1 &nbsp;·&nbsp;
+        ⚠️ For research &amp; educational purposes only &nbsp;·&nbsp; Not a certified medical device
+      </p>
+    </div>
     """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1231,22 +1139,46 @@ def render_nav():
 # ─────────────────────────────────────────────────────────────────────────────
 
 if not st.session_state.logged_in:
+    pg = st.session_state.page
+
+    # ── Landing page ─────────────────────────────────────────────────────────
+    if pg == "landing":
+        # Minimal nav for landing (no user links)
+        render_nav()
+        # CTA button that goes to login
+        c1, c2, c3 = st.columns([1, 0.4, 1])
+        with c2:
+            if st.button("Get Started →", type="primary", use_container_width=True, key="landing_cta"):
+                go("login")
+        render_landing()
+        st.stop()
+
+    # ── Login / Register page ─────────────────────────────────────────────────
+    # Minimal nav with "← Back" feel
+    render_nav()
     col_l, col_m, col_r = st.columns([1, 1.8, 1])
     with col_m:
-        st.markdown("""
-        <div style="text-align:center;padding:2.5rem 0 1.5rem"
-             data-aos="fade-down" data-aos-duration="800">
-          <div style="font-size:3rem;margin-bottom:0.5rem;
-               animation:pulse-text 2s ease-in-out infinite">❤️</div>
-          <div style="font-family:'DM Serif Display',serif;font-size:2.5rem;
-               background:linear-gradient(135deg,#FF6B6B,#E84855,#00D4FF);
-               -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-               background-clip:text;line-height:1.1">CardioSecure</div>
-          <div style="color:#4A5578;font-size:0.75rem;letter-spacing:0.15em;
-               text-transform:uppercase;margin-top:0.3rem">
-               Hybrid-Encrypted Heart Rate Monitor</div>
-          <div style="color:#8A97B8;font-size:0.72rem;margin-top:0.8rem">
-               EBSU/PG/PhD/2021/10930 · Yunisa Sunday</div>
+        st.markdown(f"""
+        <div style="text-align:center;padding:2rem 0 1.5rem" data-aos="fade-down" data-aos-duration="700">
+          <div style="display:flex;align-items:center;justify-content:center;
+                      margin-bottom:.9rem;animation:heartbeat 1.5s ease-in-out infinite">
+            {LOGO_SVG_LG}
+          </div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1.1;
+                      background:linear-gradient(135deg,#FF6B6B 0%,#E84855 45%,#00D4FF 100%);
+                      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
+            CardioSecure</div>
+          <div style="color:var(--text3);font-size:.72rem;letter-spacing:.18em;
+                      text-transform:uppercase;margin-top:.4rem">
+            Hybrid-Encrypted Heart Rate Monitor</div>
+          <div style="color:var(--text2);font-family:'DM Mono',monospace;font-size:.67rem;margin-top:.6rem">
+            EBSU/PG/PhD/2021/10930 &middot; Yunisa Sunday</div>
+          <div style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.7rem;
+                      padding:3px 13px;border:1px solid hsla(195,100%,50%,.25);border-radius:20px;
+                      background:hsla(195,100%,50%,.06);font-size:.67rem;color:var(--cyan);
+                      letter-spacing:.06em">
+            🔒 AES-256-GCM + ECC-SECP256R1
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
