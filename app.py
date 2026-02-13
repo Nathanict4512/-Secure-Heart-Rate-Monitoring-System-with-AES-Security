@@ -82,7 +82,7 @@ st.set_page_config(
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBAL CSS  (medical dark-mode, refined clinical aesthetic)
 # ─────────────────────────────────────────────────────────────────────────────
-html_code = html_code.encode("utf-8", "ignore").decode("utf-8")
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
@@ -285,8 +285,10 @@ section[data-testid="stSidebar"]{display:none}
 
 # ── AOS + Theme toggle via components.html (correct way in Streamlit) ─────────
 # This runs in the parent document context through postMessage
-components.html("""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
+html_code = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
 </head>
@@ -312,7 +314,7 @@ components.html("""<!DOCTYPE html>
           : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
       });
       var btn = p.getElementById('cs-theme-btn');
-      if(btn) btn.textContent = (t === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+      if(btn) btn.textContent = (t === 'dark') ? '\\u2600\\uFE0F' : '\\uD83C\\uDF19';
     } catch(e){}
   }
 
@@ -323,7 +325,7 @@ components.html("""<!DOCTYPE html>
       var btn = p.createElement('button');
       btn.id = 'cs-theme-btn';
       btn.title = 'Toggle light / dark mode';
-      btn.textContent = (theme === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+      btn.textContent = (theme === 'dark') ? '\\u2600\\uFE0F' : '\\uD83C\\uDF19';
       btn.onclick = function(){ applyTheme(theme === 'dark' ? 'light' : 'dark'); };
       p.body.appendChild(btn);
     } catch(e){}
@@ -370,8 +372,15 @@ components.html("""<!DOCTYPE html>
   setTimeout(boot, 500);
 })();
 </script>
-</body></html>
-""", height=0, scrolling=False)
+</body>
+</html>
+"""
+
+# Clean UTF-8 (prevents Streamlit Cloud crash)
+html_code = html_code.encode("utf-8", "ignore").decode("utf-8")
+
+# Render
+components.html(html_code, height=0, scrolling=False)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENCRYPTION ENGINE
