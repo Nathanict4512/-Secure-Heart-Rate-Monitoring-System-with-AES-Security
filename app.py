@@ -713,7 +713,7 @@ def ml_refine_bpm(raw_bpm, age=0, gender='', history=[]):
     return int(raw_bpm)
 
 def calculate_heart_rate(data_buffer, times, use_chrom=True):
-    if len(data_buffer) < 150:
+    if len(data_buffer) < 15:   # lowered for camera_input (20-frame mode)
         return 0, []
     sig = np.array(data_buffer)
     detrended = signal.detrend(sig)
@@ -881,76 +881,94 @@ def render_nav():
     else:
         nav_items = []
 
-    nav_links_html = ""
-    for pid, label in nav_items:
-        is_active = st.session_state.page == pid
-        style = ("color:var(--accent);background:hsla(355,78%,55%,.1);border-radius:8px;"
-                 if is_active else "color:var(--text2);")
-        nav_links_html += (
-            f'<span style="padding:5px 11px;font-size:.83rem;font-weight:500;cursor:pointer;'
-            f'transition:all .2s;{style}" '
-            f'class="nav-item" data-page="{pid}">{label}</span>'
-        )
-
+    # ── Build user label HTML ────────────────────────────────────────────────
     user_html = ""
     if u:
         admin_badge = ""
         if u.get("is_admin"):
             admin_badge = ('<span style="color:var(--yellow);font-size:.7rem;padding:2px 8px;'
-                          'border:1px solid hsla(40,100%,70%,.3);border-radius:4px;margin-left:3px">ADMIN</span>')
+                          'border:1px solid hsla(40,100%,70%,.3);border-radius:4px;'
+                          'margin-left:3px">ADMIN</span>')
         user_html = (
             f'<span style="color:var(--text2);font-size:.82rem">👤 {u["full_name"]}</span>'
-            f'{admin_badge}'
-            f'<span style="color:var(--text3);margin:0 4px">|</span>'
+            + admin_badge
         )
 
+    # ── Navbar shell (logo + user info) ───────────────────────────────────────
     st.markdown(f"""
-        <div class="cs-nav" id="cs-navbar">
+    <div class="cs-nav" id="cs-navbar">
       <div style="display:flex;align-items:center;gap:.65rem;flex-shrink:0">
-        <div style="animation:heartbeat 1.5s ease-in-out infinite;display:flex">
-          {LOGO_SVG_SM}
-        </div>
+        <div style="animation:heartbeat 1.5s ease-in-out infinite;display:flex">{LOGO_SVG_SM}</div>
         <div>
           <div style="font-family:'DM Serif Display',serif;font-size:1.05rem;
                       color:var(--text);line-height:1">CardioSecure</div>
           <div style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
                       text-transform:uppercase;margin-top:1px">Heart Rate Monitor</div>
         </div>
-        <span style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;
-                     padding:2px 6px;border:1px solid var(--border);border-radius:4px;
-                     margin-left:2px;align-self:flex-start;margin-top:3px">v2.0</span>
+        <span style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
+                     text-transform:uppercase;padding:2px 6px;border:1px solid var(--border);
+                     border-radius:4px;margin-left:2px;align-self:flex-start;margin-top:3px">v2.0</span>
       </div>
-
-      <div style="display:flex;align-items:center;gap:.2rem" id="cs-nav-links">
-        {nav_links_html}
-      </div>
-
+      <div style="flex:1"></div>
       <div style="display:flex;align-items:center;gap:.6rem;flex-shrink:0">
         {user_html}
-        <span style="color:var(--text2);font-size:.78rem">
-          {datetime.now().strftime("%d %b %Y")}</span>
+        <span style="color:var(--text2);font-size:.78rem">{datetime.now().strftime("%d %b %Y")}</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
-    # Sign In button for unauthenticated pages (landing / login)
-    if not u:
+
+    # ── Nav links as REAL clickable Streamlit buttons ─────────────────────────
+    # Flatten button styles so they look like nav links not big red buttons
+    st.markdown("""<style>
+    .nav-btn-row button {
+      background:transparent !important; border:none !important;
+      color:var(--text2) !important; font-size:.83rem !important;
+      font-weight:500 !important; padding:4px 8px !important;
+      border-radius:8px !important; box-shadow:none !important;
+      line-height:1.4 !important; min-height:unset !important;
+    }
+    .nav-btn-row button:hover { color:var(--text) !important;
+      background:var(--card2) !important; }
+    </style>""", unsafe_allow_html=True)
+
+    if nav_items:
+        st.markdown('<div class="nav-btn-row">', unsafe_allow_html=True)
+        # Build one column per nav item + 1 for sign-out
+        n_cols = len(nav_items) + 1
+        cols = st.columns(n_cols)
+        for i, (pid, label) in enumerate(nav_items):
+            with cols[i]:
+                active = (st.session_state.page == pid or
+                          (pid == "encryption" and st.session_state.page.startswith("enc_")))
+                if active:
+                    # Active: styled text, not a button
+                    st.markdown(
+                        f'<div style="text-align:center;padding:4px 8px;font-size:.83rem;'
+                        f'font-weight:600;color:var(--accent);background:hsla(355,78%,55%,.12);'
+                        f'border-radius:8px">{label}</div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    if st.button(label, key=f"nav__{pid}", use_container_width=True):
+                        go(pid)
+        # Sign Out in last column
+        with cols[-1]:
+            if u:
+                if st.button("Sign Out", key="nav_signout", use_container_width=True):
+                    logout()
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        # Unauthenticated: sign-in / home buttons
         if st.session_state.page == "landing":
             _, cb, _ = st.columns([5, 1, 0.3])
             with cb:
-                if st.button("Sign In", key="nav_signin", type="primary"):
+                if st.button("Sign In →", key="nav_signin", type="primary"):
                     go("login")
         elif st.session_state.page == "login":
             _, cb, _ = st.columns([5, 1.2, 0.3])
             with cb:
                 if st.button("← Home", key="nav_home"):
                     go("landing")
-    else:
-        # Sign Out button for authenticated users
-        _, cb, _ = st.columns([5, 1, 0.3])
-        with cb:
-            if st.button("Sign Out", key="nav_signout"):
-                logout()
-
 
 def render_landing():
     """Full landing page matching the React LandingPage.tsx design."""
@@ -1555,6 +1573,31 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                     st.warning("⚠️ Could not decode frame — try again.")
 
             # ── Update BPM and analysis ───────────────────────────────────────
+            n_samp = len(st.session_state.data_buffer)
+            # If FFT returned 0 but we have enough frames, try a low-sample estimate
+            if bpm_val == 0 and n_samp >= 5:
+                try:
+                    buf  = list(st.session_state.data_buffer)
+                    t0   = list(st.session_state.times)[0]
+                    fps_e = max(n_samp / max(time.time() - t0, 1), 0.5)
+                    arr  = np.array(buf)
+                    arr  = signal.detrend(arr)
+                    nyq  = fps_e / 2
+                    lo   = max(0.01, 0.67 / nyq)
+                    hi   = min(0.99, 4.0  / nyq)
+                    if lo < hi:
+                        b, a  = signal.butter(4, [lo, hi], btype='band')
+                        flt   = signal.filtfilt(b, a, arr)
+                        fq    = np.fft.rfftfreq(len(flt), 1 / fps_e)
+                        mg    = np.abs(np.fft.rfft(flt * np.hanning(len(flt))))
+                        mask  = (fq >= 0.67) & (fq <= 4.0)
+                        if mask.any():
+                            est = int(fq[mask][np.argmax(mg[mask])] * 60)
+                            if 30 <= est <= 220:
+                                bpm_val = est
+                except Exception:
+                    pass
+
             if bpm_val > 0:
                 st.session_state.bpm = bpm_val
                 analysis = analyze_heart_rate(bpm_val)
@@ -1563,9 +1606,10 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                     "analysis":    analysis,
                     "signal_data": sig_filtered,
                 }
-                # Mark complete once we have enough samples for a stable reading
-                if len(st.session_state.data_buffer) >= 10:
-                    st.session_state.test_complete = True
+
+            # Enable Save after just 5 processed frames
+            if n_samp >= 5:
+                st.session_state.test_complete = True
 
         # ── Show sample progress ──────────────────────────────────────────────
         n = len(st.session_state.data_buffer)
