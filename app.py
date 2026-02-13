@@ -285,103 +285,32 @@ section[data-testid="stSidebar"]{display:none}
 
 # ── AOS + Theme toggle via components.html (correct way in Streamlit) ─────────
 # This runs in the parent document context through postMessage
-html_code = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
-</head>
-<body style="margin:0;padding:0;background:transparent;overflow:hidden;height:0">
-<script>
-(function(){
-  var KEY = 'cs_theme';
-  var theme = localStorage.getItem(KEY) || 'dark';
+# ── Replace your current landing block with this ─────────────────────────────
+if pg == "landing":
+    render_nav()   # keep your navbar if you like it
 
-  function applyTheme(t){
-    theme = t;
-    localStorage.setItem(KEY, t);
-    try {
-      var p = window.parent.document;
-      p.documentElement.setAttribute('data-theme', t);
-      [].forEach.call(p.querySelectorAll('.stApp,body'), function(el){
-        el.setAttribute('data-theme', t);
-      });
-      var isDark = t === 'dark';
-      [].forEach.call(p.querySelectorAll('.stApp'), function(el){
-        el.style.background = isDark
-          ? 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),hsl(222,58%,5%)'
-          : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
-      });
-      var btn = p.getElementById('cs-theme-btn');
-      if(btn) btn.textContent = (t === 'dark') ? '\\u2600\\uFE0F' : '\\uD83C\\uDF19';
-    } catch(e){}
-  }
+    st.markdown("""
+    <div style="text-align:center; padding: 4rem 1rem; min-height:70vh;">
+        <h1 style="font-size:4rem; margin-bottom:1rem;">❤️ CardioSecure</h1>
+        <p style="font-size:1.3rem; color:#888; max-width:700px; margin:0 auto 2rem;">
+            Hybrid-Encrypted Heart Rate Monitor using rPPG + AES-256-GCM
+        </p>
+        
+        <div style="margin:2rem 0;">
+    """, unsafe_allow_html=True)
 
-  function injectBtn(){
-    try {
-      var p = window.parent.document;
-      if(p.getElementById('cs-theme-btn')) return;
-      var btn = p.createElement('button');
-      btn.id = 'cs-theme-btn';
-      btn.title = 'Toggle light / dark mode';
-      btn.textContent = (theme === 'dark') ? '\\u2600\\uFE0F' : '\\uD83C\\uDF19';
-      btn.onclick = function(){ applyTheme(theme === 'dark' ? 'light' : 'dark'); };
-      p.body.appendChild(btn);
-    } catch(e){}
-  }
+    if st.button("🚀 Get Started →", type="primary", use_container_width=True, key="landing_start"):
+        go("login")
 
-  function initAOS(){
-    try {
-      var p = window.parent;
-      if(p.AOS){
-        p.AOS.init({duration:700,easing:'cubic-bezier(0.23,1,0.32,1)',once:false,mirror:true,offset:60});
-        new p.MutationObserver(function(){ p.AOS.refresh(); })
-          .observe(p.document.body,{childList:true,subtree:true});
-      } else { setTimeout(initAOS, 150); }
-    } catch(e){ setTimeout(initAOS, 150); }
-  }
+    st.markdown("""
+        </div>
+        <p style="color:#666; font-size:0.95rem;">
+            Real-time webcam heart rate • End-to-end encryption • Research & educational use only
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-  function loadAOS(cb){
-    try {
-      var p = window.parent;
-      if(p.AOS){ cb(); return; }
-      var d = p.document;
-      if(!d.querySelector('link[href*="aos"]')){
-        var l=d.createElement('link');l.rel='stylesheet';
-        l.href='https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css';
-        d.head.appendChild(l);
-      }
-      if(!d.querySelector('script[src*="aos.min"]')){
-        var s=d.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js';
-        s.onload=cb; d.head.appendChild(s);
-      } else { cb(); }
-    } catch(e){ setTimeout(function(){ loadAOS(cb); }, 200); }
-  }
-
-  function boot(){
-    applyTheme(theme);
-    injectBtn();
-    loadAOS(initAOS);
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded', boot);
-  } else { boot(); }
-  setTimeout(boot, 500);
-})();
-</script>
-</body>
-</html>
-"""
-
-# Clean UTF-8 (prevents Streamlit Cloud crash)
-html_code = html_code.encode("utf-8", "ignore").decode("utf-8")
-
-# Render
-components.html(html_code, height=0, scrolling=False)
-
+    st.stop()
 # ─────────────────────────────────────────────────────────────────────────────
 # ENCRYPTION ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
