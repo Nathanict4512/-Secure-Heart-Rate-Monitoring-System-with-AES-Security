@@ -1400,7 +1400,8 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
     with col_cam:
         st.markdown('<div class="cs-card">', unsafe_allow_html=True)
         st.markdown("### 📷 Camera Feed")
-        camera_placeholder = st.empty()
+        # Camera widget lives here when running; placeholder shown when stopped
+        cam_area = st.container()
         ctrl1, ctrl2, ctrl3 = st.columns(3)
         with ctrl1:
             start_btn = st.button("▶ Start", type="primary", use_container_width=True)
@@ -1435,391 +1436,18 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         status_placeholder = st.empty()
         signal_placeholder = st.empty()
 
-    # ── JS Camera Component → Python cv2 bridge ──────────────────────────────
-    # The browser's getUserMedia API captures frames as JPEG base64 strings.
-    # JS posts each frame to Streamlit via st.components iframe postMessage.
-    # Python receives the base64, decodes it with cv2.imdecode(), then runs
-    # the full rPPG pipeline (face detect → ROI → CHROM → Butterworth → FFT).
-    # cv2.VideoCapture(0) is NOT used — cv2 is used purely for image processing.
-
-    # Camera permission notice for Streamlit Cloud
-    st.info(
-        "📷 **Camera access required.** If the camera fails to start: "
-        "click the **camera/lock icon** in your browser's address bar → **Allow** → refresh the page. "
-        "On Streamlit Cloud this is required every session.",
-        icon=None
-    )
-
-    # Render the JS webcam component (always present, JS controls start/stop)
-    frame_b64 = st.components.v1.html(
-        """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <style>
-          * { margin:0; padding:0; box-sizing:border-box; }
-          body { background:#0A0E1A; font-family:'DM Sans',sans-serif; }
-          #container {
-            width:100%; position:relative;
-            border-radius:12px; overflow:hidden;
-            background:#0F1628;
-            border:1px solid #253358;
-          }
-          video {
-            width:100%; display:block;
-            border-radius:12px;
-            transform: scaleX(-1);   /* mirror so it feels natural */
-          }
-          canvas { display:none; }
-          #overlay {
-            position:absolute; top:0; left:0; width:100%; height:100%;
-            pointer-events:none; border-radius:12px;
-          }
-          #status-bar {
-            position:absolute; bottom:0; left:0; right:0;
-            background:linear-gradient(transparent, rgba(10,14,26,0.9));
-            padding:0.6rem 1rem;
-            display:flex; align-items:center; gap:0.6rem;
-          }
-          #dot {
-            width:8px; height:8px; border-radius:50%;
-            background:#4A5578; transition:background 0.3s;
-          }
-          #dot.active { background:#E84855;
-            animation: blink 1s ease-in-out infinite; }
-          @keyframes blink {
-            0%,100%{opacity:1} 50%{opacity:0.3}
-          }
-          #label {
-            font-size:0.72rem; color:#8A97B8;
-            letter-spacing:0.08em; text-transform:uppercase;
-          }
-          #fps-label {
-            font-size:0.68rem; color:#4A5578; margin-left:auto;
-          }
-          #placeholder {
-            height:280px; display:flex; flex-direction:column;
-            align-items:center; justify-content:center; gap:0.5rem;
-          }
-          #placeholder .icon { font-size:3rem; }
-          #placeholder .msg  { color:#8A97B8; font-size:0.88rem; }
-          #placeholder .sub  { color:#4A5578; font-size:0.72rem; }
-          #err { color:#E84855; font-size:0.78rem; padding:0.8rem;
-                 display:none; text-align:center; }
-        </style>
-        </head>
-        <body>
-        <div id="container">
-          <div id="placeholder">
-            <div class="icon">📷</div>
-            <div class="msg">Camera inactive</div>
-            <div class="sub">Press ▶ Start to begin</div>
-          </div>
-          <video id="vid" autoplay playsinline></video>
-          <canvas id="cnv"></canvas>
-          <svg id="overlay"></svg>
-          <div id="status-bar" style="display:none">
-            <div id="dot"></div>
-            <span id="label">Initialising…</span>
-            <span id="fps-label" id="fps">— fps</span>
-          </div>
-          <div id="err"></div>
-        </div>
-
-        <script>
-        // ── State ──────────────────────────────────────────────────────────────
-        let stream      = null;
-        let capturing   = false;
-        let frameTimer  = null;
-        let frameCount  = 0;
-        let lastFpsTime = performance.now();
-        let fps         = 0;
-
-        const vid    = document.getElementById('vid');
-        const cnv    = document.getElementById('cnv');
-        const ctx    = cnv.getContext('2d');
-        const dot    = document.getElementById('dot');
-        const label  = document.getElementById('label');
-        const fpsLbl = document.getElementById('fps-label');
-        const ph     = document.getElementById('placeholder');
-        const sb     = document.getElementById('status-bar');
-        const errDiv = document.getElementById('err');
-        const svg    = document.getElementById('overlay');
-
-        // ── Listen for start/stop commands from parent Streamlit frame ─────────
-        window.addEventListener('message', (e) => {
-          if (e.data === 'START_CAMERA') startCamera();
-          if (e.data === 'STOP_CAMERA')  stopCamera();
-        });
-
-        // Also expose on window for direct calls
-        window.startCamera = startCamera;
-        window.stopCamera  = stopCamera;
-
-        // ── Start webcam ───────────────────────────────────────────────────────
-        async function startCamera() {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: {
-                width:  { ideal: 640 },
-                height: { ideal: 480 },
-                frameRate: { ideal: 30 },
-                facingMode: 'user'
-              }
-            });
-            vid.srcObject = stream;
-            await vid.play();
-
-            ph.style.display  = 'none';
-            vid.style.display = 'block';
-            sb.style.display  = 'flex';
-            dot.classList.add('active');
-            label.textContent = 'Camera active — capturing';
-
-            capturing = true;
-            scheduleCapture();
-          } catch(err) {
-            const msg = err.name === 'NotAllowedError'
-              ? 'Camera permission denied. On Streamlit Cloud: click the camera icon in your browser address bar and Allow, then refresh.'
-              : err.name === 'NotFoundError'
-              ? 'No camera found on this device.'
-              : 'Camera error: ' + err.message;
-            showErr(msg);
-            label.textContent = 'Camera unavailable';
-          }
-        }
-
-        // ── Stop webcam ────────────────────────────────────────────────────────
-        function stopCamera() {
-          capturing = false;
-          if (frameTimer) clearTimeout(frameTimer);
-          if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-            stream = null;
-          }
-          vid.style.display = 'none';
-          ph.style.display  = 'flex';
-          sb.style.display  = 'none';
-          dot.classList.remove('active');
-          clearSVG();
-        }
-
-        // ── Capture loop: grab frame → JPEG base64 → send to Python ──────────
-        function scheduleCapture() {
-          if (!capturing) return;
-          frameTimer = setTimeout(captureFrame, 1000 / 15);  // 15 fps to Streamlit
-        }
-
-        function captureFrame() {
-          if (!capturing || vid.readyState < 2) { scheduleCapture(); return; }
-
-          // Match canvas to video
-          if (cnv.width !== vid.videoWidth || cnv.height !== vid.videoHeight) {
-            cnv.width  = vid.videoWidth;
-            cnv.height = vid.videoHeight;
-          }
-
-          // Draw current video frame (mirrored to match display)
-          ctx.save();
-          ctx.translate(cnv.width, 0);
-          ctx.scale(-1, 1);
-          ctx.drawImage(vid, 0, 0);
-          ctx.restore();
-
-          // Encode as JPEG base64 (quality 0.7 — fast, enough for colour signal)
-          const b64 = cnv.toDataURL('image/jpeg', 0.7)
-                         .replace('data:image/jpeg;base64,', '');
-
-          // FPS counter
-          frameCount++;
-          const now = performance.now();
-          if (now - lastFpsTime >= 1000) {
-            fps = frameCount;
-            frameCount  = 0;
-            lastFpsTime = now;
-            fpsLbl.textContent = fps + ' fps → Python';
-          }
-
-          // Send to Streamlit parent via postMessage
-          window.parent.postMessage({
-            type:   'CARDIO_FRAME',
-            frame:  b64,
-            width:  cnv.width,
-            height: cnv.height,
-            ts:     now
-          }, '*');
-
-          scheduleCapture();
-        }
-
-        // ── Draw face/ROI boxes sent back from Python ─────────────────────────
-        window.addEventListener('message', (e) => {
-          if (e.data && e.data.type === 'CARDIO_OVERLAY') {
-            drawOverlay(e.data);
-          }
-        });
-
-        function drawOverlay(data) {
-          clearSVG();
-          if (!data.face) return;
-          const scaleX = vid.clientWidth  / (cnv.width  || 640);
-          const scaleY = vid.clientHeight / (cnv.height || 480);
-
-          // Mirror x for display
-          const mirrorX = (x, w) => vid.clientWidth - (x + w) * scaleX;
-
-          // Face rect
-          const [fx,fy,fw,fh] = data.face;
-          addRect(mirrorX(fx,fw), fy*scaleY, fw*scaleX, fh*scaleY, '#00E5A0', 2);
-
-          // ROI rect
-          if (data.roi) {
-            const [rx,ry,rw,rh] = data.roi;
-            addRect(mirrorX(rx,rw), ry*scaleY, rw*scaleX, rh*scaleY, '#E84855', 1.5);
-            addText(mirrorX(rx,rw), ry*scaleY - 4, 'ROI', '#E84855');
-          }
-
-          // BPM label inside face
-          if (data.bpm > 0) {
-            addText(mirrorX(fx,fw) + 4, fy*scaleY + 22, data.bpm + ' BPM', '#00E5A0', 14);
-          }
-        }
-
-        function addRect(x,y,w,h,color,strokeWidth) {
-          const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
-          r.setAttribute('x', x); r.setAttribute('y', y);
-          r.setAttribute('width', w); r.setAttribute('height', h);
-          r.setAttribute('fill','none');
-          r.setAttribute('stroke', color);
-          r.setAttribute('stroke-width', strokeWidth);
-          r.setAttribute('rx', 4);
-          svg.appendChild(r);
-        }
-        function addText(x,y,text,color,size=11) {
-          const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-          t.setAttribute('x', x); t.setAttribute('y', y);
-          t.setAttribute('fill', color);
-          t.setAttribute('font-size', size);
-          t.setAttribute('font-family', 'DM Mono, monospace');
-          t.textContent = text;
-          svg.appendChild(t);
-        }
-        function clearSVG() {
-          while (svg.firstChild) svg.removeChild(svg.firstChild);
-        }
-
-        function showErr(msg) {
-          errDiv.style.display = 'block';
-          errDiv.textContent   = '⚠️ ' + msg;
-          ph.style.display     = 'none';
-        }
-        </script>
-        </body>
-        </html>
-        """,
-        height=340,
-    )
-
-    # ── Python: receive frames, process with cv2, update UI ──────────────────
-    # Streamlit components send data via query params trick.
-    # We use st.session_state as the shared state and a JS→Python bridge
-    # via streamlit's component value return + session polling.
-
-    # Inter-frame bridge via session state key written by JS postMessage receiver
-    # injected into the main Streamlit page (not the iframe):
-    st.markdown("""
-    <script>
-    // Receive frames from the webcam iframe and forward to Streamlit
-    // by storing the latest base64 frame in a hidden input that
-    // Streamlit can poll via query params / component value.
-    (function() {
-      let lastSent = 0;
-      const THROTTLE_MS = 67;  // ~15 fps max to Python
-
-      window.addEventListener('message', function(e) {
-        if (!e.data || e.data.type !== 'CARDIO_FRAME') return;
-        const now = Date.now();
-        if (now - lastSent < THROTTLE_MS) return;
-        lastSent = now;
-
-        // Write to a hidden input that Streamlit can read
-        let inp = document.getElementById('_cardio_frame_input');
-        if (!inp) {
-          inp = document.createElement('input');
-          inp.type = 'hidden';
-          inp.id   = '_cardio_frame_input';
-          document.body.appendChild(inp);
-        }
-        inp.value = e.data.frame + '|' + e.data.width + '|' + e.data.height;
-        inp.setAttribute('data-ts', e.data.ts);
-
-        // Store globally for Python polling
-        window._cardioFrame = {
-          b64:    e.data.frame,
-          width:  e.data.width,
-          height: e.data.height,
-          ts:     e.data.ts
-        };
-      });
-
-      // Control messages to the iframe
-      window.sendToCamera = function(msg) {
-        // Find the webcam iframe (height > 50px) not the 0-height theme iframe
-        const allIframes = document.querySelectorAll('iframe');
-        let iframe = null;
-        for (let f of allIframes) {
-          if (f.offsetHeight > 50) { iframe = f; break; }
-        }
-        if (!iframe) iframe = allIframes[0];
-        if (iframe) iframe.contentWindow.postMessage(msg, '*');
-      };
-    })();
-    </script>
-    """, unsafe_allow_html=True)
-
-    # ── Frame receiver: use st.components to get frames back from JS ──────────
-    # Pattern: JS writes frame b64 into component, Python reads it each rerun.
-    # We use a dedicated receiver component that returns the latest frame.
-
-    # Frame bridge component — returns latest frame as base64 string
-    frame_data = components.html(
-        """
-        <script>
-        // Poll for latest frame and send to Streamlit parent as component value
-        function sendFrame() {
-          if (window.parent._cardioFrame) {
-            const f = window.parent._cardioFrame;
-            // Send via Streamlit component messaging
-            window.parent.postMessage({
-              type: 'streamlit:setComponentValue',
-              value: f.b64 + '||' + f.width + '||' + f.height + '||' + f.ts
-            }, '*');
-            window.parent._cardioFrame = null;  // consumed
-          }
-          setTimeout(sendFrame, 70);
-        }
-        sendFrame();
-        </script>
-        """,
-        height=0,
-        key="frame_receiver",
-    )
-
-    # ── Process received frame through cv2 ────────────────────────────────────
+    # ── Camera input via st.camera_input (works on Streamlit Cloud) ─────────────
+    # st.camera_input handles all permissions, returns PIL image bytes directly.
+    # We then decode with cv2 and run the full rPPG pipeline.
     face_cascade = cv2.CascadeClassifier(
         cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
     )
 
-    def process_frame_b64(b64_str: str):
-        """
-        Decode a base64 JPEG string → cv2 numpy array → rPPG pipeline.
-        This is the core bridge: JS captured the frame, cv2 processes it.
-        Returns: (annotated_rgb_frame, bpm, filtered_signal, face_box, roi_box)
-        """
+    def process_frame_bytes(img_bytes: bytes):
+        """Decode image bytes → cv2 array → rPPG pipeline."""
         try:
-            img_bytes = base64.b64decode(b64_str)
-            np_arr    = np.frombuffer(img_bytes, np.uint8)
-            frame     = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # BGR numpy array
+            np_arr = np.frombuffer(img_bytes, np.uint8)
+            frame  = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             if frame is None:
                 return None, 0, [], None, None
         except Exception:
@@ -1829,22 +1457,19 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(80, 80))
 
         if len(faces) == 0:
-            # No face — still return frame so camera feed stays visible
             cv2.putText(frame, "No face detected",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (232, 72, 85), 2)
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), 0, [], None, None
 
-        face = max(faces, key=lambda f: f[2] * f[3])
+        face       = max(faces, key=lambda f: f[2] * f[3])
         x, y, w, h = face
         roi         = get_forehead_roi(face, frame.shape)
 
-        # ── Extract colour signal (green channel + CHROM) ────────────────────
         g, xs, ys = extract_color_signal(frame, roi)
         if g is not None:
             st.session_state.data_buffer.append(g)
             st.session_state.times.append(time.time())
 
-        # ── Compute BPM via FFT ───────────────────────────────────────────────
         bpm_raw, sig_filtered = calculate_heart_rate(
             list(st.session_state.data_buffer),
             list(st.session_state.times)
@@ -1859,7 +1484,6 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                 st.session_state.bpm_history
             )
 
-        # ── Draw overlays on frame ────────────────────────────────────────────
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 229, 160), 2)
         rx, ry, rw, rh = roi
         cv2.rectangle(frame, (rx, ry), (rx + rw, ry + rh), (232, 72, 85), 1)
@@ -1872,19 +1496,26 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                     (8, frame.shape[0] - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (138, 151, 184), 1)
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        return rgb, bpm, sig_filtered, (x, y, w, h), (rx, ry, rw, rh)
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), bpm, sig_filtered,                (x, y, w, h), (rx, ry, rw, rh)
 
-    # ── Poll: if frame_data came back from JS component, process it ───────────
-    if isinstance(frame_data, str) and '||' in frame_data:
-        parts = frame_data.split('||')
-        if len(parts) >= 1 and parts[0]:
-            b64 = parts[0]
-            rgb_frame, bpm_val, sig_filtered, face_box, roi_box = process_frame_b64(b64)
+    # ── st.camera_input: captures one frame per Streamlit rerun ──────────────
+    if st.session_state.running:
+        with cam_area:
+            cam_img = st.camera_input(
+                "Point your face at the camera",
+                label_visibility="collapsed",
+                key=f"cam_{len(st.session_state.data_buffer)}"
+            )
+
+        if cam_img is not None:
+            img_bytes = cam_img.getvalue()
+            rgb_frame, bpm_val, sig_filtered, face_box, roi_box = process_frame_bytes(img_bytes)
 
             if rgb_frame is not None:
-                camera_placeholder.image(rgb_frame, channels="RGB",
-                                         use_container_width=True)
+                with cam_area:
+                    st.image(rgb_frame, channels="RGB",
+                             use_container_width=True,
+                             caption=f"📸 Frame {len(st.session_state.data_buffer)}")
 
             if bpm_val > 0:
                 st.session_state.bpm = bpm_val
@@ -1897,93 +1528,21 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                 if st.session_state.running:
                     st.session_state.test_complete = True
 
-    # ── Always render BPM panel and signal chart from session state ───────────
-    bpm_val = st.session_state.bpm
-    cls     = bpm_class(bpm_val)
-    sample_count = len(st.session_state.data_buffer)
+            # Auto-rerun while running to capture next frame
+            if st.session_state.running and len(st.session_state.data_buffer) < 300:
+                time.sleep(0.07)   # ~14 fps
+                st.rerun()
+    else:
+        with cam_area:
+            st.markdown("""
+            <div style="height:280px;display:flex;flex-direction:column;align-items:center;
+                 justify-content:center;gap:0.5rem;background:var(--card2);border-radius:12px;
+                 border:1px dashed var(--border)">
+              <div style="font-size:3rem">📷</div>
+              <div style="color:var(--text2);font-size:.9rem">Camera inactive</div>
+              <div style="color:var(--text3);font-size:.75rem">Press ▶ Start to begin</div>
+            </div>""", unsafe_allow_html=True)
 
-    bpm_placeholder.markdown(f"""
-    <div class="cs-card" style="text-align:center;padding:1.5rem">
-      <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;
-           letter-spacing:0.1em;margin-bottom:0.3rem">
-           {'Heart Rate' if st.session_state.running else 'Last Reading'}</div>
-      <div class="bpm-display {cls}">{bpm_val if bpm_val else '–'}</div>
-      <div style="font-size:0.85rem;color:var(--text2);margin-top:0.3rem">BPM</div>
-      <div style="margin-top:0.6rem">
-        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:{min(sample_count/150*100,100):.0f}%;
-               background:linear-gradient(90deg,var(--accent),var(--cyan));
-               border-radius:2px;transition:width 0.3s"></div>
-        </div>
-        <div style="font-size:0.68rem;color:var(--text3);margin-top:3px">
-          {sample_count}/150 samples collected</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.session_state.last_result:
-        an   = st.session_state.last_result['analysis']
-        bcls = badge_class(an['status'])
-        status_placeholder.markdown(f"""
-        <div class="cs-card">
-          <div style="margin-bottom:0.6rem">
-            <span class="status-badge {bcls}">{an['icon']} {an['category']}</span>
-          </div>
-          <div style="font-size:0.82rem;color:var(--text2)">{an['description']}</div>
-          <div class="cs-divider"></div>
-          <div style="font-size:0.75rem;color:var(--text3)"><b>Recommendations:</b></div>
-          {''.join(f"<div style='font-size:0.75rem;color:var(--text2);margin-top:3px'>• {x}</div>" for x in an['recommendations'])}
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.session_state.data_buffer:
-            buf = list(st.session_state.data_buffer)[-80:]
-            fig = go.Figure(go.Scatter(
-                y=buf, mode='lines',
-                line=dict(color='#E84855', width=1.5),
-                fill='tozeroy', fillcolor='rgba(232,72,85,0.1)'
-            ))
-            fig.update_layout(**plotly_dark(), height=130,
-                              title=dict(text="Live rPPG Signal (Green Channel)",
-                                         font=dict(size=11)))
-            signal_placeholder.plotly_chart(fig, use_container_width=True,
-                                            config={'displayModeBar': False},
-                                            key=f"live_sig_{sample_count}")
-
-    # ── JS commands: wire Start/Stop buttons to iframe ────────────────────────
-    if start_btn:
-        st.session_state.running = True
-        st.session_state.test_complete = False
-        st.session_state.data_buffer = deque(maxlen=300)
-        st.session_state.times       = deque(maxlen=300)
-        st.session_state.bpm_history = []
-        log_action(user['id'], "TEST_START", "Heart rate test initiated")
-        # Tell JS camera component to start
-        st.markdown("""
-        <script>
-        setTimeout(function(){
-          const allIframes2 = document.querySelectorAll('iframe');
-          let iframe = null;
-          for (let f of allIframes2) { if (f.offsetHeight > 50) { iframe = f; break; } }
-          if (!iframe) iframe = allIframes2[0];
-          if (iframe) iframe.contentWindow.postMessage('START_CAMERA','*');
-        }, 400);
-        </script>
-        """, unsafe_allow_html=True)
-
-    if stop_btn:
-        st.session_state.running = False
-        st.markdown("""
-        <script>
-        setTimeout(function(){
-          const allIframes2 = document.querySelectorAll('iframe');
-          let iframe = null;
-          for (let f of allIframes2) { if (f.offsetHeight > 50) { iframe = f; break; } }
-          if (!iframe) iframe = allIframes2[0];
-          if (iframe) iframe.contentWindow.postMessage('STOP_CAMERA','*');
-        }, 100);
-        </script>
-        """, unsafe_allow_html=True)
 
     if save_btn and st.session_state.test_complete and st.session_state.last_result:
         r = st.session_state.last_result
