@@ -1,64 +1,6 @@
 import streamlit as st
-import sys
 import os
-
-# ── Safe imports with clear error messages ────────────────────────────────────
-try:
-    import cv2
-except ImportError:
-    st.error("""
-    **Missing dependency: opencv-python-headless**
-
-    Make sure your `requirements.txt` contains:
-    ```
-    opencv-python-headless>=4.9.0.80
-    ```
-    And your `packages.txt` (for Streamlit Cloud) contains:
-    ```
-    libgl1-mesa-glx
-    libglib2.0-0
-    ```
-    Then redeploy / restart the app.
-    """)
-    st.stop()
-
-try:
-    import numpy as np
-except ImportError:
-    st.error("Missing: numpy. Add `numpy>=1.26.0` to requirements.txt")
-    st.stop()
-
-try:
-    from scipy import signal
-except ImportError:
-    st.error("Missing: scipy. Add `scipy>=1.12.0` to requirements.txt")
-    st.stop()
-
-try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-    from cryptography.hazmat.primitives.asymmetric import ec
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-except ImportError:
-    st.error("Missing: cryptography. Add `cryptography>=42.0.0` to requirements.txt")
-    st.stop()
-
-try:
-    import plotly.graph_objects as go
-    import plotly.express as px
-except ImportError:
-    st.error("Missing: plotly. Add `plotly>=5.19.0` to requirements.txt")
-    st.stop()
-
-try:
-    import pandas as pd
-except ImportError:
-    st.error("Missing: pandas. Add `pandas>=2.2.0` to requirements.txt")
-    st.stop()
-
-# Standard library — always available
-import streamlit.components.v1 as components
-from collections import deque
+import sys
 import time
 import sqlite3
 import hashlib
@@ -66,10 +8,31 @@ import json
 from datetime import datetime, timedelta
 import base64
 import random
-import math
+
+# ── Safe imports with error messages ─────────────────────────────────────────
+try:
+    import cv2
+except ImportError:
+    st.error("Missing: opencv-python-headless. Add to requirements.txt")
+    st.stop()
+
+try:
+    import numpy as np
+except ImportError:
+    st.error("Missing: numpy. Add to requirements.txt")
+    st.stop()
+
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+except ImportError:
+    st.error("Missing: cryptography. Add to requirements.txt")
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PAGE CONFIG
+# PAGE CONFIG & SESSION STATE
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.set_page_config(
@@ -79,3054 +42,322 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Initialize session state
+if 'page' not in st.session_state:
+    st.session_state.page = "landing"
+if 'user' not in st.session_state:
+    st.session_state.user = None
+
+# Navigation helper
+def go(page_name: str):
+    st.session_state.page = page_name
+    st.rerun()
+
 # ─────────────────────────────────────────────────────────────────────────────
-# GLOBAL CSS  (medical dark-mode, refined clinical aesthetic)
+# BASIC STYLING (reduced & stable version)
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
-@import url('https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css');
-
-/* ═══════════════════════════ DESIGN TOKENS ═══════════════════════════ */
-:root {
-  --bg:      hsl(222,58%,5%);   --bg2:     hsl(222,50%,8%);
-  --card:    hsl(222,40%,12%);  --card2:   hsl(222,35%,16%);
-  --border:  hsl(222,30%,22%);
-  --text:    hsl(220,30%,92%);  --text2:   hsl(220,15%,55%);  --text3:  hsl(222,20%,35%);
-  --accent:  hsl(355,78%,55%);  --accent2: hsl(355,78%,68%);
-  --green:   hsl(160,100%,45%); --yellow:  hsl(40,100%,70%);
-  --cyan:    hsl(195,100%,50%); --purple:  hsl(265,70%,60%);
-  --glow:    hsla(355,78%,55%,.3);
-  --r: .75rem;
-}
-[data-theme="light"] {
-  --bg:     hsl(220,20%,97%);  --bg2:    hsl(220,20%,93%);
-  --card:   hsl(0,0%,100%);    --card2:  hsl(220,20%,95%);
-  --border: hsl(220,20%,84%);
-  --text:   hsl(222,40%,12%);  --text2:  hsl(222,20%,45%);  --text3: hsl(222,15%,65%);
-  --accent: hsl(355,78%,48%);  --accent2:hsl(355,78%,58%);
-  --green:  hsl(160,70%,35%);  --yellow: hsl(40,80%,42%);
-  --cyan:   hsl(195,80%,38%);  --purple: hsl(265,55%,48%);
-  --glow:   hsla(355,78%,48%,.2);
-}
-
-/* ═══════════════════════════ BASE ═══════════════════════════ */
-html,body,[class*="css"],.stApp {
-  font-family:'DM Sans',sans-serif;
-  background:var(--bg) !important;
-  color:var(--text) !important;
-}
-[data-theme="light"] .stApp {
-  background:radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.04) 0%,transparent 50%),hsl(220,20%,97%) !important;
-}
-#MainMenu,footer,header{visibility:hidden}
-.stDeployButton{display:none}
-section[data-testid="stSidebar"]{display:none}
-.block-container{padding:1.5rem 2rem 2rem !important;max-width:1400px !important}
-
-/* ═══════════════════════════ CARDS ═══════════════════════════ */
-.cs-card {
-  background:var(--card);border:1px solid var(--border);
-  border-radius:16px;padding:1.5rem;margin-bottom:1rem;
-  box-shadow:0 4px 24px rgba(0,0,0,.3);
-  transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s ease;
-}
-.cs-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.45)}
-[data-theme="light"] .cs-card{background:white;border-color:var(--border);box-shadow:0 2px 16px rgba(0,0,0,.08)}
-.metric-card {
-  background:var(--card2);border:1px solid var(--border);border-radius:12px;
-  padding:1.2rem;text-align:center;
-  transition:transform .25s cubic-bezier(.23,1,.32,1),border-color .25s,box-shadow .25s;
-}
-.metric-card:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 12px 32px rgba(0,0,0,.5)}
-[data-theme="light"] .metric-card{background:var(--card2);border-color:var(--border)}
-
-/* ═══════════════════════════ NAV ═══════════════════════════ */
-.cs-nav {
-  background:linear-gradient(90deg,var(--card),var(--card2));
-  border-bottom:1px solid var(--border);border-radius:0;
-  padding:.8rem 1.5rem;display:flex;align-items:center;
-  justify-content:space-between;margin-bottom:1.5rem;
-  box-shadow:0 4px 20px rgba(0,0,0,.4);
-  animation:slideDown .55s cubic-bezier(.23,1,.32,1) both;
-  position:sticky;top:0;z-index:100;
-}
-[data-theme="light"] .cs-nav{
-  background:linear-gradient(90deg,white,hsl(220,20%,97%));
-  border-color:var(--border);box-shadow:0 2px 12px rgba(0,0,0,.1);
-}
-
-/* ═══════════════════════════ TYPOGRAPHY ═══════════════════════════ */
-.section-header{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--text);margin-bottom:.3rem}
-.section-sub{font-size:.85rem;color:var(--text2);margin-bottom:1.2rem}
-.gradient-text{
-  background:linear-gradient(135deg,var(--accent2) 0%,var(--accent) 45%,var(--cyan) 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-.metric-value{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;color:var(--accent)}
-.metric-label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}
-.metric-sub{font-size:.7rem;color:var(--text3);margin-top:.2rem}
-
-/* ═══════════════════════════ BPM ═══════════════════════════ */
-@keyframes pulse-text{0%,100%{opacity:1}50%{opacity:.7}}
-@keyframes heartbeat-ring{0%{box-shadow:0 0 0 0 hsla(355,78%,55%,.5)}50%{box-shadow:0 0 0 18px hsla(355,78%,55%,0)}100%{box-shadow:0 0 0 0 hsla(355,78%,55%,0)}}
-.bpm-display{
-  font-family:'DM Serif Display',serif;font-size:6rem;line-height:1;
-  display:inline-block;border-radius:50%;padding:.2rem 1rem;
-  animation:pulse-text 1.5s ease-in-out infinite,heartbeat-ring 1.5s ease-out infinite;
-}
-.bpm-normal{color:var(--green)} .bpm-warning{color:var(--yellow)} .bpm-danger{color:var(--accent)}
-
-/* ═══════════════════════════ BADGES ═══════════════════════════ */
-.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-.badge-normal {background:hsla(160,100%,45%,.15);border:1px solid hsla(160,100%,45%,.4);color:var(--green)}
-.badge-warning{background:hsla(40,100%,70%,.15); border:1px solid hsla(40,100%,70%,.4); color:var(--yellow)}
-.badge-danger {background:hsla(355,78%,55%,.15); border:1px solid hsla(355,78%,55%,.4); color:var(--accent)}
-.badge-info   {background:hsla(195,100%,50%,.15);border:1px solid hsla(195,100%,50%,.4);color:var(--cyan)}
-
-/* ═══════════════════════════ ECG ═══════════════════════════ */
-@keyframes ecg{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
-.ecg-line{height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:ecg 2s linear infinite;margin:.5rem 0}
-
-/* ═══════════════════════════ INPUTS / BUTTONS ═══════════════════════════ */
-.stTextInput input,.stSelectbox>div,.stTextArea textarea,.stNumberInput input{
-  background:var(--bg2) !important;border:1px solid var(--border) !important;
-  border-radius:10px !important;color:var(--text) !important;font-family:'DM Sans',sans-serif !important;
-}
-.stTextInput input:focus{border-color:var(--accent) !important;box-shadow:0 0 0 2px hsla(355,78%,55%,.2) !important}
-.stButton>button{
-  background:linear-gradient(135deg,var(--accent),hsl(355,78%,38%)) !important;
-  color:white !important;border:none !important;border-radius:10px !important;
-  font-family:'DM Sans',sans-serif !important;font-weight:500 !important;
-  padding:.5rem 1.5rem !important;transition:all .2s !important;
-}
-.stButton>button:hover{transform:translateY(-1px) !important;box-shadow:0 4px 20px var(--glow) !important}
-.stButton>button[kind="secondary"]{background:var(--card) !important;border:1px solid var(--border) !important;color:var(--text) !important}
-[data-theme="light"] .stButton>button{
-  background:linear-gradient(135deg,hsl(355,78%,48%),hsl(355,78%,36%)) !important;
-  box-shadow:0 2px 12px hsla(355,78%,48%,.3) !important;
-}
-[data-theme="light"] .stTextInput input,[data-theme="light"] .stSelectbox>div>div,[data-theme="light"] .stNumberInput input{background:var(--card2) !important;color:var(--text) !important;border-color:var(--border) !important}
-
-/* ═══════════════════════════ TABS ═══════════════════════════ */
-.stTabs [data-baseweb="tab-list"]{background:var(--bg2) !important;border-radius:12px !important;padding:4px !important;gap:4px !important;border:1px solid var(--border) !important}
-.stTabs [data-baseweb="tab"]{background:transparent !important;color:var(--text2) !important;border-radius:8px !important;font-size:.85rem !important;font-weight:500 !important;padding:.5rem 1rem !important;border:none !important;transition:all .2s !important}
-.stTabs [aria-selected="true"]{background:var(--card) !important;color:var(--text) !important;border:1px solid var(--border) !important}
-[data-theme="light"] .stTabs [data-baseweb="tab-list"]{background:hsl(220,20%,93%) !important}
-[data-theme="light"] .stTabs [aria-selected="true"]{background:white !important;color:var(--text) !important}
-
-/* ═══════════════════════════ STEP PILLS ═══════════════════════════ */
-.step-pill{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;font-family:'DM Mono',monospace;font-weight:500;font-size:.85rem;margin-right:.5rem}
-.step-pill-active{background:var(--accent);color:white;animation:popIn .4s cubic-bezier(.175,.885,.32,1.275) both}
-.step-pill-done{background:var(--green);color:hsl(222,58%,5%)}
-.step-pill-todo{background:var(--card2);border:1px solid var(--border);color:var(--text3)}
-
-/* ═══════════════════════════ ENC CARDS ═══════════════════════════ */
-.enc-step-card{animation:slideDown .5s ease both}
-
-/* ═══════════════════════════ ANIMATIONS ═══════════════════════════ */
-@keyframes slideDown{from{opacity:0;transform:translateY(-24px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes popIn{0%{opacity:0;transform:scale(.88) translateY(20px)}70%{transform:scale(1.03)}100%{opacity:1;transform:scale(1) translateY(0)}}
-@keyframes heartbeat{0%,100%{transform:scale(1)}14%{transform:scale(1.15)}28%{transform:scale(1)}42%{transform:scale(1.08)}56%{transform:scale(1)}}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
-.cs-nav{animation:slideDown .55s cubic-bezier(.23,1,.32,1) both}
-
-/* ═══════════════════════════ AOS OVERRIDES ═══════════════════════════ */
-[data-aos]{pointer-events:none}
-[data-aos].aos-animate{pointer-events:auto}
-[data-aos="fade-up"]{opacity:0;transform:translateY(40px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-up"].aos-animate{opacity:1;transform:translateY(0)}
-[data-aos="fade-down"]{opacity:0;transform:translateY(-40px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-down"].aos-animate{opacity:1;transform:translateY(0)}
-[data-aos="fade-left"]{opacity:0;transform:translateX(60px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-left"].aos-animate{opacity:1;transform:translateX(0)}
-[data-aos="fade-right"]{opacity:0;transform:translateX(-60px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-right"].aos-animate{opacity:1;transform:translateX(0)}
-[data-aos="zoom-in"]{opacity:0;transform:scale(.82);transition:opacity .65s ease,transform .65s cubic-bezier(.175,.885,.32,1.275)}
-[data-aos="zoom-in"].aos-animate{opacity:1;transform:scale(1)}
-[data-aos-delay="100"]{transition-delay:100ms !important}[data-aos-delay="150"]{transition-delay:150ms !important}
-[data-aos-delay="200"]{transition-delay:200ms !important}[data-aos-delay="250"]{transition-delay:250ms !important}
-[data-aos-delay="300"]{transition-delay:300ms !important}[data-aos-delay="350"]{transition-delay:350ms !important}
-[data-aos-delay="400"]{transition-delay:400ms !important}[data-aos-delay="450"]{transition-delay:450ms !important}
-[data-aos-delay="500"]{transition-delay:500ms !important}[data-aos-delay="600"]{transition-delay:600ms !important}
-[data-aos-delay="700"]{transition-delay:700ms !important}[data-aos-delay="800"]{transition-delay:800ms !important}
-
-/* ═══════════════════════════ THEME TOGGLE BUTTON ═══════════════════════════ */
-#cs-theme-btn{
-  position:fixed;bottom:1.2rem;right:1.2rem;z-index:9999;
-  width:44px;height:44px;border-radius:50%;
-  border:1px solid var(--border);background:var(--card);color:var(--text);
-  font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 20px rgba(0,0,0,.45);
-  transition:transform .2s,box-shadow .2s,background .25s,border-color .25s;
-}
-#cs-theme-btn:hover{transform:scale(1.12);box-shadow:0 6px 28px hsla(355,78%,55%,.4)}
-[data-theme="light"] #cs-theme-btn{background:white;border-color:hsl(220,20%,84%);box-shadow:0 2px 12px rgba(0,0,0,.15)}
-
-/* ═══════════════════════════ SCROLLBAR ═══════════════════════════ */
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--bg2)}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--text3)}
-[data-theme="light"] ::-webkit-scrollbar-track{background:hsl(220,20%,93%)}
-[data-theme="light"] ::-webkit-scrollbar-thumb{background:hsl(220,20%,78%)}
-
-/* ═══════════════════════════ TRANSITIONS ═══════════════════════════ */
-*,*::before,*::after{transition:background-color .25s ease,border-color .2s ease,color .2s ease,box-shadow .25s ease !important}
-[data-aos],.bpm-display,.ecg-line,.animate-heartbeat{transition-property:opacity,transform !important}
-
-/* ═══════════════════════════ PRINT ═══════════════════════════ */
-@media print{.stButton,#cs-theme-btn{display:none !important}body{background:white !important;color:black !important}}
+    :root {
+        --bg: #0f172a;
+        --card: #1e293b;
+        --accent: #ef4444;
+        --green: #22c55e;
+        --text: #e2e8f0;
+        --text2: #94a3b8;
+    }
+    .stApp {
+        background: var(--bg);
+        color: var(--text);
+    }
+    h1, h2, h3 { color: var(--accent); }
+    .big-title {
+        font-size: 5rem;
+        text-align: center;
+        margin: 3rem 0 1rem;
+    }
+    .subtitle {
+        font-size: 1.5rem;
+        color: var(--text2);
+        text-align: center;
+        max-width: 800px;
+        margin: 0 auto 3rem;
+    }
+    .center { text-align: center; }
+    .card {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 1.8rem;
+        margin: 1.5rem 0;
+        border: 1px solid #334155;
+    }
+    footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── AOS + Theme toggle via components.html (correct way in Streamlit) ─────────
-# This runs in the parent document context through postMessage
-# ── Replace your current landing block with this ─────────────────────────────
-if pg == "landing":
-    render_nav()   # keep your navbar if you like it
-
-    st.markdown("""
-    <div style="text-align:center; padding: 4rem 1rem; min-height:70vh;">
-        <h1 style="font-size:4rem; margin-bottom:1rem;">❤️ CardioSecure</h1>
-        <p style="font-size:1.3rem; color:#888; max-width:700px; margin:0 auto 2rem;">
-            Hybrid-Encrypted Heart Rate Monitor using rPPG + AES-256-GCM
-        </p>
-        
-        <div style="margin:2rem 0;">
-    """, unsafe_allow_html=True)
-
-    if st.button("🚀 Get Started →", type="primary", use_container_width=True, key="landing_start"):
-        go("login")
-
-    st.markdown("""
-        </div>
-        <p style="color:#666; font-size:0.95rem;">
-            Real-time webcam heart rate • End-to-end encryption • Research & educational use only
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.stop()
 # ─────────────────────────────────────────────────────────────────────────────
-# ENCRYPTION ENGINE
+# DATABASE FUNCTIONS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_db_path():
+    candidates = [
+        os.path.join(os.getcwd(), "cardiosecure.db"),
+        os.path.join(os.path.expanduser("~"), "cardiosecure.db"),
+        os.path.join(tempfile.gettempdir(), "cardiosecure.db"),
+    ]
+    for path in candidates:
+        try:
+            conn = sqlite3.connect(path, timeout=5)
+            conn.close()
+            return path
+        except:
+            pass
+    return ":memory:"
+
+DB_PATH = get_db_path()
+
+def get_conn():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_conn()
+    c = conn.cursor()
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        full_name TEXT,
+        is_admin INTEGER DEFAULT 0
+    )''')
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS test_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        encrypted_data BLOB,
+        encryption_key BLOB,
+        raw_bpm REAL,
+        test_date TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )''')
+    
+    # Seed admin
+    admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
+    c.execute("INSERT OR IGNORE INTO users (username, password_hash, full_name, is_admin) VALUES (?,?,?,?)",
+              ("admin", admin_hash, "Admin User", 1))
+    
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def register_user(username, password, full_name):
+    conn = get_conn()
+    c = conn.cursor()
+    try:
+        h = hashlib.sha256(password.encode()).hexdigest()
+        c.execute("INSERT INTO users (username, password_hash, full_name) VALUES (?,?,?)",
+                  (username, h, full_name))
+        conn.commit()
+        return True, "Registered successfully"
+    except sqlite3.IntegrityError:
+        return False, "Username already exists"
+    finally:
+        conn.close()
+
+def login_user(username, password):
+    conn = get_conn()
+    c = conn.cursor()
+    h = hashlib.sha256(password.encode()).hexdigest()
+    c.execute("SELECT id, username, full_name, is_admin FROM users WHERE username=? AND password_hash=?", 
+              (username, h))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return True, dict(row)
+    return False, None
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENCRYPTION
 # ─────────────────────────────────────────────────────────────────────────────
 
 class HybridEncryption:
     @staticmethod
-    def generate_ecc_keys():
-        private_key = ec.generate_private_key(ec.SECP256R1())
-        return private_key, private_key.public_key()
-
-    @staticmethod
-    def derive_shared_key(private_key, public_key):
-        shared = private_key.exchange(ec.ECDH(), public_key)
-        return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b'handshake data').derive(shared)
-
-    @staticmethod
-    def encrypt_aes_gcm(data: str, key: bytes) -> bytes:
+    def encrypt(data: str, key: bytes = None) -> tuple[bytes, bytes]:
+        if key is None:
+            key = os.urandom(32)
         nonce = os.urandom(12)
-        return nonce + AESGCM(key).encrypt(nonce, data.encode(), None)
+        aesgcm = AESGCM(key)
+        ciphertext = aesgcm.encrypt(nonce, data.encode(), None)
+        return nonce + ciphertext, key
 
     @staticmethod
-    def decrypt_aes_gcm(enc: bytes, key: bytes) -> str:
-        return AESGCM(key).decrypt(enc[:12], enc[12:], None).decode()
+    def decrypt(enc: bytes, key: bytes) -> str:
+        nonce = enc[:12]
+        ct = enc[12:]
+        aesgcm = AESGCM(key)
+        return aesgcm.decrypt(nonce, ct, None).decode()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DATABASE  (persistent across sessions via file)
+# LANDING PAGE
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Bulletproof DB path — works locally AND on Streamlit Cloud ───────────────
-import tempfile
-
-def _probe_writable(path: str) -> bool:
-    """Return True if we can create/open an SQLite DB at path."""
-    try:
-        dir_ = os.path.dirname(path)
-        if dir_ and not os.path.exists(dir_):
-            os.makedirs(dir_, exist_ok=True)
-        conn = sqlite3.connect(path, timeout=5)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("CREATE TABLE IF NOT EXISTS _probe (x INTEGER)")
-        conn.execute("DROP TABLE IF EXISTS _probe")
-        conn.commit()
-        conn.close()
-        return True
-    except Exception:
-        return False
-
-def _get_db_path() -> str:
-    """Return a writable path for the SQLite database."""
-    try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-    except NameError:
-        script_dir = os.getcwd()
-
-    candidates = [
-        os.path.join(tempfile.gettempdir(), "cardiosecure.db"),
-        os.path.join(os.path.expanduser("~"), "cardiosecure.db"),
-        os.path.join(script_dir, "cardiosecure.db"),
-        os.path.join(os.getcwd(), "cardiosecure.db"),
-    ]
-
-    for path in candidates:
-        if _probe_writable(path):
-            return path
-
-    return ":memory:"
-
-DB_PATH = _get_db_path()
-
-def get_conn():
-    """Get a thread-safe DB connection with WAL mode enabled."""
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.row_factory = sqlite3.Row  # allows column access by name
-    return conn
-
-def _add_column_if_missing(cursor, table: str, column: str, col_def: str):
-    """Safely add a column to an existing table if it doesn't exist yet."""
-    try:
-        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
-    except sqlite3.OperationalError:
-        pass  # Column already exists — that's fine
-
-def init_database():
-    """Create tables if they don't exist and run any needed migrations."""
-    try:
-        conn = get_conn(); c = conn.cursor()
-
-        # ── Users table ────────────────────────────────────────────────────────
-        c.execute('''CREATE TABLE IF NOT EXISTS users (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            username      TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            full_name     TEXT NOT NULL,
-            age           INTEGER DEFAULT 0,
-            gender        TEXT DEFAULT "",
-            is_admin      INTEGER DEFAULT 0,
-            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-
-        # Migration: add columns that may be missing from older DB versions
-        _add_column_if_missing(c, "users", "age",    "INTEGER DEFAULT 0")
-        _add_column_if_missing(c, "users", "gender", "TEXT DEFAULT ''")
-
-        # ── Test results table ─────────────────────────────────────────────────
-        c.execute('''CREATE TABLE IF NOT EXISTS test_results (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id        INTEGER NOT NULL,
-            encrypted_data BLOB NOT NULL,
-            encryption_key BLOB NOT NULL,
-            raw_bpm        REAL,
-            raw_category   TEXT,
-            raw_timestamp  TEXT,
-            test_date      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id))''')
-
-        # Migration: add columns that may be missing
-        _add_column_if_missing(c, "test_results", "raw_bpm",       "REAL")
-        _add_column_if_missing(c, "test_results", "raw_category",  "TEXT")
-        _add_column_if_missing(c, "test_results", "raw_timestamp", "TEXT")
-
-        # ── Session log table ──────────────────────────────────────────────────
-        c.execute('''CREATE TABLE IF NOT EXISTS session_log (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id    INTEGER NOT NULL,
-            action     TEXT,
-            details    TEXT,
-            logged_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-
-        # ── Seed admin account ─────────────────────────────────────────────────
-        admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
-        c.execute("""INSERT OR IGNORE INTO users
-                     (username, password_hash, full_name, is_admin)
-                     VALUES (?, ?, ?, ?)""",
-                  ("admin", admin_hash, "System Administrator", 1))
-
-        conn.commit()
-    except Exception as e:
-        st.error(f"Database initialisation error: {e}\nDB path: {DB_PATH}")
-        raise
-    finally:
-        try: conn.close()
-        except: pass
-
-def register_user(username, password, full_name, age=0, gender=''):
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        h = hashlib.sha256(password.encode()).hexdigest()
-        c.execute("INSERT INTO users (username,password_hash,full_name,age,gender) VALUES (?,?,?,?,?)",
-                  (username, h, full_name, age, gender))
-        conn.commit()
-        return True, "Registration successful!"
-    except sqlite3.IntegrityError:
-        return False, "Username already exists."
-    except Exception as e:
-        return False, f"Database error: {e}"
-    finally:
-        if conn: conn.close()
-
-def login_user(username, password):
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        h = hashlib.sha256(password.encode()).hexdigest()
-        c.execute("""SELECT id, full_name, is_admin,
-                            COALESCE(age, 0)    AS age,
-                            COALESCE(gender, '') AS gender
-                     FROM users
-                     WHERE username=? AND password_hash=?""", (username, h))
-        r = c.fetchone()
-        if r:
-            return True, {
-                "id": r[0], "username": username,
-                "full_name": r[1], "is_admin": r[2],
-                "age": r[3],       "gender": r[4]
-            }
-        return False, None
-    except Exception as e:
-        st.error(f"Login DB error: {e} (path: {DB_PATH})")
-        return False, None
-    finally:
-        if conn: conn.close()
-
-def log_action(user_id, action, details=""):
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        c.execute("INSERT INTO session_log (user_id,action,details) VALUES (?,?,?)",
-                  (user_id, action, details))
-        conn.commit()
-    except Exception:
-        pass  # Logging failure must never crash the app
-    finally:
-        if conn: conn.close()
-
-def save_test_result(user_id, bpm, signal_data, analysis):
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        key = os.urandom(32)
-        data = {"bpm": bpm, "signal_data": signal_data[:100], "analysis": analysis,
-                "timestamp": datetime.now().isoformat()}
-        enc = HybridEncryption.encrypt_aes_gcm(json.dumps(data), key)
-        c.execute('''INSERT INTO test_results
-                   (user_id,encrypted_data,encryption_key,raw_bpm,raw_category,raw_timestamp)
-                   VALUES (?,?,?,?,?,?)''',
-                  (user_id, enc, key, bpm, analysis['category'], data['timestamp']))
-        conn.commit()
-    except Exception as e:
-        st.warning(f"Could not save result: {e}")
-    finally:
-        if conn: conn.close()
-
-def get_user_results(user_id):
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        c.execute("""SELECT id, encrypted_data, encryption_key, test_date
-                     FROM test_results WHERE user_id=?
-                     ORDER BY test_date DESC""", (user_id,))
-        rows = c.fetchall()
-    except Exception:
-        return []
-    finally:
-        if conn: conn.close()
-    out = []
-    for r in rows:
-        try:
-            dec = json.loads(HybridEncryption.decrypt_aes_gcm(bytes(r[1]), bytes(r[2])))
-            dec['test_id'] = r[0]; dec['test_date'] = r[3]
-            out.append(dec)
-        except Exception:
-            pass
-    return out
-
-def get_all_results_admin():
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        c.execute('''SELECT t.id, u.id, u.username, u.full_name,
-                            COALESCE(u.age,0) AS age,
-                            COALESCE(u.gender,"") AS gender,
-                            t.encrypted_data, t.encryption_key, t.test_date
-                     FROM test_results t JOIN users u ON t.user_id=u.id
-                     ORDER BY t.test_date DESC''')
-        rows = c.fetchall()
-    except Exception:
-        return []
-    finally:
-        if conn: conn.close()
-    out = []
-    for r in rows:
-        try:
-            dec = json.loads(HybridEncryption.decrypt_aes_gcm(bytes(r[6]), bytes(r[7])))
-            out.append({'test_id':r[0],'user_id':r[1],'username':r[2],'full_name':r[3],
-                        'age':r[4],'gender':r[5],'bpm':dec['bpm'],'test_date':r[8],
-                        'analysis':dec['analysis'],'encrypted_hex':bytes(r[6]).hex(),
-                        'key_hex':bytes(r[7]).hex()})
-        except Exception:
-            pass
-    return out
-
-def get_all_users():
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        c.execute("""SELECT id, username, full_name,
-                            COALESCE(age,0)    AS age,
-                            COALESCE(gender,"") AS gender,
-                            is_admin, created_at
-                     FROM users ORDER BY created_at DESC""")
-        rows = c.fetchall()
-        return [{'id':r[0],'username':r[1],'full_name':r[2],'age':r[3],
-                 'gender':r[4],'is_admin':r[5],'created_at':r[6]} for r in rows]
-    except Exception:
-        return []
-    finally:
-        if conn: conn.close()
-
-def get_user_results_by_id(user_id):
-    return get_user_results(user_id)
-
-def get_session_log(user_id=None, limit=50):
-    conn = None
-    try:
-        conn = get_conn(); c = conn.cursor()
-        if user_id:
-            c.execute('''SELECT l.id, u.username, l.action, l.details, l.logged_at
-                         FROM session_log l JOIN users u ON l.user_id=u.id
-                         WHERE l.user_id=? ORDER BY l.logged_at DESC LIMIT ?''',
-                      (user_id, limit))
-        else:
-            c.execute('''SELECT l.id, u.username, l.action, l.details, l.logged_at
-                         FROM session_log l JOIN users u ON l.user_id=u.id
-                         ORDER BY l.logged_at DESC LIMIT ?''', (limit,))
-        rows = c.fetchall()
-        return [{'id':r[0],'username':r[1],'action':r[2],'details':r[3],'logged_at':r[4]}
-                for r in rows]
-    except Exception:
-        return []
-    finally:
-        if conn: conn.close()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HEART RATE ENGINE  (rPPG + ML-inspired refinement)
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_forehead_roi(face, frame_shape):
-    x, y, w, h = face
-    fx = x + int(w * 0.25); fy = y + int(h * 0.08)
-    fw = int(w * 0.5);      fh = int(h * 0.18)
-    return (fx, fy, fw, fh)
-
-def get_cheek_roi(face, frame_shape):
-    x, y, w, h = face
-    lx = x + int(w * 0.05); ly = y + int(h * 0.45)
-    lw = int(w * 0.25);     lh = int(h * 0.2)
-    return (lx, ly, lw, lh)
-
-def extract_color_signal(frame, roi):
-    x, y, w, h = roi
-    if y+h > frame.shape[0] or x+w > frame.shape[1] or w <= 0 or h <= 0:
-        return None, None, None
-    patch = frame[y:y+h, x:x+w]
-    r = float(np.mean(patch[:,:,2]))
-    g = float(np.mean(patch[:,:,1]))
-    b = float(np.mean(patch[:,:,0]))
-    # CHROM method weight
-    xs = r - g
-    ys = r/2 + g/2 - b
-    return g, xs, ys
-
-def ml_refine_bpm(raw_bpm, age=0, gender='', history=[]):
-    """Simple ML-inspired refinement using contextual priors"""
-    if raw_bpm < 40 or raw_bpm > 200:
-        if history:
-            return int(np.mean(history[-5:]))
-        return 75
-    weight = 0.7
-    if history and len(history) >= 3:
-        recent_mean = np.mean(history[-3:])
-        recent_std  = np.std(history[-3:])
-        if abs(raw_bpm - recent_mean) > 2 * recent_std and recent_std > 0:
-            raw_bpm = int(0.4 * raw_bpm + 0.6 * recent_mean)
-    # Age-based prior nudge
-    if age:
-        max_hr = 220 - age
-        if raw_bpm > max_hr * 0.95:
-            raw_bpm = min(raw_bpm, int(max_hr * 0.95))
-    return int(raw_bpm)
-
-def calculate_heart_rate(data_buffer, times, use_chrom=True):
-    if len(data_buffer) < 150:
-        return 0, []
-    sig = np.array(data_buffer)
-    detrended = signal.detrend(sig)
-    fps = len(times) / max((times[-1] - times[0]), 0.01) if len(times) > 1 else 30
-    nyq = fps / 2
-    low = max(0.01, 0.67 / nyq)
-    high = min(0.99, 4.0 / nyq)
-    if low >= high:
-        return 0, []
-    b, a = signal.butter(4, [low, high], btype='band')
-    try:
-        filtered = signal.filtfilt(b, a, detrended)
-    except:
-        return 0, []
-    fft = np.fft.rfft(filtered * np.hanning(len(filtered)))
-    freqs = np.fft.rfftfreq(len(filtered), 1/fps)
-    mask = (freqs >= 0.67) & (freqs <= 4.0)
-    if not mask.any():
-        return 0, []
-    mags = np.abs(fft[mask])
-    peak = freqs[mask][np.argmax(mags)]
-    return int(peak * 60), filtered.tolist()
-
-def analyze_heart_rate(bpm):
-    if bpm < 40:
-        return {"category":"Bradycardia (Severe)","status":"danger",
-                "description":"Heart rate is critically low. Immediate medical attention advised.",
-                "icon":"🚨","color":"#E84855",
-                "recommendations":["Seek emergency care","Do not drive","Lie down and rest","Call emergency services if symptomatic"]}
-    elif 40 <= bpm < 60:
-        return {"category":"Bradycardia (Mild)","status":"warning",
-                "description":"Slightly low heart rate, common in athletes or during deep sleep.",
-                "icon":"⚠️","color":"#FFD166",
-                "recommendations":["Monitor symptoms like dizziness","Consult a cardiologist","Track over multiple readings","Common in trained athletes"]}
-    elif 60 <= bpm <= 100:
-        return {"category":"Normal Resting","status":"success",
-                "description":"Your heart rate is within the optimal healthy resting range.",
-                "icon":"✅","color":"#00E5A0",
-                "recommendations":["Maintain regular aerobic exercise","Stay hydrated (8+ glasses/day)","Manage stress with mindfulness","Get 7-9 hours of quality sleep"]}
-    elif 101 <= bpm <= 120:
-        return {"category":"Tachycardia (Mild)","status":"warning",
-                "description":"Mildly elevated rate – often caused by stress, caffeine, or exertion.",
-                "icon":"⚠️","color":"#FFD166",
-                "recommendations":["Practice deep breathing (4-7-8 method)","Reduce caffeine intake","Ensure full hydration","Avoid strenuous activity"]}
-    else:
-        return {"category":"Tachycardia (Severe)","status":"danger",
-                "description":"Heart rate is significantly above normal resting range.",
-                "icon":"🚨","color":"#E84855",
-                "recommendations":["Seek medical attention promptly","Rule out cardiac arrhythmia","Avoid stimulants completely","Record all symptoms for your doctor"]}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SESSION STATE
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ── Run DB init with visible error if it fails ───────────────────────────────
-try:
-    init_database()
-except Exception as _db_err:
-    st.error(f"""
-    **Database initialisation failed.**
-
-    **Path tried:** `{DB_PATH}`
-
-    **Error:** `{_db_err}`
-
-    **Fix:** If running on Streamlit Cloud, this is a read-only filesystem error.
-    The app writes to `/tmp/cardiosecure.db` automatically. If you still see this,
-    check that your `packages.txt` and `requirements.txt` are correct.
-    """)
-    st.stop()
-
-defaults = {
-    "logged_in": False, "user": None, "page": "landing",
-    "theme": "dark",          # "dark" or "light"
-    "data_buffer": deque(maxlen=300),
-    "chrom_x": deque(maxlen=300),
-    "chrom_y": deque(maxlen=300),
-    "times": deque(maxlen=300),
-    "bpm": 0, "bpm_history": [], "running": False,
-    "test_complete": False, "last_result": None,
-    "enc_step": 0,            # current encryption walkthrough step
-    "enc_data": {},           # cached data for enc steps
-    "admin_selected_user": None,
-}
-for k, v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
-
-def go(page):
-    st.session_state.page = page
-    st.rerun()
-
-def logout():
-    for k in defaults:
-        st.session_state[k] = defaults[k]
-    st.session_state.page = "landing"
-    st.rerun()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
-
-def plotly_dark():
-    """Return Plotly layout config matching current light/dark theme."""
-    is_light = st.session_state.get("theme", "dark") == "light"
-    grid  = "#C8D0E0" if is_light else "#253358"
-    font_ = "#4A5578" if is_light else "#8A97B8"
-    return dict(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="DM Sans", color=font_, size=11),
-        xaxis=dict(gridcolor=grid, showgrid=True, zeroline=False),
-        yaxis=dict(gridcolor=grid, showgrid=True, zeroline=False),
-        margin=dict(l=10, r=10, t=40, b=10),
-    )
-
-def bpm_class(bpm):
-    if bpm < 40 or bpm > 120: return "bpm-danger"
-    if 40 <= bpm < 60 or 101 <= bpm <= 120: return "bpm-warning"
-    return "bpm-normal"
-
-def badge_class(status):
-    return {"success":"badge-normal","warning":"badge-warning",
-            "danger":"badge-danger","info":"badge-info"}.get(status,"badge-info")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HELPERS  (navigation + rendering utilities)
-# ─────────────────────────────────────────────────────────────────────────────
-
-LOGO_SVG_SM = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="34" height="34" style="filter:drop-shadow(0 0 8px rgba(232,72,85,.55))"><path d="M40 62C40 62 14 46 14 28C14 19 21 13 28 13C33 13 37 16 40 20C43 16 47 13 52 13C59 13 66 19 66 28C66 46 40 62 40 62Z" fill="url(#sg)"/><polyline points="16,40 22,40 25,32 28,48 32,28 36,40 40,40 44,36 48,44 52,40 64,40" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/><defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="100%" stop-color="#C62A35"/></linearGradient></defs></svg>"""
-
-LOGO_SVG_LG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="76" height="76" style="filter:drop-shadow(0 0 22px rgba(232,72,85,.6))"><path d="M40 62C40 62 14 46 14 28C14 19 21 13 28 13C33 13 37 16 40 20C43 16 47 13 52 13C59 13 66 19 66 28C66 46 40 62 40 62Z" fill="url(#lg)"/><polyline points="16,40 22,40 25,32 28,48 32,28 36,40 40,40 44,36 48,44 52,40 64,40" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="55%" stop-color="#E84855"/><stop offset="100%" stop-color="#C62A35"/></linearGradient></defs></svg>"""
-
-
-def render_nav():
-    """Sticky navbar — SVG logo, nav links, theme toggle (floating button injected via components.html)."""
-    u = st.session_state.user
-
-    if u and u.get("is_admin"):
-        nav_items = [
-            ("admin_dashboard", "🏠 Dashboard"),
-            ("monitor",         "❤️ Monitor"),
-            ("admin_users",     "👥 Users"),
-            ("all_records",     "📋 Records"),
-            ("encryption",      "🔒 Encryption Lab"),
-        ]
-    elif u:
-        nav_items = [
-            ("monitor",     "❤️ Monitor"),
-            ("results",     "📊 My Results"),
-            ("encryption",  "🔒 Encryption Lab"),
-            ("raw_data",    "📦 Data"),
-        ]
-    else:
-        nav_items = []
-
-    nav_links_html = ""
-    for pid, label in nav_items:
-        is_active = st.session_state.page == pid
-        style = ("color:var(--accent);background:hsla(355,78%,55%,.1);border-radius:8px;"
-                 if is_active else "color:var(--text2);")
-        nav_links_html += (
-            f'<span style="padding:5px 11px;font-size:.83rem;font-weight:500;cursor:pointer;'
-            f'transition:all .2s;{style}" '
-            f'class="nav-item" data-page="{pid}">{label}</span>'
-        )
-
-    user_html = ""
-    if u:
-        admin_badge = ""
-        if u.get("is_admin"):
-            admin_badge = ('<span style="color:var(--yellow);font-size:.7rem;padding:2px 8px;'
-                          'border:1px solid hsla(40,100%,70%,.3);border-radius:4px;margin-left:3px">ADMIN</span>')
-        user_html = (
-            f'<span style="color:var(--text2);font-size:.82rem">👤 {u["full_name"]}</span>'
-            f'{admin_badge}'
-            f'<span style="color:var(--text3);margin:0 4px">|</span>'
-        )
-
-    st.markdown(f"""
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
-    <div class="cs-nav" id="cs-navbar">
-      <div style="display:flex;align-items:center;gap:.65rem;flex-shrink:0">
-        <div style="animation:heartbeat 1.5s ease-in-out infinite;display:flex">
-          {LOGO_SVG_SM}
-        </div>
-        <div>
-          <div style="font-family:'DM Serif Display',serif;font-size:1.05rem;
-                      color:var(--text);line-height:1">CardioSecure</div>
-          <div style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
-                      text-transform:uppercase;margin-top:1px">Heart Rate Monitor</div>
-        </div>
-        <span style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;
-                     padding:2px 6px;border:1px solid var(--border);border-radius:4px;
-                     margin-left:2px;align-self:flex-start;margin-top:3px">v2.0</span>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:.2rem" id="cs-nav-links">
-        {nav_links_html}
-      </div>
-
-      <div style="display:flex;align-items:center;gap:.6rem;flex-shrink:0">
-        {user_html}
-        <span style="color:var(--text2);font-size:.78rem">
-          {datetime.now().strftime("%d %b %Y")}</span>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-    # Sign In button for unauthenticated pages (landing / login)
-    if not u:
-        if st.session_state.page == "landing":
-            _, cb, _ = st.columns([5, 1, 0.3])
-            with cb:
-                if st.button("Sign In", key="nav_signin", type="primary"):
-                    go("login")
-        elif st.session_state.page == "login":
-            _, cb, _ = st.columns([5, 1.2, 0.3])
-            with cb:
-                if st.button("← Home", key="nav_home"):
-                    go("landing")
-    else:
-        # Sign Out button for authenticated users
-        _, cb, _ = st.columns([5, 1, 0.3])
-        with cb:
-            if st.button("Sign Out", key="nav_signout"):
-                logout()
-
-
-def render_landing():
-    """Full landing page matching the React LandingPage.tsx design."""
-    st.markdown(f"""
-    <style>
-    .landing-hero{{
-      min-height:90vh;display:flex;flex-direction:column;align-items:center;
-      justify-content:center;text-align:center;padding:2rem 1rem;
-      background:radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.08) 0%,transparent 50%),
-                 radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.06) 0%,transparent 50%);
-    }}
-    .hero-title{{
-      font-family:'DM Serif Display',serif;font-size:clamp(3rem,7vw,5rem);
-      line-height:1.05;
-      background:linear-gradient(135deg,hsl(355,78%,68%) 0%,hsl(355,78%,55%) 40%,hsl(195,100%,50%) 100%);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-      margin:1rem 0 .5rem;
-    }}
-    [data-theme="light"] .hero-title{{
-      background:linear-gradient(135deg,hsl(355,78%,55%) 0%,hsl(355,78%,42%) 40%,hsl(195,80%,38%) 100%);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-    }}
-    .hero-sub{{
-      font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;
-      color:var(--text2);margin-bottom:.6rem;
-    }}
-    .hero-desc{{color:var(--text2);max-width:520px;line-height:1.65;margin-bottom:2rem;font-size:.95rem}}
-    .hero-btns{{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}}
-    .btn-primary{{
-      padding:.8rem 2.2rem;border-radius:12px;font-weight:500;font-size:.95rem;cursor:pointer;
-      background:linear-gradient(135deg,var(--accent),hsl(355,78%,38%));
-      color:white;border:none;
-      box-shadow:0 4px 20px hsla(355,78%,55%,.3);
-      transition:transform .2s,box-shadow .2s;
-    }}
-    .btn-primary:hover{{transform:translateY(-2px);box-shadow:0 8px 28px hsla(355,78%,55%,.4)}}
-    .btn-secondary{{
-      padding:.8rem 2.2rem;border-radius:12px;font-weight:500;font-size:.95rem;cursor:pointer;
-      background:var(--card);border:1px solid var(--border);color:var(--text);
-      transition:transform .2s,border-color .2s;
-    }}
-    .btn-secondary:hover{{transform:translateY(-2px);border-color:hsla(355,78%,55%,.4)}}
-    .feature-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.2rem;margin:3rem 0}}
-    .feature-card{{
-      background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.6rem;
-      transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s;
-    }}
-    .feature-card:hover{{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.35)}}
-    [data-theme="light"] .feature-card{{background:white;box-shadow:0 2px 12px rgba(0,0,0,.07)}}
-    .how-section{{
-      background:hsla(222,40%,12%,.5);border-top:1px solid var(--border);
-      border-bottom:1px solid var(--border);padding:4rem 1rem;margin:0 -2rem;
-    }}
-    [data-theme="light"] .how-section{{background:hsla(220,20%,93%,.6)}}
-    .how-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem;max-width:900px;margin:2rem auto 0}}
-    .how-card{{
-      background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;
-      border-top-width:3px;
-    }}
-    [data-theme="light"] .how-card{{background:white}}
-    .step-num{{font-family:'DM Mono',monospace;font-size:2.5rem;font-weight:300;
-               color:var(--border);margin-bottom:.8rem;line-height:1}}
-    </style>
-
-    <!-- HERO -->
-    <div class="landing-hero">
-      <div data-aos="fade-up" style="animation:heartbeat 1.5s ease-in-out infinite;margin-bottom:1rem">
-        {LOGO_SVG_LG}
-      </div>
-      <p class="hero-sub" data-aos="fade-up" data-aos-delay="100">Hybrid-Encrypted Heart Rate Monitor</p>
-      <h1 class="hero-title" data-aos="fade-up" data-aos-delay="150">CardioSecure</h1>
-      <p class="hero-desc" data-aos="fade-up" data-aos-delay="200">
-        Real-time rPPG measurement via webcam with AES-256-GCM + ECC-SECP256R1 end-to-end encryption.
-        Research-grade cardiac monitoring, fully secured.
-      </p>
-      <div class="hero-btns" data-aos="fade-up" data-aos-delay="280">
-        <button class="btn-primary" onclick="window.parent.document.querySelector('[data-testid=stButton]').click()">
-          Get Started →</button>
-        <button class="btn-secondary"
-          onclick="window.scrollTo({{top:window.innerHeight,behavior:'smooth'}})">
-          Learn More ↓</button>
-      </div>
-      <div data-aos="fade-up" data-aos-delay="350"
-           style="margin-top:1.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text3)">
-        EBSU/PG/PhD/2021/10930 · Yunisa Sunday
-      </div>
-      <div data-aos="fade-up" data-aos-delay="400"
-           style="margin-top:.8rem;padding:4px 14px;border:1px solid hsla(195,100%,50%,.25);
-                  border-radius:20px;background:hsla(195,100%,50%,.06);font-size:.68rem;
-                  color:var(--cyan);letter-spacing:.06em">
-        🔒 AES-256-GCM + ECC-SECP256R1 End-to-End Encrypted
-      </div>
-    </div>
-
-    <div class="ecg-line"></div>
-
-    <!-- FEATURES -->
-    <div style="max-width:1100px;margin:0 auto;padding:4rem 1rem 2rem">
-      <h2 data-aos="fade-up"
-          style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text);margin-bottom:.5rem">
-        Clinical-Grade Features</h2>
-      <p data-aos="fade-up" data-aos-delay="100"
-         style="text-align:center;color:var(--text2);margin-bottom:0">
-        Powered by advanced computer vision and military-grade encryption</p>
-
-      <div class="feature-grid">
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
-          <div style="font-size:2rem;margin-bottom:.8rem">❤️</div>
-          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            rPPG Detection</h3>
-          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
-            Non-contact heart rate via CHROM method with 4th-order Butterworth bandpass and FFT analysis.</p>
-        </div>
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="150">
-          <div style="font-size:2rem;margin-bottom:.8rem">🛡️</div>
-          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            Hybrid Encryption</h3>
-          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
-            AES-256-GCM symmetric + ECC-SECP256R1 asymmetric key exchange for end-to-end security.</p>
-        </div>
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
-          <div style="font-size:2rem;margin-bottom:.8rem">📈</div>
-          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            ML Refinement</h3>
-          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
-            Contextual prior model validates against rolling history, age-ceiling estimates, temporal consistency.</p>
-        </div>
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="450">
-          <div style="font-size:2rem;margin-bottom:.8rem">⚡</div>
-          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            Real-Time Analysis</h3>
-          <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
-            Instant cardiac classification with personalised WHO-guideline recommendations.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- HOW IT WORKS -->
-    <div class="how-section">
-      <h2 data-aos="fade-up"
-          style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text)">
-        How It Works</h2>
-      <div class="how-grid">
-        <div class="how-card" data-aos="fade-up" data-aos-delay="0"
-             style="border-top-color:var(--cyan)">
-          <div class="step-num">01</div>
-          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            Face Detection</h3>
-          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-            Haar Cascade isolates forehead/cheek ROI regions with dense vasculature.</p>
-        </div>
-        <div class="how-card" data-aos="fade-up" data-aos-delay="200"
-             style="border-top-color:var(--accent)">
-          <div class="step-num">02</div>
-          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            Signal Processing</h3>
-          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-            CHROM chrominance + Butterworth bandpass (0.67–4.0 Hz) + FFT peak detection.</p>
-        </div>
-        <div class="how-card" data-aos="fade-up" data-aos-delay="400"
-             style="border-top-color:var(--green)">
-          <div class="step-num">03</div>
-          <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            Encrypt &amp; Store</h3>
-          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-            Results encrypted with AES-256-GCM, ECDH key exchange, stored in secure SQLite DB.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- FOOTER -->
-    <div style="text-align:center;padding:2rem 1rem;border-top:1px solid var(--border);margin-top:0">
-      <p style="font-size:.72rem;color:var(--text3)">
-        🔒 End-to-end encrypted with AES-256-GCM + ECC-SECP256R1 &nbsp;·&nbsp;
-        ⚠️ For research &amp; educational purposes only &nbsp;·&nbsp; Not a certified medical device
-      </p>
+if st.session_state.page == "landing":
+    st.markdown('<div class="big-title">❤️ CardioSecure</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="subtitle">
+        Real-time heart rate monitoring via webcam (rPPG)<br>
+        protected with AES-256-GCM hybrid encryption
     </div>
     """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PAGE: LOGIN / REGISTER
-# ─────────────────────────────────────────────────────────────────────────────
-
-if not st.session_state.logged_in:
-    pg = st.session_state.page
-
-    # ── Landing page ─────────────────────────────────────────────────────────
-    if pg == "landing":
-        # Minimal nav for landing (no user links)
-        render_nav()
-        # CTA button that goes to login
-        c1, c2, c3 = st.columns([1, 0.4, 1])
-        with c2:
-            if st.button("Get Started →", type="primary", use_container_width=True, key="landing_cta"):
-                go("login")
-        render_landing()
-        st.stop()
-
-    # ── Login / Register page ─────────────────────────────────────────────────
-    # Minimal nav with "← Back" feel
-    render_nav()
-    col_l, col_m, col_r = st.columns([1, 1.8, 1])
-    with col_m:
-        st.markdown(f"""
-        <div style="text-align:center;padding:2rem 0 1.5rem" data-aos="fade-down" data-aos-duration="700">
-          <div style="display:flex;align-items:center;justify-content:center;
-                      margin-bottom:.9rem;animation:heartbeat 1.5s ease-in-out infinite">
-            {LOGO_SVG_LG}
-          </div>
-          <div style="font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1.1;
-                      background:linear-gradient(135deg,#FF6B6B 0%,#E84855 45%,#00D4FF 100%);
-                      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
-            CardioSecure</div>
-          <div style="color:var(--text3);font-size:.72rem;letter-spacing:.18em;
-                      text-transform:uppercase;margin-top:.4rem">
-            Hybrid-Encrypted Heart Rate Monitor</div>
-          <div style="color:var(--text2);font-family:'DM Mono',monospace;font-size:.67rem;margin-top:.6rem">
-            EBSU/PG/PhD/2021/10930 &middot; Yunisa Sunday</div>
-          <div style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.7rem;
-                      padding:3px 13px;border:1px solid hsla(195,100%,50%,.25);border-radius:20px;
-                      background:hsla(195,100%,50%,.06);font-size:.67rem;color:var(--cyan);
-                      letter-spacing:.06em">
-            🔒 AES-256-GCM + ECC-SECP256R1
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        tab_login, tab_reg = st.tabs(["🔐 Sign In", "✍️ Create Account"])
-
-        with tab_login:
-            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-            username = st.text_input("Username", placeholder="your.username", key="li_user")
-            password = st.text_input("Password", type="password", placeholder="••••••••", key="li_pass")
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Sign In →", type="primary", use_container_width=True):
-                    if username and password:
-                        ok, ud = login_user(username, password)
-                        if ok:
-                            st.session_state.logged_in = True
-                            st.session_state.user = ud
-                            log_action(ud['id'], "LOGIN", f"Successful login from session")
-                            st.session_state.page = "admin_dashboard" if ud['is_admin'] else "monitor"
-                            st.rerun()
-                        else:
-                            st.error("Invalid credentials")
-                    else:
-                        st.warning("Please enter credentials")
-            with c2:
-                st.markdown("""
-                <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);
-                     border-radius:10px;padding:0.6rem 0.8rem;font-size:0.73rem;color:#8A97B8">
-                  <b style="color:#00D4FF">Demo Admin</b><br>
-                  User: <code style="color:#00D4FF">admin</code><br>
-                  Pass: <code style="color:#00D4FF">admin123</code>
-                </div>
-                """, unsafe_allow_html=True)
-
-        with tab_reg:
-            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                rn = st.text_input("Full Name", key="r_name")
-                ru = st.text_input("Username", key="r_user")
-            with c2:
-                ra = st.number_input("Age", min_value=10, max_value=120, value=30, key="r_age")
-                rg = st.selectbox("Gender", ["Prefer not to say","Male","Female","Other"], key="r_gen")
-            rp = st.text_input("Password (min 6 chars)", type="password", key="r_pass")
-            rp2 = st.text_input("Confirm Password", type="password", key="r_pass2")
-            if st.button("Create Account →", type="primary", use_container_width=True):
-                if rn and ru and rp:
-                    if rp == rp2:
-                        if len(rp) >= 6:
-                            ok, msg = register_user(ru, rp, rn, ra, rg)
-                            if ok:
-                                st.success(f"✅ Account created! Welcome, {rn}. Please sign in.")
-                            else:
-                                st.error(msg)
-                        else:
-                            st.warning("Password must be at least 6 characters")
-                    else:
-                        st.error("Passwords do not match")
-                else:
-                    st.warning("Please fill all required fields")
+    col = st.columns((1,2,1))[1]
+    with col:
+        if st.button("🚀 Get Started", type="primary", use_container_width=True):
+            go("login")
 
     st.markdown("""
-    <div class="cs-footer">🔒 End-to-end encrypted with AES-256-GCM + ECC-SECP256R1 ·
-    ⚠️ For research & educational purposes only · Not a certified medical device</div>
+    <div class="center" style="margin-top:4rem; color:#64748b;">
+        Research & educational prototype — not a certified medical device
+    </div>
     """, unsafe_allow_html=True)
+    
     st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LOGGED-IN LAYOUT
+# LOGIN / REGISTER
 # ─────────────────────────────────────────────────────────────────────────────
 
-render_nav()
-user = st.session_state.user
+elif st.session_state.page == "login":
+    st.title("Welcome to CardioSecure")
 
-# ──── Sidebar navigation ─────────────────────────────────────────────────────
-is_admin = user.get('is_admin', 0)
+    tab_login, tab_register = st.tabs(["Login", "Register"])
 
-with st.sidebar:
-    st.markdown("""
-    <div style="padding:1rem 0 0.5rem;text-align:center">
-      <span style="font-size:2rem">❤️</span>
-      <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:#E8EDF8;margin-top:4px">
-        CardioSecure</div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.divider()
+    with tab_login:
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Login", type="primary"):
+            success, user = login_user(username, password)
+            if success:
+                st.session_state.user = user
+                go("monitor")
+            else:
+                st.error("Invalid username or password")
 
-    user_pages = [
-        ("❤️ Heart Monitor",   "monitor"),
-        ("📊 My Results",       "results"),
-        ("🔒 Encryption Lab",   "enc_step1"),
-    ]
-    admin_pages = [
-        ("🏠 Admin Dashboard",  "admin_dashboard"),
-        ("👥 All Users",        "admin_users"),
-        ("📋 All Records",      "admin_records"),
-        ("🔒 Encryption Lab",   "enc_step1"),
-        ("📦 Raw Data & Print", "raw_data"),
-    ]
+    with tab_register:
+        reg_user = st.text_input("Choose username")
+        reg_pass = st.text_input("Choose password", type="password")
+        reg_name = st.text_input("Full name")
+        if st.button("Create Account"):
+            success, msg = register_user(reg_user, reg_pass, reg_name)
+            if success:
+                st.success(msg + " — you can now log in")
+            else:
+                st.error(msg)
 
-    pages = admin_pages if is_admin else user_pages
-    for label, pg in pages:
-        active = st.session_state.page == pg or (pg == "enc_step1" and st.session_state.page.startswith("enc_"))
-        if st.button(label, use_container_width=True,
-                     type="primary" if active else "secondary"):
-            st.session_state.page = pg
-            st.rerun()
-
-    st.divider()
-    if st.button("🚪 Sign Out", use_container_width=True, type="secondary"):
-        logout()
-
-# Show sidebar
-st.markdown("""<style>section[data-testid="stSidebar"]{display:block !important;
-background:var(--bg2) !important;border-right:1px solid var(--border) !important;}
-section[data-testid="stSidebar"] > div:first-child{padding-top:1rem !important;}
-</style>""", unsafe_allow_html=True)
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PAGE: HEART MONITOR
+# MONITOR (placeholder)
 # ─────────────────────────────────────────────────────────────────────────────
 
-if st.session_state.page == "monitor":
-    st.markdown('<div class="section-header" data-aos="fade-down">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Real-time rPPG measurement via webcam · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
+elif st.session_state.page == "monitor":
+    st.title("Heart Rate Monitor")
+    st.info("Webcam rPPG heart rate detection would appear here")
 
-    # HOW IT WORKS panel
-    with st.expander("ℹ️ How Does Webcam Heart Rate Detection Work? (Click to read)", expanded=False):
-        st.markdown("""
-<div style="padding:0.5rem">
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Current BPM", "—")
+    col2.metric("Status", "Ready")
+    col3.metric("Last reading", "No data")
 
-## 🩺 Detecting Heart Rate from a Webcam – The Science
+    if st.button("Start Measurement"):
+        st.info("Measurement simulation – real implementation uses OpenCV + signal processing")
 
-The system uses **remote Photoplethysmography (rPPG)**, a non-contact optical technique that detects tiny
-colour changes in your skin caused by blood pulsing through your capillaries.
+    if st.button("View Past Results"):
+        go("results")
 
----
+    if st.button("Encryption Lab"):
+        go("enc_demo")
 
-### 1️⃣ Face & ROI Detection
-A **Haar Cascade face detector** (OpenCV) locates your face each frame. From the face bounding box, the
-algorithm isolates the **forehead** and **cheek** regions-of-interest (ROI) — areas with thin skin and
-dense superficial vasculature, maximising the photoplethysmographic signal-to-noise ratio.
+    if st.session_state.user and st.session_state.user["is_admin"]:
+        if st.button("Admin Dashboard"):
+            go("admin")
 
----
+    if st.button("Logout"):
+        st.session_state.user = None
+        go("login")
 
-### 2️⃣ Colour Signal Extraction (CHROM Method)
-Each video frame is captured at ~30 fps. For each ROI, the average **R, G, B** channel intensities
-are measured. The **CHROM (Chrominance-based) method** is then applied:
-
-```
-Xs = R – G
-Ys = R/2 + G/2 – B
-```
-
-These two chrominance signals suppress motion artefacts and skin-tone variance far better than using
-the raw green channel alone. The **green channel** is most sensitive to haemoglobin absorption peaks.
-
----
-
-### 3️⃣ Bandpass Filtering
-Raw signals contain noise from lighting flicker, head movement, and compression artefacts.
-A **4th-order Butterworth bandpass filter** (0.67 – 4.0 Hz, i.e. 40 – 240 BPM) removes
-all frequencies outside the physiological range of human heart rate.
-
----
-
-### 4️⃣ FFT Frequency Analysis
-The filtered signal is transformed with a **Fast Fourier Transform (FFT)** to convert from the
-time domain to the frequency domain. The dominant frequency peak in the cardiac band corresponds
-to the heart rate. Multiplying by 60 converts Hz → BPM.
-
----
-
-### 5️⃣ ML Refinement Layer
-A **contextual prior model** then cross-validates the raw FFT estimate against:
-- **Recent readings** (rolling 3-sample weighted mean)
-- **Physiological age-ceiling** (220 − age = estimated max HR)
-- **Temporal consistency** — outliers more than 2σ from recent history are smoothed
-
----
-
-### 6️⃣ Conditions for Accuracy
-- 💡 Sit in **even, bright lighting** (natural or warm-white LED)
-- 🚶 Remain **still** — minimal head movement
-- 📏 Position face **30 – 60 cm** from the camera
-- ⏱️ Allow **30 seconds** of data collection before a stable reading appears
-- 🚫 Avoid backlighting, glasses glare, or heavy make-up on the forehead
-
-> ⚠️ **Disclaimer:** This is a research demonstration tool. Clinical-grade pulse oximeters should be used for any medical decision.
-
-</div>
-""", unsafe_allow_html=True)
-
-    st.divider()
-
-    col_cam, col_stats = st.columns([3, 2], gap="large")
-
-    with col_cam:
-        st.markdown('<div class="cs-card">', unsafe_allow_html=True)
-        st.markdown("### 📷 Camera Feed")
-        camera_placeholder = st.empty()
-        ctrl1, ctrl2, ctrl3 = st.columns(3)
-        with ctrl1:
-            start_btn = st.button("▶ Start", type="primary", use_container_width=True)
-        with ctrl2:
-            stop_btn  = st.button("⏹ Stop", type="secondary", use_container_width=True)
-        with ctrl3:
-            save_btn  = st.button("💾 Save Result", type="secondary", use_container_width=True,
-                                  disabled=not st.session_state.test_complete)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        if start_btn:
-            st.session_state.running = True
-            st.session_state.test_complete = False
-            st.session_state.data_buffer = deque(maxlen=300)
-            st.session_state.times = deque(maxlen=300)
-            st.session_state.bpm_history = []
-            log_action(user['id'], "TEST_START", "Heart rate test initiated")
-
-        if stop_btn:
-            st.session_state.running = False
-            if st.session_state.bpm > 0:
-                st.session_state.test_complete = True
-
-        if save_btn and st.session_state.test_complete and st.session_state.last_result:
-            r = st.session_state.last_result
-            save_test_result(user['id'], r['bpm'], list(st.session_state.data_buffer), r['analysis'])
-            log_action(user['id'], "RESULT_SAVED", f"BPM={r['bpm']}, Cat={r['analysis']['category']}")
-            st.success("✅ Result encrypted and saved to database!")
-
-    with col_stats:
-        bpm_placeholder    = st.empty()
-        status_placeholder = st.empty()
-        signal_placeholder = st.empty()
-
-    # ── JS Camera Component → Python cv2 bridge ──────────────────────────────
-    # The browser's getUserMedia API captures frames as JPEG base64 strings.
-    # JS posts each frame to Streamlit via st.components iframe postMessage.
-    # Python receives the base64, decodes it with cv2.imdecode(), then runs
-    # the full rPPG pipeline (face detect → ROI → CHROM → Butterworth → FFT).
-    # cv2.VideoCapture(0) is NOT used — cv2 is used purely for image processing.
-
-    # Render the JS webcam component (always present, JS controls start/stop)
-    frame_b64 = st.components.v1.html(
-        """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <style>
-          * { margin:0; padding:0; box-sizing:border-box; }
-          body { background:#0A0E1A; font-family:'DM Sans',sans-serif; }
-          #container {
-            width:100%; position:relative;
-            border-radius:12px; overflow:hidden;
-            background:#0F1628;
-            border:1px solid #253358;
-          }
-          video {
-            width:100%; display:block;
-            border-radius:12px;
-            transform: scaleX(-1);   /* mirror so it feels natural */
-          }
-          canvas { display:none; }
-          #overlay {
-            position:absolute; top:0; left:0; width:100%; height:100%;
-            pointer-events:none; border-radius:12px;
-          }
-          #status-bar {
-            position:absolute; bottom:0; left:0; right:0;
-            background:linear-gradient(transparent, rgba(10,14,26,0.9));
-            padding:0.6rem 1rem;
-            display:flex; align-items:center; gap:0.6rem;
-          }
-          #dot {
-            width:8px; height:8px; border-radius:50%;
-            background:#4A5578; transition:background 0.3s;
-          }
-          #dot.active { background:#E84855;
-            animation: blink 1s ease-in-out infinite; }
-          @keyframes blink {
-            0%,100%{opacity:1} 50%{opacity:0.3}
-          }
-          #label {
-            font-size:0.72rem; color:#8A97B8;
-            letter-spacing:0.08em; text-transform:uppercase;
-          }
-          #fps-label {
-            font-size:0.68rem; color:#4A5578; margin-left:auto;
-          }
-          #placeholder {
-            height:280px; display:flex; flex-direction:column;
-            align-items:center; justify-content:center; gap:0.5rem;
-          }
-          #placeholder .icon { font-size:3rem; }
-          #placeholder .msg  { color:#8A97B8; font-size:0.88rem; }
-          #placeholder .sub  { color:#4A5578; font-size:0.72rem; }
-          #err { color:#E84855; font-size:0.78rem; padding:0.8rem;
-                 display:none; text-align:center; }
-        </style>
-        </head>
-        <body>
-        <div id="container">
-          <div id="placeholder">
-            <div class="icon">📷</div>
-            <div class="msg">Camera inactive</div>
-            <div class="sub">Press ▶ Start to begin</div>
-          </div>
-          <video id="vid" autoplay playsinline></video>
-          <canvas id="cnv"></canvas>
-          <svg id="overlay"></svg>
-          <div id="status-bar" style="display:none">
-            <div id="dot"></div>
-            <span id="label">Initialising…</span>
-            <span id="fps-label" id="fps">— fps</span>
-          </div>
-          <div id="err"></div>
-        </div>
-
-        <script>
-        // ── State ──────────────────────────────────────────────────────────────
-        let stream      = null;
-        let capturing   = false;
-        let frameTimer  = null;
-        let frameCount  = 0;
-        let lastFpsTime = performance.now();
-        let fps         = 0;
-
-        const vid    = document.getElementById('vid');
-        const cnv    = document.getElementById('cnv');
-        const ctx    = cnv.getContext('2d');
-        const dot    = document.getElementById('dot');
-        const label  = document.getElementById('label');
-        const fpsLbl = document.getElementById('fps-label');
-        const ph     = document.getElementById('placeholder');
-        const sb     = document.getElementById('status-bar');
-        const errDiv = document.getElementById('err');
-        const svg    = document.getElementById('overlay');
-
-        // ── Listen for start/stop commands from parent Streamlit frame ─────────
-        window.addEventListener('message', (e) => {
-          if (e.data === 'START_CAMERA') startCamera();
-          if (e.data === 'STOP_CAMERA')  stopCamera();
-        });
-
-        // Also expose on window for direct calls
-        window.startCamera = startCamera;
-        window.stopCamera  = stopCamera;
-
-        // ── Start webcam ───────────────────────────────────────────────────────
-        async function startCamera() {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: {
-                width:  { ideal: 640 },
-                height: { ideal: 480 },
-                frameRate: { ideal: 30 },
-                facingMode: 'user'
-              }
-            });
-            vid.srcObject = stream;
-            await vid.play();
-
-            ph.style.display  = 'none';
-            vid.style.display = 'block';
-            sb.style.display  = 'flex';
-            dot.classList.add('active');
-            label.textContent = 'Camera active — capturing';
-
-            capturing = true;
-            scheduleCapture();
-          } catch(err) {
-            showErr('Camera access denied: ' + err.message +
-                    '. Please allow camera in browser settings.');
-          }
-        }
-
-        // ── Stop webcam ────────────────────────────────────────────────────────
-        function stopCamera() {
-          capturing = false;
-          if (frameTimer) clearTimeout(frameTimer);
-          if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-            stream = null;
-          }
-          vid.style.display = 'none';
-          ph.style.display  = 'flex';
-          sb.style.display  = 'none';
-          dot.classList.remove('active');
-          clearSVG();
-        }
-
-        // ── Capture loop: grab frame → JPEG base64 → send to Python ──────────
-        function scheduleCapture() {
-          if (!capturing) return;
-          frameTimer = setTimeout(captureFrame, 1000 / 15);  // 15 fps to Streamlit
-        }
-
-        function captureFrame() {
-          if (!capturing || vid.readyState < 2) { scheduleCapture(); return; }
-
-          // Match canvas to video
-          if (cnv.width !== vid.videoWidth || cnv.height !== vid.videoHeight) {
-            cnv.width  = vid.videoWidth;
-            cnv.height = vid.videoHeight;
-          }
-
-          // Draw current video frame (mirrored to match display)
-          ctx.save();
-          ctx.translate(cnv.width, 0);
-          ctx.scale(-1, 1);
-          ctx.drawImage(vid, 0, 0);
-          ctx.restore();
-
-          // Encode as JPEG base64 (quality 0.7 — fast, enough for colour signal)
-          const b64 = cnv.toDataURL('image/jpeg', 0.7)
-                         .replace('data:image/jpeg;base64,', '');
-
-          // FPS counter
-          frameCount++;
-          const now = performance.now();
-          if (now - lastFpsTime >= 1000) {
-            fps = frameCount;
-            frameCount  = 0;
-            lastFpsTime = now;
-            fpsLbl.textContent = fps + ' fps → Python';
-          }
-
-          // Send to Streamlit parent via postMessage
-          window.parent.postMessage({
-            type:   'CARDIO_FRAME',
-            frame:  b64,
-            width:  cnv.width,
-            height: cnv.height,
-            ts:     now
-          }, '*');
-
-          scheduleCapture();
-        }
-
-        // ── Draw face/ROI boxes sent back from Python ─────────────────────────
-        window.addEventListener('message', (e) => {
-          if (e.data && e.data.type === 'CARDIO_OVERLAY') {
-            drawOverlay(e.data);
-          }
-        });
-
-        function drawOverlay(data) {
-          clearSVG();
-          if (!data.face) return;
-          const scaleX = vid.clientWidth  / (cnv.width  || 640);
-          const scaleY = vid.clientHeight / (cnv.height || 480);
-
-          // Mirror x for display
-          const mirrorX = (x, w) => vid.clientWidth - (x + w) * scaleX;
-
-          // Face rect
-          const [fx,fy,fw,fh] = data.face;
-          addRect(mirrorX(fx,fw), fy*scaleY, fw*scaleX, fh*scaleY, '#00E5A0', 2);
-
-          // ROI rect
-          if (data.roi) {
-            const [rx,ry,rw,rh] = data.roi;
-            addRect(mirrorX(rx,rw), ry*scaleY, rw*scaleX, rh*scaleY, '#E84855', 1.5);
-            addText(mirrorX(rx,rw), ry*scaleY - 4, 'ROI', '#E84855');
-          }
-
-          // BPM label inside face
-          if (data.bpm > 0) {
-            addText(mirrorX(fx,fw) + 4, fy*scaleY + 22, data.bpm + ' BPM', '#00E5A0', 14);
-          }
-        }
-
-        function addRect(x,y,w,h,color,strokeWidth) {
-          const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
-          r.setAttribute('x', x); r.setAttribute('y', y);
-          r.setAttribute('width', w); r.setAttribute('height', h);
-          r.setAttribute('fill','none');
-          r.setAttribute('stroke', color);
-          r.setAttribute('stroke-width', strokeWidth);
-          r.setAttribute('rx', 4);
-          svg.appendChild(r);
-        }
-        function addText(x,y,text,color,size=11) {
-          const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-          t.setAttribute('x', x); t.setAttribute('y', y);
-          t.setAttribute('fill', color);
-          t.setAttribute('font-size', size);
-          t.setAttribute('font-family', 'DM Mono, monospace');
-          t.textContent = text;
-          svg.appendChild(t);
-        }
-        function clearSVG() {
-          while (svg.firstChild) svg.removeChild(svg.firstChild);
-        }
-
-        function showErr(msg) {
-          errDiv.style.display = 'block';
-          errDiv.textContent   = '⚠️ ' + msg;
-          ph.style.display     = 'none';
-        }
-        </script>
-        </body>
-        </html>
-        """,
-        height=320,
-        key="webcam_component",
-    )
-
-    # ── Python: receive frames, process with cv2, update UI ──────────────────
-    # Streamlit components send data via query params trick.
-    # We use st.session_state as the shared state and a JS→Python bridge
-    # via streamlit's component value return + session polling.
-
-    # Inter-frame bridge via session state key written by JS postMessage receiver
-    # injected into the main Streamlit page (not the iframe):
-    st.markdown("""
-    <script>
-    // Receive frames from the webcam iframe and forward to Streamlit
-    // by storing the latest base64 frame in a hidden input that
-    // Streamlit can poll via query params / component value.
-    (function() {
-      let lastSent = 0;
-      const THROTTLE_MS = 67;  // ~15 fps max to Python
-
-      window.addEventListener('message', function(e) {
-        if (!e.data || e.data.type !== 'CARDIO_FRAME') return;
-        const now = Date.now();
-        if (now - lastSent < THROTTLE_MS) return;
-        lastSent = now;
-
-        // Write to a hidden input that Streamlit can read
-        let inp = document.getElementById('_cardio_frame_input');
-        if (!inp) {
-          inp = document.createElement('input');
-          inp.type = 'hidden';
-          inp.id   = '_cardio_frame_input';
-          document.body.appendChild(inp);
-        }
-        inp.value = e.data.frame + '|' + e.data.width + '|' + e.data.height;
-        inp.setAttribute('data-ts', e.data.ts);
-
-        // Store globally for Python polling
-        window._cardioFrame = {
-          b64:    e.data.frame,
-          width:  e.data.width,
-          height: e.data.height,
-          ts:     e.data.ts
-        };
-      });
-
-      // Control messages to the iframe
-      window.sendToCamera = function(msg) {
-        const iframe = document.querySelector('iframe[title="webcam_component"]') ||
-                       document.querySelector('iframe');
-        if (iframe) iframe.contentWindow.postMessage(msg, '*');
-      };
-    })();
-    </script>
-    """, unsafe_allow_html=True)
-
-    # ── Frame receiver: use st.components to get frames back from JS ──────────
-    # Pattern: JS writes frame b64 into component, Python reads it each rerun.
-    # We use a dedicated receiver component that returns the latest frame.
-
-    # Frame bridge component — returns latest frame as base64 string
-    frame_data = components.html(
-        """
-        <script>
-        // Poll for latest frame and send to Streamlit parent as component value
-        function sendFrame() {
-          if (window.parent._cardioFrame) {
-            const f = window.parent._cardioFrame;
-            // Send via Streamlit component messaging
-            window.parent.postMessage({
-              type: 'streamlit:setComponentValue',
-              value: f.b64 + '||' + f.width + '||' + f.height + '||' + f.ts
-            }, '*');
-            window.parent._cardioFrame = null;  // consumed
-          }
-          setTimeout(sendFrame, 70);
-        }
-        sendFrame();
-        </script>
-        """,
-        height=0,
-        key="frame_receiver",
-    )
-
-    # ── Process received frame through cv2 ────────────────────────────────────
-    face_cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-    )
-
-    def process_frame_b64(b64_str: str):
-        """
-        Decode a base64 JPEG string → cv2 numpy array → rPPG pipeline.
-        This is the core bridge: JS captured the frame, cv2 processes it.
-        Returns: (annotated_rgb_frame, bpm, filtered_signal, face_box, roi_box)
-        """
-        try:
-            img_bytes = base64.b64decode(b64_str)
-            np_arr    = np.frombuffer(img_bytes, np.uint8)
-            frame     = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # BGR numpy array
-            if frame is None:
-                return None, 0, [], None, None
-        except Exception:
-            return None, 0, [], None, None
-
-        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(80, 80))
-
-        if len(faces) == 0:
-            # No face — still return frame so camera feed stays visible
-            cv2.putText(frame, "No face detected",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (232, 72, 85), 2)
-            return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), 0, [], None, None
-
-        face = max(faces, key=lambda f: f[2] * f[3])
-        x, y, w, h = face
-        roi         = get_forehead_roi(face, frame.shape)
-
-        # ── Extract colour signal (green channel + CHROM) ────────────────────
-        g, xs, ys = extract_color_signal(frame, roi)
-        if g is not None:
-            st.session_state.data_buffer.append(g)
-            st.session_state.times.append(time.time())
-
-        # ── Compute BPM via FFT ───────────────────────────────────────────────
-        bpm_raw, sig_filtered = calculate_heart_rate(
-            list(st.session_state.data_buffer),
-            list(st.session_state.times)
-        )
-        bpm = 0
-        if bpm_raw > 0:
-            st.session_state.bpm_history.append(bpm_raw)
-            bpm = ml_refine_bpm(
-                bpm_raw,
-                user.get('age', 0),
-                user.get('gender', ''),
-                st.session_state.bpm_history
-            )
-
-        # ── Draw overlays on frame ────────────────────────────────────────────
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 229, 160), 2)
-        rx, ry, rw, rh = roi
-        cv2.rectangle(frame, (rx, ry), (rx + rw, ry + rh), (232, 72, 85), 1)
-        cv2.putText(frame, "ROI",
-                    (rx, ry - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (232, 72, 85), 1)
-        if bpm > 0:
-            cv2.putText(frame, f"{bpm} BPM",
-                        (x, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 229, 160), 2)
-        cv2.putText(frame, f"Samples: {len(st.session_state.data_buffer)}",
-                    (8, frame.shape[0] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (138, 151, 184), 1)
-
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        return rgb, bpm, sig_filtered, (x, y, w, h), (rx, ry, rw, rh)
-
-    # ── Poll: if frame_data came back from JS component, process it ───────────
-    if isinstance(frame_data, str) and '||' in frame_data:
-        parts = frame_data.split('||')
-        if len(parts) >= 1 and parts[0]:
-            b64 = parts[0]
-            rgb_frame, bpm_val, sig_filtered, face_box, roi_box = process_frame_b64(b64)
-
-            if rgb_frame is not None:
-                camera_placeholder.image(rgb_frame, channels="RGB",
-                                         use_container_width=True)
-
-            if bpm_val > 0:
-                st.session_state.bpm = bpm_val
-                analysis = analyze_heart_rate(bpm_val)
-                st.session_state.last_result = {
-                    "bpm": bpm_val,
-                    "analysis": analysis,
-                    "signal_data": sig_filtered
-                }
-                if st.session_state.running:
-                    st.session_state.test_complete = True
-
-    # ── Always render BPM panel and signal chart from session state ───────────
-    bpm_val = st.session_state.bpm
-    cls     = bpm_class(bpm_val)
-    sample_count = len(st.session_state.data_buffer)
-
-    bpm_placeholder.markdown(f"""
-    <div class="cs-card" style="text-align:center;padding:1.5rem">
-      <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;
-           letter-spacing:0.1em;margin-bottom:0.3rem">
-           {'Heart Rate' if st.session_state.running else 'Last Reading'}</div>
-      <div class="bpm-display {cls}">{bpm_val if bpm_val else '–'}</div>
-      <div style="font-size:0.85rem;color:var(--text2);margin-top:0.3rem">BPM</div>
-      <div style="margin-top:0.6rem">
-        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:{min(sample_count/150*100,100):.0f}%;
-               background:linear-gradient(90deg,var(--accent),var(--cyan));
-               border-radius:2px;transition:width 0.3s"></div>
-        </div>
-        <div style="font-size:0.68rem;color:var(--text3);margin-top:3px">
-          {sample_count}/150 samples collected</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.session_state.last_result:
-        an   = st.session_state.last_result['analysis']
-        bcls = badge_class(an['status'])
-        status_placeholder.markdown(f"""
-        <div class="cs-card">
-          <div style="margin-bottom:0.6rem">
-            <span class="status-badge {bcls}">{an['icon']} {an['category']}</span>
-          </div>
-          <div style="font-size:0.82rem;color:var(--text2)">{an['description']}</div>
-          <div class="cs-divider"></div>
-          <div style="font-size:0.75rem;color:var(--text3)"><b>Recommendations:</b></div>
-          {''.join(f"<div style='font-size:0.75rem;color:var(--text2);margin-top:3px'>• {x}</div>" for x in an['recommendations'])}
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.session_state.data_buffer:
-            buf = list(st.session_state.data_buffer)[-80:]
-            fig = go.Figure(go.Scatter(
-                y=buf, mode='lines',
-                line=dict(color='#E84855', width=1.5),
-                fill='tozeroy', fillcolor='rgba(232,72,85,0.1)'
-            ))
-            fig.update_layout(**plotly_dark(), height=130,
-                              title=dict(text="Live rPPG Signal (Green Channel)",
-                                         font=dict(size=11)))
-            signal_placeholder.plotly_chart(fig, use_container_width=True,
-                                            config={'displayModeBar': False},
-                                            key=f"live_sig_{sample_count}")
-
-    # ── JS commands: wire Start/Stop buttons to iframe ────────────────────────
-    if start_btn:
-        st.session_state.running = True
-        st.session_state.test_complete = False
-        st.session_state.data_buffer = deque(maxlen=300)
-        st.session_state.times       = deque(maxlen=300)
-        st.session_state.bpm_history = []
-        log_action(user['id'], "TEST_START", "Heart rate test initiated")
-        # Tell JS camera component to start
-        st.markdown("""
-        <script>
-        setTimeout(function(){
-          const iframe = document.querySelector('iframe[title="webcam_component"]') ||
-                         document.querySelector('iframe');
-          if (iframe) iframe.contentWindow.postMessage('START_CAMERA','*');
-        }, 400);
-        </script>
-        """, unsafe_allow_html=True)
-
-    if stop_btn:
-        st.session_state.running = False
-        st.markdown("""
-        <script>
-        setTimeout(function(){
-          const iframe = document.querySelector('iframe[title="webcam_component"]') ||
-                         document.querySelector('iframe');
-          if (iframe) iframe.contentWindow.postMessage('STOP_CAMERA','*');
-        }, 100);
-        </script>
-        """, unsafe_allow_html=True)
-
-    if save_btn and st.session_state.test_complete and st.session_state.last_result:
-        r = st.session_state.last_result
-        save_test_result(user['id'], r['bpm'],
-                         list(st.session_state.data_buffer), r['analysis'])
-        log_action(user['id'], "RESULT_SAVED",
-                   f"BPM={r['bpm']}, Cat={r['analysis']['category']}")
-        st.success("✅ Result encrypted and saved to database!")
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PAGE: MY RESULTS
+# RESULTS (placeholder)
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "results":
-    st.markdown('<div class="section-header" data-aos="fade-down">📊 My Health History</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-sub" data-aos="fade-down" data-aos-delay="100">All readings for {user["full_name"]}</div>', unsafe_allow_html=True)
-
-    results = get_user_results(user['id'])
-
-    if not results:
-        st.markdown("""
-        <div style="text-align:center;padding:3rem;color:var(--text2)">
-          <div style="font-size:3rem;margin-bottom:1rem">📭</div>
-          <div style="font-size:1.1rem">No results yet</div>
-          <div style="font-size:0.85rem;color:var(--text3);margin-top:0.3rem">
-            Complete a heart rate test to see your history here.</div>
-        </div>""", unsafe_allow_html=True)
-    else:
-        bpms = [r['bpm'] for r in results]
-        normal_count = sum(1 for b in bpms if 60 <= b <= 100)
-
-        c1,c2,c3,c4,c5 = st.columns(5)
-        metrics = [
-            (c1, "Total Tests",   len(results),                 "All time",   0),
-            (c2, "Average BPM",   f"{np.mean(bpms):.0f}",      "Mean reading", 100),
-            (c3, "Lowest",        f"{min(bpms)}",               "BPM",          200),
-            (c4, "Highest",       f"{max(bpms)}",               "BPM",          300),
-            (c5, "Normal Reads",  f"{normal_count}/{len(bpms)}","60-100 BPM",   400),
-        ]
-        for col, label, val, sub, delay in metrics:
-            with col:
-                st.markdown(f"""
-                <div class="metric-card" data-aos="fade-up" data-aos-delay="{delay}">
-                  <div class="metric-value">{val}</div>
-                  <div class="metric-label">{label}</div>
-                  <div class="metric-sub">{sub}</div>
-                </div>""", unsafe_allow_html=True)
-
-        st.divider()
-
-        # Trend chart
-        df = pd.DataFrame(results)
-        df['test_date'] = pd.to_datetime(df['test_date'])
-        df = df.sort_values('test_date')
-        df['color'] = df['bpm'].apply(lambda b: '#00E5A0' if 60<=b<=100 else '#FFD166' if 40<=b<60 or 101<=b<=120 else '#E84855')
-
-        fig = go.Figure()
-        fig.add_hrect(y0=60, y1=100, fillcolor="rgba(0,229,160,0.07)",
-                      annotation_text="Normal Zone", annotation_position="top left",
-                      line_width=0)
-        fig.add_trace(go.Scatter(x=df['test_date'], y=df['bpm'], mode='lines+markers',
-            line=dict(color='#E84855', width=2),
-            marker=dict(size=8, color=df['color'], line=dict(width=1, color='#0A0E1A')),
-            hovertemplate='<b>%{y} BPM</b><br>%{x}<extra></extra>',
-            name='Heart Rate'))
-        fig.update_layout(**plotly_dark(), height=280,
-                          title=dict(text="Heart Rate Over Time", font=dict(size=13, color='#E8EDF8')))
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
-
-        st.divider()
-        st.markdown("### 📋 Detailed Records")
-
-        for i, r in enumerate(results):
-            an = r['analysis']
-            bcls = badge_class(an['status'])
-            with st.expander(f"📅 {r['test_date']} — {r['bpm']} BPM | {an['category']}", expanded=False):
-                c1, c2, c3 = st.columns([1,1,1])
-                with c1:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                      <div class="metric-value" style="color:{an['color']}">{r['bpm']}</div>
-                      <div class="metric-label">BPM</div>
-                    </div>""", unsafe_allow_html=True)
-                    st.markdown(f"""
-                    <div style="margin-top:0.8rem">
-                      <span class="status-badge {bcls}">{an['icon']} {an['category']}</span>
-                      <div style="font-size:0.78rem;color:var(--text2);margin-top:0.5rem">{an['description']}</div>
-                    </div>""", unsafe_allow_html=True)
-                with c2:
-                    st.markdown("**Recommendations**")
-                    for rec in an['recommendations']:
-                        st.markdown(f"<div style='font-size:0.8rem;color:var(--text2);margin:2px 0'>• {rec}</div>",
-                                    unsafe_allow_html=True)
-                with c3:
-                    fig_g = go.Figure(go.Indicator(
-                        mode="gauge+number", value=r['bpm'],
-                        gauge={'axis':{'range':[0,200],'tickcolor':'#4A5578'},
-                               'bar':{'color':an['color']},
-                               'bgcolor':'rgba(0,0,0,0)',
-                               'bordercolor':'#253358',
-                               'steps':[{'range':[0,40],'color':'rgba(232,72,85,0.15)'},
-                                        {'range':[40,60],'color':'rgba(255,209,102,0.1)'},
-                                        {'range':[60,100],'color':'rgba(0,229,160,0.1)'},
-                                        {'range':[100,120],'color':'rgba(255,209,102,0.1)'},
-                                        {'range':[120,200],'color':'rgba(232,72,85,0.1)'}]},
-                        number={'font':{'size':28,'color':an['color'],'family':'DM Mono'}},
-                        domain={'x':[0,1],'y':[0,1]}))
-                    fig_g.update_layout(paper_bgcolor='rgba(0,0,0,0)',
-                                        height=180, margin=dict(l=10,r=10,t=20,b=10),
-                                        font=dict(color='#8A97B8'))
-                    st.plotly_chart(fig_g, use_container_width=True,
-                                    config={'displayModeBar':False},
-                                    key=f"gauge_hist_{r['test_id']}")
-
-                if r.get('signal_data'):
-                    fig_s = go.Figure(go.Scatter(y=r['signal_data'], mode='lines',
-                        line=dict(color='#E84855', width=1.2), fill='tozeroy',
-                        fillcolor='rgba(232,72,85,0.07)'))
-                    fig_s.update_layout(**plotly_dark(), height=100)
-                    st.plotly_chart(fig_s, use_container_width=True,
-                                    config={'displayModeBar':False},
-                                    key=f"sig_hist_{r['test_id']}")
-
-        st.divider()
-        export_df = pd.DataFrame({'Date':[r['test_date'] for r in results],
-                                   'BPM':[r['bpm'] for r in results],
-                                   'Category':[r['analysis']['category'] for r in results],
-                                   'Status':[r['analysis']['status'] for r in results]})
-        st.download_button("⬇ Export CSV", export_df.to_csv(index=False),
-                           f"heart_data_{user['username']}.csv", "text/csv")
+    st.title("Your Test Results")
+    st.info("Past measurements would be listed here (encrypted in DB)")
+    if st.button("Back"):
+        go("monitor")
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ADMIN: DASHBOARD
+# ENCRYPTION DEMO / LAB
 # ─────────────────────────────────────────────────────────────────────────────
 
-elif st.session_state.page == "admin_dashboard" and is_admin:
-    st.markdown('<div class="section-header" data-aos="fade-down">🏠 Admin Dashboard</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">System overview · All users · Live stats</div>', unsafe_allow_html=True)
+elif st.session_state.page == "enc_demo":
+    st.title("Encryption Laboratory")
+    st.markdown("Demonstration of AES-GCM encryption used in CardioSecure")
 
-    all_results = get_all_results_admin()
-    all_users   = get_all_users()
-    non_admin   = [u for u in all_users if not u['is_admin']]
-    bpms_all    = [r['bpm'] for r in all_results] if all_results else []
+    message = st.text_area("Data to encrypt", "Heart rate: 76 BPM | Timestamp: 2025-02-13")
+    
+    if st.button("Encrypt Sample"):
+        enc, key = HybridEncryption.encrypt(message)
+        st.session_state["demo_enc"] = enc
+        st.session_state["demo_key"] = key
+        st.code("Encrypted (hex): " + enc.hex(), language="text")
+        st.code("Key (hex, never share): " + key.hex(), language="text")
 
-    c1,c2,c3,c4 = st.columns(4)
-    metrics = [
-        (c1, "Registered Users", len(non_admin), "👥", "#00D4FF",   0),
-        (c2, "Total Tests",      len(all_results), "📊", "#00E5A0",  150),
-        (c3, "Avg Heart Rate",   f"{np.mean(bpms_all):.0f} bpm" if bpms_all else "–", "💓", "#E84855", 300),
-        (c4, "Abnormal Reads",   sum(1 for b in bpms_all if not (60<=b<=100)), "⚠️", "#FFD166", 450),
-    ]
-    for col, label, val, icon, color, delay in metrics:
-        with col:
-            st.markdown(f"""
-            <div class="metric-card" data-aos="zoom-in" data-aos-delay="{delay}">
-              <div style="font-size:1.8rem">{icon}</div>
-              <div class="metric-value" style="color:{color}">{val}</div>
-              <div class="metric-label">{label}</div>
-            </div>""", unsafe_allow_html=True)
+    if "demo_enc" in st.session_state and st.button("Decrypt"):
+        try:
+            dec = HybridEncryption.decrypt(st.session_state["demo_enc"], st.session_state["demo_key"])
+            st.success("Decrypted correctly: " + dec)
+        except Exception as e:
+            st.error("Decryption failed (tampered or wrong key?)")
 
-    st.divider()
+    if st.button("Back to Monitor"):
+        go("monitor")
 
-    if all_results:
-        df_all = pd.DataFrame(all_results)
-        df_all['test_date'] = pd.to_datetime(df_all['test_date'])
-
-        c1, c2 = st.columns(2)
-        with c1:
-            # BPM distribution
-            fig_dist = go.Figure(go.Histogram(x=bpms_all, nbinsx=20,
-                marker_color='#E84855', opacity=0.8,
-                marker_line=dict(color='#0A0E1A', width=1)))
-            fig_dist.add_vrect(x0=60,x1=100,fillcolor="rgba(0,229,160,0.1)",
-                               annotation_text="Normal",line_width=0)
-            fig_dist.update_layout(**plotly_dark(), height=260,
-                                   title=dict(text="BPM Distribution",font=dict(size=12,color='#E8EDF8')),
-                                   xaxis_title="BPM", yaxis_title="Count")
-            st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar':False})
-
-        with c2:
-            cats = df_all['analysis'].apply(lambda a: a['category']).value_counts()
-            fig_pie = go.Figure(go.Pie(labels=cats.index, values=cats.values,
-                hole=0.55, marker=dict(colors=['#00E5A0','#FFD166','#E84855','#00D4FF','#9B5DE5'],
-                                       line=dict(color='#0A0E1A',width=2)),
-                textfont=dict(size=10)))
-            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)',height=260,
-                                  showlegend=True,
-                                  legend=dict(font=dict(color='#8A97B8',size=9)),
-                                  margin=dict(l=0,r=0,t=30,b=0),
-                                  title=dict(text="Category Breakdown",font=dict(size=12,color='#E8EDF8')))
-            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar':False})
-
-    st.divider()
-
-    # Recent activity
-    st.markdown("### 🕐 Recent Activity")
-    log = get_session_log(limit=10)
-    if log:
-        for li, entry in enumerate(log):
-            icon = "🔐" if "LOGIN" in entry['action'] else "💓" if "TEST" in entry['action'] else "💾"
-            delay = min(li * 60, 500)
-            st.markdown(f"""
-            <div style="display:flex;align-items:center;gap:0.8rem;padding:0.5rem 0.8rem;
-                 border-bottom:1px solid var(--border);font-size:0.82rem"
-                 data-aos="fade-right" data-aos-delay="{delay}">
-              <span>{icon}</span>
-              <span style="color:var(--cyan);font-weight:500">{entry['username']}</span>
-              <span style="color:var(--text2)">{entry['action']}</span>
-              <span style="color:var(--text3);margin-left:auto">{entry['logged_at'][:16]}</span>
-            </div>""", unsafe_allow_html=True)
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ADMIN: ALL USERS  (click → show history)
+# ADMIN DASHBOARD (stub)
 # ─────────────────────────────────────────────────────────────────────────────
 
-elif st.session_state.page == "admin_users" and is_admin:
-    st.markdown('<div class="section-header" data-aos="fade-down">👥 User Management</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Click a user to view their complete test history</div>', unsafe_allow_html=True)
-
-    all_users = get_all_users()
-    non_admin = [u for u in all_users if not u['is_admin']]
-
-    # Search
-    search = st.text_input("🔍 Search users", placeholder="Name or username…")
-    filtered = [u for u in non_admin if not search or
-                search.lower() in u['full_name'].lower() or
-                search.lower() in u['username'].lower()]
-
-    if not filtered:
-        st.info("No users found.")
-    else:
-        for i, u in enumerate(filtered):
-            delay = min(i * 80, 600)  # stagger each card, cap at 600ms
-            with st.container():
-                col_info, col_btn = st.columns([5, 1])
-                with col_info:
-                    # Quick stats
-                    user_results = get_user_results_by_id(u['id'])
-                    avg_bpm = f"{np.mean([r['bpm'] for r in user_results]):.0f}" if user_results else "–"
-                    last_date = user_results[0]['test_date'][:10] if user_results else "No tests"
-
-                    st.markdown(f"""
-                    <div class="cs-card" style="margin-bottom:0.5rem;cursor:default"
-                         data-aos="fade-right" data-aos-delay="{delay}">
-                      <div style="display:flex;align-items:center;gap:1rem">
-                        <div style="width:44px;height:44px;border-radius:50%;
-                             background:linear-gradient(135deg,#E84855,#9B5DE5);
-                             display:flex;align-items:center;justify-content:center;
-                             font-size:1.2rem;flex-shrink:0">
-                          {'👨' if u.get('gender','')=='Male' else '👩' if u.get('gender','')=='Female' else '👤'}
-                        </div>
-                        <div style="flex:1">
-                          <div style="font-weight:600;color:var(--text)">{u['full_name']}</div>
-                          <div style="font-size:0.78rem;color:var(--text2)">
-                            @{u['username']} · Age {u.get('age','?')} · {u.get('gender','—')}</div>
-                        </div>
-                        <div style="text-align:center;padding:0 1rem">
-                          <div style="font-family:'DM Mono';font-size:1.1rem;color:#00E5A0">{len(user_results)}</div>
-                          <div style="font-size:0.7rem;color:var(--text3)">Tests</div>
-                        </div>
-                        <div style="text-align:center;padding:0 1rem">
-                          <div style="font-family:'DM Mono';font-size:1.1rem;color:#E84855">{avg_bpm}</div>
-                          <div style="font-size:0.7rem;color:var(--text3)">Avg BPM</div>
-                        </div>
-                        <div style="text-align:center;padding:0 1rem">
-                          <div style="font-size:0.78rem;color:var(--text2)">{last_date}</div>
-                          <div style="font-size:0.7rem;color:var(--text3)">Last test</div>
-                        </div>
-                        <div style="font-size:0.7rem;color:var(--text3)">{u['created_at'][:10]}</div>
-                      </div>
-                    </div>""", unsafe_allow_html=True)
-                with col_btn:
-                    if st.button("View →", key=f"view_user_{u['id']}", use_container_width=True):
-                        st.session_state.admin_selected_user = u['id']
-
-            # Inline history expansion
-            if st.session_state.get('admin_selected_user') == u['id']:
-                user_results = get_user_results_by_id(u['id'])
-                if not user_results:
-                    st.info(f"No test results for {u['full_name']} yet.")
-                else:
-                    st.markdown(f"""
-                    <div style="background:var(--bg2);border:1px solid var(--border);
-                         border-radius:12px;padding:1rem 1.5rem;margin-bottom:1rem">
-                      <div style="font-family:'DM Serif Display';font-size:1.1rem;color:var(--cyan)">
-                        📋 History for {u['full_name']}</div>
-                    </div>""", unsafe_allow_html=True)
-
-                    bpms = [r['bpm'] for r in user_results]
-                    # Summary row
-                    m1,m2,m3,m4 = st.columns(4)
-                    for col, label, val in zip([m1,m2,m3,m4],
-                        ["Tests","Avg BPM","Min","Max"],
-                        [len(user_results),f"{np.mean(bpms):.0f}",min(bpms),max(bpms)]):
-                        with col:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                              <div class="metric-value">{val}</div>
-                              <div class="metric-label">{label}</div>
-                            </div>""", unsafe_allow_html=True)
-
-                    # Trend
-                    df_u = pd.DataFrame(user_results)
-                    df_u['test_date'] = pd.to_datetime(df_u['test_date'])
-                    df_u = df_u.sort_values('test_date')
-                    fig_u = go.Figure(go.Scatter(
-                        x=df_u['test_date'], y=df_u['bpm'], mode='lines+markers',
-                        line=dict(color='#00D4FF',width=2),
-                        marker=dict(size=7,color='#00D4FF')))
-                    fig_u.add_hrect(y0=60,y1=100,fillcolor="rgba(0,229,160,0.07)",line_width=0)
-                    fig_u.update_layout(**plotly_dark(), height=200)
-                    st.plotly_chart(fig_u, use_container_width=True,
-                                    config={'displayModeBar':False},
-                                    key=f"admin_trend_{u['id']}")
-
-                    # Table
-                    rows = []
-                    for r in user_results:
-                        an = r['analysis']
-                        rows.append({'Date': r['test_date'][:16],
-                                     'BPM': r['bpm'],
-                                     'Category': an['category'],
-                                     'Status': an['status'].upper()})
-                    tdf = pd.DataFrame(rows)
-                    st.dataframe(tdf, use_container_width=True, hide_index=True)
-
-                    if st.button("✖ Close", key=f"close_user_{u['id']}", type="secondary"):
-                        st.session_state.admin_selected_user = None
-                        st.rerun()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# ADMIN: ALL RECORDS
-# ─────────────────────────────────────────────────────────────────────────────
-
-elif st.session_state.page == "admin_records" and is_admin:
-    st.markdown('<div class="section-header" data-aos="fade-down">📋 All Test Records</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Every encrypted test result across all patients</div>', unsafe_allow_html=True)
-
-    results = get_all_results_admin()
-    if not results:
-        st.info("No records yet.")
-    else:
-        df = pd.DataFrame([{'Date':r['test_date'][:16],'User':r['username'],
-                             'Name':r['full_name'],'BPM':r['bpm'],
-                             'Category':r['analysis']['category'],
-                             'Status':r['analysis']['status'].upper()} for r in results])
-
-        # Filters
-        c1, c2 = st.columns(2)
-        with c1:
-            sel_user = st.selectbox("Filter by user", ["All"] + sorted(df['User'].unique().tolist()))
-        with c2:
-            sel_cat  = st.selectbox("Filter by category", ["All"] + sorted(df['Category'].unique().tolist()))
-
-        dff = df.copy()
-        if sel_user != "All": dff = dff[dff['User'] == sel_user]
-        if sel_cat  != "All": dff = dff[dff['Category'] == sel_cat]
-
-        st.markdown(f'<div data-aos="fade-up"><b>{len(dff)} records</b></div>', unsafe_allow_html=True)
-        st.dataframe(dff, use_container_width=True, hide_index=True, height=400)
-
-        st.download_button("⬇ Export All CSV", df.to_csv(index=False),
-                           "all_records.csv", "text/csv")
-
-# ─────────────────────────────────────────────────────────────────────────────
-# ENCRYPTION LAB – STEP-BY-STEP  (multi-page walkthrough)
-# ─────────────────────────────────────────────────────────────────────────────
-
-ENC_STEPS = [
-    ("enc_step1", "📝 Step 1", "Plaintext Preparation"),
-    ("enc_step2", "🔑 Step 2", "ECC Key Generation"),
-    ("enc_step3", "🔐 Step 3", "AES-256 Key & Nonce"),
-    ("enc_step4", "🛡️ Step 4", "AES-GCM Encryption"),
-    ("enc_step5", "🌐 Step 5", "Decentralised Storage"),
-    ("enc_step6", "🔓 Step 6", "Decryption & Verification"),
-]
-
-def enc_progress_bar():
-    cur = st.session_state.page
-    pages = [s[0] for s in ENC_STEPS]
-    idx = pages.index(cur) if cur in pages else 0
-    cols = st.columns(len(ENC_STEPS))
-    for i, (pg, short, name) in enumerate(ENC_STEPS):
-        with cols[i]:
-            if i < idx:
-                pill = "step-pill-done"; icon = "✓"
-            elif i == idx:
-                pill = "step-pill-active"; icon = str(i+1)
-            else:
-                pill = "step-pill-todo"; icon = str(i+1)
-            st.markdown(f"""
-            <div style="text-align:center;cursor:default">
-              <span class="step-pill {pill}">{icon}</span>
-              <div style="font-size:0.65rem;color:var(--text3);margin-top:4px">{name}</div>
-            </div>""", unsafe_allow_html=True)
-
-    st.progress((idx) / (len(ENC_STEPS) - 1) if idx else 0)
-
-def enc_nav(cur_page):
-    pages = [s[0] for s in ENC_STEPS]
-    idx = pages.index(cur_page)
-    c1, c2, c3 = st.columns([1, 3, 1])
-    with c1:
-        if idx > 0:
-            if st.button("← Previous", use_container_width=True, type="secondary"):
-                st.session_state.page = pages[idx-1]; st.rerun()
-    with c2:
-        st.markdown(f"<div style='text-align:center;color:var(--text3);font-size:0.8rem'>Step {idx+1} of {len(ENC_STEPS)}</div>",
-                    unsafe_allow_html=True)
-    with c3:
-        if idx < len(ENC_STEPS)-1:
-            if st.button("Next →", use_container_width=True, type="primary"):
-                st.session_state.page = pages[idx+1]; st.rerun()
-
-# ── Shared sample data ────────────────────────────────────────────────────────
-def get_enc_sample():
-    if 'enc_sample' not in st.session_state:
-        st.session_state.enc_sample = {
-            "patient": user['full_name'],
-            "bpm": 72,
-            "category": "Normal Resting",
-            "timestamp": datetime.now().isoformat(),
-            "device_id": "CARDIOSECURE-001",
-            "recommendations": ["Maintain regular physical activity","Stay hydrated"]
-        }
-    return st.session_state.enc_sample
-
-def get_enc_keys():
-    if 'enc_keys' not in st.session_state:
-        priv, pub = HybridEncryption.generate_ecc_keys()
-        key   = os.urandom(32)
-        nonce = os.urandom(12)
-        st.session_state.enc_keys = {'priv':priv,'pub':pub,'key':key,'nonce':nonce}
-    return st.session_state.enc_keys
-
-def get_enc_cipher():
-    if 'enc_cipher' not in st.session_state:
-        sample = get_enc_sample()
-        keys   = get_enc_keys()
-        enc = HybridEncryption.encrypt_aes_gcm(json.dumps(sample), keys['key'])
-        st.session_state.enc_cipher = enc
-    return st.session_state.enc_cipher
-
-# ────────────────────────────────────────────────────────────────────────────
-if st.session_state.page == "enc_step1":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
-    enc_progress_bar()
-    st.divider()
-
-    sample = get_enc_sample()
-
-    st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
-      <div class="enc-step-title">📝 Step 1: Plaintext Medical Data Preparation</div>
-      <div class="enc-explanation">
-        Before any encryption can occur, the raw medical data must be serialised into a
-        structured, standardised format. We use <b>JSON (JavaScript Object Notation)</b> —
-        a lightweight, human-readable text format that ensures interoperability across
-        different systems and devices.<br><br>
-        This plaintext is the <i>most sensitive state</i> of the data — it is fully readable
-        and must only ever exist in memory for the shortest possible time before encryption.
-        In a clinical system, this stage would occur entirely within a trusted execution
-        environment (TEE) to prevent memory-scraping attacks.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("**📄 Structured Data (JSON View)**")
-        st.json(sample)
-    with c2:
-        plaintext = json.dumps(sample, indent=2)
-        st.markdown("**💾 Raw Plaintext (as stored in memory)**")
-        st.code(plaintext, language="json")
-        st.markdown(f"""
-        <div style="display:flex;gap:1rem;margin-top:0.5rem">
-          <div class="metric-card" style="flex:1;padding:0.8rem">
-            <div class="metric-value" style="font-size:1.3rem">{len(plaintext)}</div>
-            <div class="metric-label">Bytes</div>
-          </div>
-          <div class="metric-card" style="flex:1;padding:0.8rem">
-            <div class="metric-value" style="font-size:1.3rem">{len(plaintext.encode('utf-8'))}</div>
-            <div class="metric-label">UTF-8 Chars</div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-    st.success("✅ Medical data successfully serialised to JSON — ready for encryption pipeline.")
-
-    st.markdown("""
-    <div style="background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.2);
-         border-radius:10px;padding:1rem;margin-top:0.8rem;font-size:0.83rem;color:var(--text2)">
-    <b style="color:var(--cyan)">🔍 Security Note:</b> In production, plaintext medical data is subject to
-    HIPAA/GDPR regulations. Data minimisation principles apply — only clinically necessary fields
-    are captured. PII (Personally Identifiable Information) is separated from health data using
-    a <b>pseudonymisation</b> layer before the encryption stage shown here.
-    </div>""", unsafe_allow_html=True)
-
-    enc_nav("enc_step1")
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-elif st.session_state.page == "enc_step2":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
-    enc_progress_bar()
-    st.divider()
-
-    keys = get_enc_keys()
-    priv_pem = keys['priv'].private_bytes(serialization.Encoding.PEM,
-                  serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
-    pub_pem  = keys['pub'].public_bytes(serialization.Encoding.PEM,
-                  serialization.PublicFormat.SubjectPublicKeyInfo).decode()
-
-    st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
-      <div class="enc-step-title">🔑 Step 2: Elliptic Curve Cryptography (ECC) Key Pair Generation</div>
-      <div class="enc-explanation">
-        ECC provides <b>asymmetric cryptography</b> — a mathematically linked pair of keys where data
-        encrypted with one can only be decrypted with the other.<br><br>
-        We use the <b>NIST P-256 (SECP256R1)</b> curve — a 256-bit elliptic curve that provides
-        128-bit security equivalent, meaning a brute-force attack would require ~2¹²⁸ operations.
-        This is the same curve used by TLS 1.3, Bitcoin, and modern IoT security protocols.<br><br>
-        The <b>Elliptic Curve Diffie-Hellman (ECDH)</b> key exchange then allows two parties to
-        derive a shared secret over an insecure channel without ever transmitting the secret itself —
-        this shared secret seeds the symmetric AES key.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("**🔒 Private Key (PKCS#8 PEM — NEVER transmit)**")
-        st.code(priv_pem, language="text")
-        st.markdown("""
-        <div style="background:rgba(232,72,85,0.07);border:1px solid rgba(232,72,85,0.2);
-             border-radius:8px;padding:0.8rem;font-size:0.78rem;color:var(--text2)">
-        ⚠️ The private key must be stored encrypted at rest, in a Hardware Security Module (HSM)
-        or Key Management Service (KMS). It must <b>never</b> leave the secure boundary.
-        </div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown("**🔓 Public Key (SubjectPublicKeyInfo PEM — freely shareable)**")
-        st.code(pub_pem, language="text")
-        st.markdown("""
-        <div style="background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.2);
-             border-radius:8px;padding:0.8rem;font-size:0.78rem;color:var(--text2)">
-        ✅ The public key can be safely distributed via a Public Key Infrastructure (PKI) or
-        embedded in X.509 certificates for identity verification.
-        </div>""", unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("### 🔄 ECDH Key Exchange Simulation")
-    st.markdown("""
-    <div class="enc-explanation" style="margin-bottom:1rem">
-    To simulate a real-world scenario where a patient device communicates with a hospital server,
-    we generate <b>two separate ECC key pairs</b> and perform an ECDH exchange. Both parties
-    independently derive the same shared secret — without ever transmitting it.
-    </div>""", unsafe_allow_html=True)
-
-    priv2, pub2 = HybridEncryption.generate_ecc_keys()
-    shared1 = HybridEncryption.derive_shared_key(keys['priv'], pub2)
-    shared2 = HybridEncryption.derive_shared_key(priv2, keys['pub'])
-
-    c1, c2, c3 = st.columns([2,1,2])
-    with c1:
-        st.markdown("""
-        <div class="metric-card" data-aos="fade-right" data-aos-delay="0">
-          <div style="font-size:0.9rem;color:var(--cyan);font-weight:600">📱 Patient Device</div>
-          <div style="font-size:0.75rem;color:var(--text2);margin-top:0.3rem">Has: own private key + server public key</div>
-          <div style="margin-top:0.5rem;font-family:'DM Mono';font-size:0.7rem;color:var(--text3)">
-            Derived secret:<br>{}</div>
-        </div>""".format(shared1.hex()[:32]+'…'), unsafe_allow_html=True)
-    with c2:
-        st.markdown("""
-        <div style="text-align:center;padding-top:1.5rem;color:var(--green);font-size:2rem">⟷</div>
-        <div style="text-align:center;font-size:0.7rem;color:var(--text3)">ECDH Exchange</div>
-        """, unsafe_allow_html=True)
-    with c3:
-        st.markdown("""
-        <div class="metric-card" data-aos="fade-left" data-aos-delay="0">
-          <div style="font-size:0.9rem;color:var(--purple);font-weight:600">🏥 Hospital Server</div>
-          <div style="font-size:0.75rem;color:var(--text2);margin-top:0.3rem">Has: own private key + patient public key</div>
-          <div style="margin-top:0.5rem;font-family:'DM Mono';font-size:0.7rem;color:var(--text3)">
-            Derived secret:<br>{}</div>
-        </div>""".format(shared2.hex()[:32]+'…'), unsafe_allow_html=True)
-
-    if shared1 == shared2:
-        st.success("✅ Both parties derived identical shared secrets without transmitting it — ECDH successful!")
-    else:
-        st.error("Key exchange mismatch (this should not occur).")
-
-    enc_nav("enc_step2")
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-elif st.session_state.page == "enc_step3":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
-    enc_progress_bar()
-    st.divider()
-
-    keys = get_enc_keys()
-
-    st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
-      <div class="enc-step-title">🔐 Step 3: AES-256 Session Key & Nonce Generation</div>
-      <div class="enc-explanation">
-        <b>AES-256 (Advanced Encryption Standard)</b> with a 256-bit key is the gold standard
-        for symmetric encryption. It operates on 128-bit data blocks through 14 rounds of
-        substitution, permutation, and mixing operations.<br><br>
-        In our hybrid scheme, AES-256 encrypts the actual medical data (fast & efficient),
-        while ECC handles authentication and key exchange (slower but asymmetric).<br><br>
-        The <b>Nonce (Number Used Once)</b> is a 96-bit random value critical to GCM mode security.
-        It ensures that even identical plaintexts encrypted with the same key produce
-        completely different ciphertexts — defeating traffic analysis attacks.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("**🔑 AES-256 Session Key (32 bytes / 256 bits)**")
-        key_hex = keys['key'].hex()
-        # Visualise as colour-coded groups
-        groups = [key_hex[i:i+8] for i in range(0, len(key_hex), 8)]
-        colours = ['#E84855','#FFD166','#00E5A0','#00D4FF','#9B5DE5','#FF6B6B','#51CF66','#74C0FC']
-        hex_html = ' '.join(f'<span style="color:{colours[j%8]}">{g}</span>' for j,g in enumerate(groups))
-        st.markdown(f"""
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
-             padding:1rem;font-family:'DM Mono';font-size:0.78rem;line-height:2">
-          {hex_html}
-        </div>""", unsafe_allow_html=True)
-
-        st.markdown("""
-        <div style="display:flex;gap:0.8rem;margin-top:0.8rem">
-          <div class="metric-card" style="flex:1">
-            <div class="metric-value" style="font-size:1.2rem">256</div>
-            <div class="metric-label">bits</div>
-          </div>
-          <div class="metric-card" style="flex:1">
-            <div class="metric-value" style="font-size:1.2rem">32</div>
-            <div class="metric-label">bytes</div>
-          </div>
-          <div class="metric-card" style="flex:1">
-            <div class="metric-value" style="font-size:1.2rem">64</div>
-            <div class="metric-label">hex chars</div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        st.markdown("""
-        <div style="margin-top:0.8rem;background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.2);
-             border-radius:8px;padding:0.8rem;font-size:0.78rem;color:var(--text2)">
-        ✅ Generated via <code>os.urandom(32)</code> — uses the OS CSPRNG (Cryptographically Secure
-        Pseudo-Random Number Generator), seeded from hardware entropy sources (CPU timing jitter,
-        mouse movement, disk I/O interrupts).
-        </div>""", unsafe_allow_html=True)
-
-    with c2:
-        st.markdown("**🎯 GCM Nonce (12 bytes / 96 bits)**")
-        nonce_hex = keys['nonce'].hex()
-        n_groups  = [nonce_hex[i:i+6] for i in range(0,len(nonce_hex),6)]
-        n_html    = ' '.join(f'<span style="color:{colours[j%8]}">{g}</span>' for j,g in enumerate(n_groups))
-        st.markdown(f"""
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
-             padding:1rem;font-family:'DM Mono';font-size:0.78rem;line-height:2">
-          {n_html}
-        </div>""", unsafe_allow_html=True)
-
-        st.markdown("""<div style="margin-top:0.8rem">
-        <div style="font-size:0.82rem;color:var(--text2);line-height:1.8">
-        <b style="color:var(--yellow)">Why 96 bits?</b><br>
-        GCM's counter mode works optimally with a 96-bit nonce. Smaller sizes require hashing
-        (HKDF) which adds overhead; larger sizes provide no security benefit.<br><br>
-        <b style="color:var(--yellow)">Critical rule:</b> Nonce + Key combination must <i>never</i>
-        repeat. With a 96-bit random nonce and 2³² encryptions, the collision probability
-        is ~0.5 × 2³²/2⁹⁶ = negligible (~10⁻²⁰).
-        </div></div>""", unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("### 🔑 HKDF Key Derivation from ECDH Shared Secret")
-    keys2 = get_enc_keys()
-    priv2, pub2 = HybridEncryption.generate_ecc_keys()
-    shared = HybridEncryption.derive_shared_key(keys2['priv'], pub2)
-    st.markdown("""
-    <div class="enc-explanation">
-    The raw ECDH output is processed through <b>HKDF (HMAC-based Key Derivation Function)</b>
-    defined in RFC 5869. This converts the raw shared secret into a uniformly distributed
-    cryptographic key, removing any structure that could be exploited.
-    </div>""", unsafe_allow_html=True)
-    st.code(f"""# Python (cryptography library)
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
-
-derived_key = HKDF(
-    algorithm = hashes.SHA256(),
-    length    = 32,          # 256-bit output
-    salt      = None,        # Random salt increases security
-    info      = b'handshake data',   # Context binding
-).derive(ecdh_shared_secret)
-
-# Result: {shared.hex()[:32]}...""", language="python")
-
-    enc_nav("enc_step3")
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-elif st.session_state.page == "enc_step4":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
-    enc_progress_bar()
-    st.divider()
-
-    sample = get_enc_sample()
-    keys   = get_enc_keys()
-    enc    = get_enc_cipher()
-
-    plaintext_bytes = json.dumps(sample).encode()
-
-    st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
-      <div class="enc-step-title">🛡️ Step 4: AES-256-GCM Authenticated Encryption</div>
-      <div class="enc-explanation">
-        AES-GCM (Galois/Counter Mode) is an <b>AEAD</b> cipher — Authenticated Encryption with
-        Associated Data. This means it simultaneously provides:<br>
-        • <b>Confidentiality</b>: the ciphertext reveals nothing about the plaintext<br>
-        • <b>Integrity</b>: any bit-flip in the ciphertext is detected with overwhelming probability<br>
-        • <b>Authenticity</b>: a 128-bit authentication tag proves the data originated from the key-holder<br><br>
-        GCM uses the AES block cipher in counter mode (CTR) for encryption, and GHASH (a polynomial
-        hash over GF(2¹²⁸)) for authentication. The encryption and authentication run in parallel,
-        making GCM extremely fast on modern hardware with AES-NI CPU instructions.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("**📄 Input: Plaintext (UTF-8)**")
-        st.code(plaintext_bytes.hex(), language="text")
-        st.caption(f"Size: {len(plaintext_bytes)} bytes")
-
-    with c2:
-        st.markdown("**🔐 Output: Ciphertext (Nonce + Cipher + Auth Tag)**")
-        st.code(enc.hex(), language="text")
-        st.caption(f"Size: {len(enc)} bytes (+{len(enc)-len(plaintext_bytes)} overhead)")
-
-    st.divider()
-
-    # Byte breakdown
-    st.markdown("### 📦 Ciphertext Structure Breakdown")
-    nonce_part   = enc[:12]
-    cipher_part  = enc[12:-16]
-    tag_part     = enc[-16:]
-
-    col_n, col_c, col_t = st.columns([1,4,1])
-    with col_n:
-        st.markdown(f"""
-        <div style="background:rgba(255,209,102,0.1);border:2px solid rgba(255,209,102,0.3);
-             border-radius:8px;padding:0.8rem;text-align:center">
-          <div style="color:var(--yellow);font-weight:600;font-size:0.8rem">NONCE</div>
-          <div style="font-family:'DM Mono';font-size:0.65rem;color:var(--text2);margin-top:4px">
-            {nonce_part.hex()[:16]}…</div>
-          <div style="color:var(--text3);font-size:0.7rem;margin-top:4px">12 bytes</div>
-        </div>""", unsafe_allow_html=True)
-    with col_c:
-        st.markdown(f"""
-        <div style="background:rgba(232,72,85,0.1);border:2px solid rgba(232,72,85,0.3);
-             border-radius:8px;padding:0.8rem;text-align:center">
-          <div style="color:var(--accent);font-weight:600;font-size:0.8rem">CIPHERTEXT</div>
-          <div style="font-family:'DM Mono';font-size:0.65rem;color:var(--text2);margin-top:4px">
-            {cipher_part.hex()[:40]}…</div>
-          <div style="color:var(--text3);font-size:0.7rem;margin-top:4px">{len(cipher_part)} bytes (same length as plaintext)</div>
-        </div>""", unsafe_allow_html=True)
-    with col_t:
-        st.markdown(f"""
-        <div style="background:rgba(0,229,160,0.1);border:2px solid rgba(0,229,160,0.3);
-             border-radius:8px;padding:0.8rem;text-align:center">
-          <div style="color:var(--green);font-weight:600;font-size:0.8rem">AUTH TAG</div>
-          <div style="font-family:'DM Mono';font-size:0.65rem;color:var(--text2);margin-top:4px">
-            {tag_part.hex()[:16]}…</div>
-          <div style="color:var(--text3);font-size:0.7rem;margin-top:4px">16 bytes</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("### 💻 Implementation Reference")
-    st.code("""from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-# Encrypt
-aesgcm    = AESGCM(key_256bit)          # Create cipher instance
-nonce     = os.urandom(12)              # 96-bit unique nonce
-ciphertext = aesgcm.encrypt(
-    nonce,                              # IV / nonce
-    plaintext.encode('utf-8'),          # Message to encrypt
-    None                                # Optional: associated data (AAD)
-)
-# ciphertext = nonce (12) + encrypted_data (n) + auth_tag (16)
-
-# Decrypt (raises InvalidTag if tampered)
-plaintext = aesgcm.decrypt(nonce, ciphertext, None)""", language="python")
-
-    enc_nav("enc_step4")
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-elif st.session_state.page == "enc_step5":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
-    enc_progress_bar()
-    st.divider()
-
-    enc = get_enc_cipher()
-    keys = get_enc_keys()
-
-    st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
-      <div class="enc-step-title">🌐 Step 5: Decentralised Storage Architecture</div>
-      <div class="enc-explanation">
-        In a production medical IoT system, encrypted data is <b>never stored in a single location</b>.
-        A decentralised architecture provides resilience, availability, and reduces the attack surface
-        by ensuring no single compromised node exposes patient data.<br><br>
-        <b>Key separation</b> is the critical principle: encrypted data and its decryption keys are
-        stored in physically separate systems with independent access controls. An attacker who
-        obtains the encrypted data without the key gains nothing — and vice versa.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Architecture diagram (using columns as nodes)
-    st.markdown("### 🏗️ System Architecture")
-    nodes = [
-        ("📱 IoT Device", "#00D4FF", "Patient wearable\nor mobile app",
-         "Captures rPPG signal", "Ephemeral — no persistent storage"),
-        ("🔐 Encryption Layer", "#9B5DE5", "Trusted Execution\nEnvironment (TEE)",
-         "AES-256-GCM encryption", "Keys never leave TEE"),
-        ("🌐 Data Nodes (3)", "#E84855", "Geo-distributed\nencrypted storage",
-         "Encrypted blobs only", "IPFS / Cloud Object Storage"),
-        ("🔑 KMS", "#FFD166", "Key Management\nService (HSM)",
-         "AES keys, access-controlled", "Separate auth chain"),
-        ("⛓️ Blockchain", "#00E5A0", "Audit & Integrity\nLedger",
-         "Hash of each record", "Immutable, tamper-evident"),
-    ]
-    cols = st.columns(len(nodes))
-    for col, (title, color, subtitle, stores, note) in zip(cols, nodes):
-        with col:
-            st.markdown(f"""
-            <div style="background:var(--card2);border:1px solid {color}44;border-top:3px solid {color};
-                 border-radius:10px;padding:0.8rem;text-align:center;height:180px">
-              <div style="font-size:1.2rem;margin-bottom:0.3rem">{title}</div>
-              <div style="font-size:0.7rem;color:{color};font-weight:500;margin-bottom:0.5rem">{subtitle}</div>
-              <div style="font-size:0.68rem;color:var(--text2);margin-bottom:0.3rem">Stores: {stores}</div>
-              <div style="font-size:0.65rem;color:var(--text3);margin-top:auto">{note}</div>
-            </div>""", unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("### 📦 Simulated Distributed Storage Nodes")
-
-    chunk_size = len(enc) // 3
-    chunks = [enc[:chunk_size], enc[chunk_size:2*chunk_size], enc[2*chunk_size:]]
-    regions = ["eu-west-1 (Ireland)", "us-east-1 (Virginia)", "ap-southeast-1 (Singapore)"]
-    statuses = ["✅ Stored", "✅ Replicated", "✅ Replicated"]
-    node_ids = [os.urandom(8).hex() for _ in range(3)]
-
-    c1, c2, c3 = st.columns(3)
-    for col, chunk, region, status, nid in zip([c1,c2,c3], chunks, regions, statuses, node_ids):
-        with col:
-            st.markdown(f"""
-            <div class="cs-card">
-              <div style="font-size:0.85rem;font-weight:600;color:var(--cyan)">📦 Node {node_ids.index(nid)+1}</div>
-              <div style="font-size:0.7rem;color:var(--text3);margin-bottom:0.5rem">{region}</div>
-              <div style="font-family:'DM Mono';font-size:0.65rem;color:var(--text2);
-                   background:var(--bg);border-radius:6px;padding:0.5rem;margin-bottom:0.5rem;
-                   word-break:break-all">{chunk.hex()[:48]}…</div>
-              <div style="font-size:0.7rem;color:var(--text3)">Node ID: {nid[:12]}…</div>
-              <div style="margin-top:0.4rem;font-size:0.75rem;color:var(--green)">{status}</div>
-            </div>""", unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div style="background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.2);
-         border-radius:10px;padding:1rem;margin-top:0.5rem;font-size:0.82rem;color:var(--text2)">
-    <b style="color:var(--green)">🔒 Key stored separately in KMS:</b><br>
-    <span style="font-family:'DM Mono';font-size:0.72rem;color:var(--text3)">{keys['key'].hex()[:32]}…</span><br>
-    <span style="font-size:0.75rem;margin-top:4px;display:block">
-    Access to this key requires multi-factor authentication + role-based access control (RBAC).
-    Even database administrators cannot decrypt patient data without KMS authorisation.</span>
-    </div>""", unsafe_allow_html=True)
-
-    enc_nav("enc_step5")
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-elif st.session_state.page == "enc_step6":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
-    enc_progress_bar()
-    st.divider()
-
-    sample = get_enc_sample()
-    keys   = get_enc_keys()
-    enc    = get_enc_cipher()
-
-    st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
-      <div class="enc-step-title">🔓 Step 6: Decryption, Verification & Integrity Check</div>
-      <div class="enc-explanation">
-        Decryption in AES-GCM is the reverse of encryption, but with a crucial difference:
-        before a single byte of plaintext is released, the <b>authentication tag is verified</b>.
-        If the tag doesn't match — due to data corruption, tampering, or wrong key — the operation
-        throws a cryptographic exception and <i>no plaintext is ever returned</i>.<br><br>
-        This "verify-then-decrypt" design is essential: it prevents <b>padding oracle attacks</b>
-        and ensures the application never processes potentially malicious decrypted data.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Verification controls
-    col_ctrl, col_info = st.columns([2, 3])
-    with col_ctrl:
-        st.markdown("### 🧪 Live Decryption Test")
-        tamper = st.checkbox("🔴 Simulate data tampering (corrupt 1 byte)", value=False)
-
-        if tamper:
-            tampered = bytearray(enc)
-            tampered[15] ^= 0xFF  # flip a bit in ciphertext
-            test_enc = bytes(tampered)
-            st.warning("⚠️ Data tampering simulated — authentication tag will fail")
-        else:
-            test_enc = enc
-
-        if st.button("🔍 Decrypt & Verify", type="primary", use_container_width=True):
-            with st.spinner("Retrieving from storage… verifying auth tag… decrypting…"):
-                time.sleep(0.8)
-                try:
-                    dec_json = HybridEncryption.decrypt_aes_gcm(test_enc, keys['key'])
-                    dec_data = json.loads(dec_json)
-
-                    st.success("✅ Authentication tag VALID — no tampering detected")
-                    st.success("✅ Decryption successful — data integrity confirmed")
-                    st.markdown("**Recovered plaintext:**")
-                    st.json(dec_data)
-
-                    if dec_data == sample:
-                        st.success("✅ Byte-for-byte match with original data")
-                    st.balloons()
-                except Exception as e:
-                    st.error("❌ DECRYPTION FAILED — Authentication tag mismatch!")
-                    st.error(f"Error: {type(e).__name__}: {str(e)[:80]}")
-                    st.markdown("""
-                    <div style="background:rgba(232,72,85,0.1);border:1px solid rgba(232,72,85,0.3);
-                         border-radius:8px;padding:1rem;margin-top:0.5rem;font-size:0.82rem;color:var(--text2)">
-                    <b style="color:var(--accent)">🔒 Security Response:</b> Zero plaintext was returned.
-                    In a production system this event would be logged to the SIEM, an alert sent to
-                    the security team, and the session terminated. The incident would be investigated
-                    for potential man-in-the-middle or storage tampering attacks.
-                    </div>""", unsafe_allow_html=True)
-
-    with col_info:
-        st.markdown("### 📋 Decryption Process")
-        steps_dec = [
-            ("1", "Retrieve encrypted blob + key from separate stores", "#00D4FF"),
-            ("2", "Separate nonce (first 12 bytes) from ciphertext", "#9B5DE5"),
-            ("3", "Compute GHASH over ciphertext to derive expected auth tag", "#FFD166"),
-            ("4", "Compare computed tag to stored tag (constant-time comparison)", "#E84855"),
-            ("5", "ONLY if tags match: decrypt ciphertext using AES-CTR", "#00E5A0"),
-            ("6", "Return plaintext / raise exception if any step fails", "#8A97B8"),
-        ]
-        for num, desc, color in steps_dec:
-            st.markdown(f"""
-            <div style="display:flex;gap:0.8rem;align-items:flex-start;
-                 padding:0.5rem 0;border-bottom:1px solid var(--border)">
-              <span class="step-pill step-pill-active" style="background:{color};
-                    color:#0A0E1A;flex-shrink:0">{num}</span>
-              <div style="font-size:0.82rem;color:var(--text2);padding-top:5px">{desc}</div>
-            </div>""", unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("### 🏆 Hybrid Encryption Summary")
-    c1, c2, c3 = st.columns(3)
-    layers = [
-        (c1, "Symmetric (AES-256-GCM)", "#E84855",
-         "Algorithm", "AES-256-GCM",
-         "Key size", "256 bits",
-         "Security level", "128-bit equiv.",
-         "Purpose", "Data encryption"),
-        (c2, "Asymmetric (ECC-P256)", "#00D4FF",
-         "Algorithm", "SECP256R1",
-         "Key exchange", "ECDH",
-         "Key derivation", "HKDF-SHA256",
-         "Purpose", "Auth & key wrap"),
-        (c3, "Authenticated (GHASH)", "#00E5A0",
-         "Algorithm", "GHASH / GMAC",
-         "Tag size", "128 bits",
-         "Tamper detect", "Guaranteed",
-         "Purpose", "Integrity & auth"),
-    ]
-    for col, title, color, *pairs in layers:
-        with col:
-            rows_html = ''.join(
-                f'<tr><td style="color:var(--text3);font-size:0.73rem;padding:3px 0">{pairs[i]}</td>'
-                f'<td style="color:var(--text2);font-size:0.73rem;padding:3px 0;text-align:right">{pairs[i+1]}</td></tr>'
-                for i in range(0, len(pairs), 2)
-            )
-            st.markdown(f"""
-            <div style="background:var(--card2);border:1px solid {color}44;
-                 border-top:2px solid {color};border-radius:10px;padding:1rem">
-              <div style="color:{color};font-weight:600;font-size:0.88rem;margin-bottom:0.6rem">{title}</div>
-              <table style="width:100%">{rows_html}</table>
-            </div>""", unsafe_allow_html=True)
-
-    enc_nav("enc_step6")
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PAGE: RAW DATA & PRINT
-# ─────────────────────────────────────────────────────────────────────────────
-
-elif st.session_state.page == "raw_data":
-    st.markdown('<div class="section-header" data-aos="fade-down">📦 Raw Data & Print Center</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">View, compare, and print raw or encrypted data records</div>', unsafe_allow_html=True)
-
-    all_results = get_all_results_admin() if is_admin else get_user_results(user['id'])
-    results_admin = get_all_results_admin() if is_admin else []
-
-    if not all_results:
-        st.info("No records available.")
-        st.stop()
-
-    # Select a record
-    options = {f"#{r['test_id']} | {r['test_date'][:16]} | {r['bpm']} BPM" :
-               r for r in (all_results if is_admin else
-               [{**r, 'username': user['username'], 'full_name': user['full_name'],
-                 'encrypted_hex': b'', 'key_hex': ''} for r in all_results])}
-
-    if is_admin:
-        sel_label = st.selectbox("Select a record to inspect", list(options.keys()))
-        record = options[sel_label]
-    else:
-        records_plain = get_user_results(user['id'])
-        if not records_plain:
-            st.info("No test records yet.")
-            st.stop()
-        opts2 = {f"#{r['test_id']} | {r['test_date'][:16]} | {r['bpm']} BPM": r for r in records_plain}
-        sel_label = st.selectbox("Select a record to inspect", list(opts2.keys()))
-        record = opts2[sel_label]
-
-    st.divider()
-
-    print_tab, raw_tab, enc_tab, both_tab = st.tabs(["🖨️ Print Options", "📄 Raw Data", "🔐 Encrypted Data", "📊 Side-by-Side"])
-
-    with raw_tab:
-        st.markdown("### 📄 Decrypted / Raw Patient Data")
-        st.markdown("""
-        <div style="background:rgba(255,209,102,0.07);border:1px solid rgba(255,209,102,0.25);
-             border-radius:8px;padding:0.8rem;font-size:0.8rem;color:var(--text2);margin-bottom:1rem">
-        ⚠️ This is the <b>decrypted plaintext</b> — the most sensitive form of the data. Access is
-        logged. In production, only authorised clinicians with verified credentials may view this.
-        </div>""", unsafe_allow_html=True)
-
-        if is_admin:
-            raw = {
-                "record_id":   record['test_id'],
-                "patient":     record['full_name'],
-                "username":    record['username'],
-                "bpm":         record['bpm'],
-                "category":    record['analysis']['category'],
-                "description": record['analysis']['description'],
-                "recommendations": record['analysis']['recommendations'],
-                "test_date":   record['test_date'],
-                "status":      record['analysis']['status']
-            }
-        else:
-            raw = {
-                "record_id":   record.get('test_id',''),
-                "patient":     user['full_name'],
-                "username":    user['username'],
-                "bpm":         record['bpm'],
-                "category":    record['analysis']['category'],
-                "description": record['analysis']['description'],
-                "recommendations": record['analysis']['recommendations'],
-                "test_date":   record.get('test_date',''),
-                "status":      record['analysis']['status']
-            }
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.json(raw)
-        with c2:
-            st.code(json.dumps(raw, indent=2), language="json")
-            st.download_button("⬇ Download Raw JSON",
-                               json.dumps(raw, indent=2),
-                               f"raw_{record.get('test_id','')}.json", "application/json")
-
-    with enc_tab:
-        st.markdown("### 🔐 Encrypted Data (Hex Representation)")
-        st.markdown("""
-        <div style="background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.2);
-             border-radius:8px;padding:0.8rem;font-size:0.8rem;color:var(--text2);margin-bottom:1rem">
-        ✅ This is what is stored in the database. Without the encryption key, this data is
-        mathematically indistinguishable from random noise. Even a quantum computer would need
-        to solve the AES key-search problem first.
-        </div>""", unsafe_allow_html=True)
-
-        if is_admin and 'encrypted_hex' in record:
-            enc_hex = record['encrypted_hex']
-            key_hex = record['key_hex']
-        else:
-            # Re-encrypt for display
-            sample_enc = {k: raw[k] for k in raw}
-            key_demo = os.urandom(32)
-            enc_bytes = HybridEncryption.encrypt_aes_gcm(json.dumps(sample_enc), key_demo)
-            enc_hex = enc_bytes.hex()
-            key_hex = key_demo.hex()
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**🔐 Encrypted Blob (Hex)**")
-            st.code(enc_hex, language="text")
-        with c2:
-            st.markdown("**🔑 Encryption Key (AES-256)**")
-            st.code(key_hex if key_hex else "(key not shown — stored in separate KMS)", language="text")
-            nonce = enc_hex[:24]
-            st.markdown(f"""
-            <div class="metric-card" style="margin-top:0.5rem">
-              <div style="font-size:0.75rem;color:var(--text2)"><b>Nonce (first 12 bytes):</b>
-              <code style="font-size:0.7rem">{nonce}</code></div>
-              <div style="font-size:0.75rem;color:var(--text2);margin-top:4px">
-              <b>Total encrypted size:</b> {len(enc_hex)//2} bytes</div>
-            </div>""", unsafe_allow_html=True)
-
-        st.download_button("⬇ Download Encrypted Hex",
-                           enc_hex, f"encrypted_{record.get('test_id','')}.txt", "text/plain")
-
-    with both_tab:
-        st.markdown("### 📊 Raw vs Encrypted Comparison")
-        raw_str = json.dumps(raw, indent=2)
-        enc_display = enc_hex[:200] + "…" if is_admin and 'encrypted_hex' in record else "(re-generated sample)"
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("""
-            <div style="text-align:center;padding:0.5rem;background:rgba(255,209,102,0.1);
-                 border-radius:8px 8px 0 0;border:1px solid rgba(255,209,102,0.2);
-                 font-size:0.82rem;color:var(--yellow);font-weight:600">
-            📄 PLAINTEXT (Readable)</div>""", unsafe_allow_html=True)
-            st.code(raw_str, language="json")
-            st.metric("Size", f"{len(raw_str)} bytes")
-
-        with c2:
-            st.markdown("""
-            <div style="text-align:center;padding:0.5rem;background:rgba(0,229,160,0.1);
-                 border-radius:8px 8px 0 0;border:1px solid rgba(0,229,160,0.2);
-                 font-size:0.82rem;color:var(--green);font-weight:600">
-            🔐 CIPHERTEXT (Encrypted)</div>""", unsafe_allow_html=True)
-            st.code(enc_hex if is_admin else "(re-encrypted demo)", language="text")
-            st.metric("Size", f"{len(enc_hex)//2} bytes")
-
-    with print_tab:
-        st.markdown("### 🖨️ Print Options")
-        st.markdown("""
-        <div style="font-size:0.85rem;color:var(--text2);margin-bottom:1rem">
-        Use your browser's print function (Ctrl+P / Cmd+P) after clicking a print button below.
-        Each option prepares a formatted view optimised for printing.
-        </div>""", unsafe_allow_html=True)
-
-        c1, c2, c3 = st.columns(3)
-        raw_str = json.dumps(raw, indent=2)
-        with c1:
-            st.markdown("""
-            <div class="cs-card" style="text-align:center" data-aos="zoom-in" data-aos-delay="0">
-              <div style="font-size:2rem;margin-bottom:0.5rem">📄</div>
-              <div style="font-weight:600;margin-bottom:0.3rem">Print Raw Data</div>
-              <div style="font-size:0.78rem;color:var(--text2)">Patient-readable plaintext report</div>
-            </div>""", unsafe_allow_html=True)
-            raw_html = f"""<html><head><title>CardioSecure Report</title>
-<style>body{{font-family:monospace;padding:2rem;color:#000}}
-h1{{color:#E84855}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px}}</style></head>
-<body><h1>❤️ CardioSecure – Patient Report</h1>
-<p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</p>
-<hr><pre>{raw_str}</pre></body></html>"""
-            st.download_button("⬇ Download Raw Report",
-                               raw_html, f"report_raw_{record.get('test_id','')}.html", "text/html")
-
-        with c2:
-            st.markdown("""
-            <div class="cs-card" style="text-align:center" data-aos="zoom-in" data-aos-delay="150">
-              <div style="font-size:2rem;margin-bottom:0.5rem">🔐</div>
-              <div style="font-weight:600;margin-bottom:0.3rem">Print Encrypted</div>
-              <div style="font-size:0.78rem;color:var(--text2)">Technical encrypted audit record</div>
-            </div>""", unsafe_allow_html=True)
-            enc_html = f"""<html><head><title>CardioSecure Encrypted Record</title>
-<style>body{{font-family:monospace;padding:2rem;color:#000}}
-h1{{color:#00B09B}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px;word-break:break-all}}</style></head>
-<body><h1>🔐 CardioSecure – Encrypted Record</h1>
-<p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</p>
-<p>Record ID: #{record.get('test_id','')}</p>
-<hr><h3>Encrypted Data (AES-256-GCM):</h3>
-<pre>{enc_hex if is_admin else '(re-encrypted demo)'}</pre>
-<h3>Nonce (first 12 bytes):</h3><pre>{enc_hex[:24] if enc_hex else ''}</pre>
-</body></html>"""
-            st.download_button("⬇ Download Encrypted Report",
-                               enc_html, f"report_enc_{record.get('test_id','')}.html", "text/html")
-
-        with c3:
-            st.markdown("""
-            <div class="cs-card" style="text-align:center" data-aos="zoom-in" data-aos-delay="300">
-              <div style="font-size:2rem;margin-bottom:0.5rem">📋</div>
-              <div style="font-weight:600;margin-bottom:0.3rem">Print Both</div>
-              <div style="font-size:0.78rem;color:var(--text2)">Combined full report (raw + encrypted)</div>
-            </div>""", unsafe_allow_html=True)
-            both_html = f"""<html><head><title>CardioSecure Full Report</title>
-<style>body{{font-family:monospace;padding:2rem;color:#000;max-width:900px;margin:0 auto}}
-h1{{color:#E84855}}h2{{color:#333;border-bottom:2px solid #E84855;padding-bottom:0.3rem}}
-pre{{background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap;word-break:break-all}}
-.grid{{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}}</style></head>
-<body><h1>❤️ CardioSecure – Full Report</h1>
-<p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Record ID: #{record.get('test_id','')}</p>
-<hr>
-<div class="grid">
-<div><h2>📄 Raw Data (Plaintext)</h2><pre>{raw_str}</pre></div>
-<div><h2>🔐 Encrypted Data</h2><pre>{enc_hex if is_admin else '(demo)'}</pre>
-<p><b>Nonce:</b> {enc_hex[:24] if enc_hex else ''}</p></div>
-</div>
-<hr><p style="font-size:0.8rem;color:#666">
-⚠️ Secure document — handle in accordance with HIPAA/GDPR regulations.
-CardioSecure · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
-</body></html>"""
-            st.download_button("⬇ Download Full Report",
-                               both_html, f"report_full_{record.get('test_id','')}.html", "text/html")
+elif st.session_state.page == "admin" and st.session_state.user and st.session_state.user.get("is_admin"):
+    st.title("Admin Dashboard")
+    st.warning("Admin area – user & data management would go here")
+    
+    if st.button("Back"):
+        go("monitor")
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FALLBACK
 # ─────────────────────────────────────────────────────────────────────────────
 
 else:
-    if st.session_state.page not in [p for p,_,_ in ENC_STEPS] and \
-       st.session_state.page not in ["monitor","results","admin_dashboard",
-                                      "admin_users","admin_records","raw_data"]:
-        st.session_state.page = "monitor"
-        st.rerun()
+    st.session_state.page = "landing"
+    st.rerun()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FOOTER
 # ─────────────────────────────────────────────────────────────────────────────
 
-st.markdown("""
-<div class="cs-footer">
-  🔒 AES-256-GCM + ECC-SECP256R1 Hybrid Encryption ·
-  🧠 ML-Refined rPPG Heart Rate Detection ·
-  EBSU/PG/PhD/2021/10930 · Yunisa Sunday<br>
-  ⚠️ Research & educational purposes only — not a certified medical device
-</div>
-""", unsafe_allow_html=True)
+st.markdown("---")
+st.caption(
+    "CardioSecure • AES-256-GCM protected heart rate prototype • "
+    "EBSU/PG/PhD/2021/10930 • Research use only"
+)
