@@ -235,7 +235,11 @@ section[data-testid="stSidebar"]{display:none}
 .cs-nav{animation:slideDown .55s cubic-bezier(.23,1,.32,1) both}
 
 /* ═══════════════════════════ AOS OVERRIDES ═══════════════════════════ */
-[data-aos]{pointer-events:none}
+[data-aos="fade-up"] { 
+  opacity: 0;
+  transform: translateY(40px);
+}
+
 [data-aos].aos-animate{pointer-events:auto}
 [data-aos="fade-up"]{opacity:0;transform:translateY(40px);transition:opacity .7s ease,transform .7s ease}
 [data-aos="fade-up"].aos-animate{opacity:1;transform:translateY(0)}
