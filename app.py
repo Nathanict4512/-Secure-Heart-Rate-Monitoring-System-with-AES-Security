@@ -1442,6 +1442,14 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
     # the full rPPG pipeline (face detect → ROI → CHROM → Butterworth → FFT).
     # cv2.VideoCapture(0) is NOT used — cv2 is used purely for image processing.
 
+    # Camera permission notice for Streamlit Cloud
+    st.info(
+        "📷 **Camera access required.** If the camera fails to start: "
+        "click the **camera/lock icon** in your browser's address bar → **Allow** → refresh the page. "
+        "On Streamlit Cloud this is required every session.",
+        icon=None
+    )
+
     # Render the JS webcam component (always present, JS controls start/stop)
     frame_b64 = st.components.v1.html(
         """
@@ -1571,8 +1579,13 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             capturing = true;
             scheduleCapture();
           } catch(err) {
-            showErr('Camera access denied: ' + err.message +
-                    '. Please allow camera in browser settings.');
+            const msg = err.name === 'NotAllowedError'
+              ? 'Camera permission denied. On Streamlit Cloud: click the camera icon in your browser address bar and Allow, then refresh.'
+              : err.name === 'NotFoundError'
+              ? 'No camera found on this device.'
+              : 'Camera error: ' + err.message;
+            showErr(msg);
+            label.textContent = 'Camera unavailable';
           }
         }
 
@@ -1704,8 +1717,7 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         </body>
         </html>
         """,
-        height=320,
-        key="webcam_component",
+        height=340,
     )
 
     # ── Python: receive frames, process with cv2, update UI ──────────────────
@@ -1752,8 +1764,13 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
 
       // Control messages to the iframe
       window.sendToCamera = function(msg) {
-        const iframe = document.querySelector('iframe[title="webcam_component"]') ||
-                       document.querySelector('iframe');
+        // Find the webcam iframe (height > 50px) not the 0-height theme iframe
+        const allIframes = document.querySelectorAll('iframe');
+        let iframe = null;
+        for (let f of allIframes) {
+          if (f.offsetHeight > 50) { iframe = f; break; }
+        }
+        if (!iframe) iframe = allIframes[0];
         if (iframe) iframe.contentWindow.postMessage(msg, '*');
       };
     })();
@@ -1945,8 +1962,10 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         st.markdown("""
         <script>
         setTimeout(function(){
-          const iframe = document.querySelector('iframe[title="webcam_component"]') ||
-                         document.querySelector('iframe');
+          const allIframes2 = document.querySelectorAll('iframe');
+          let iframe = null;
+          for (let f of allIframes2) { if (f.offsetHeight > 50) { iframe = f; break; } }
+          if (!iframe) iframe = allIframes2[0];
           if (iframe) iframe.contentWindow.postMessage('START_CAMERA','*');
         }, 400);
         </script>
@@ -1957,8 +1976,10 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         st.markdown("""
         <script>
         setTimeout(function(){
-          const iframe = document.querySelector('iframe[title="webcam_component"]') ||
-                         document.querySelector('iframe');
+          const allIframes2 = document.querySelectorAll('iframe');
+          let iframe = null;
+          for (let f of allIframes2) { if (f.offsetHeight > 50) { iframe = f; break; } }
+          if (!iframe) iframe = allIframes2[0];
           if (iframe) iframe.contentWindow.postMessage('STOP_CAMERA','*');
         }, 100);
         </script>
