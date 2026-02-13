@@ -112,16 +112,50 @@ st.markdown("""
 }
 
 /* ═══════════════════════════ BASE ═══════════════════════════ */
-html,body,[class*="css"],.stApp {
-  font-family:'DM Sans',sans-serif;
-  background:var(--bg) !important;
+html,body,[class*="css"],.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"] {
+  font-family:'DM Sans',sans-serif !important;
+  background-color:var(--bg) !important;
   color:var(--text) !important;
 }
+/* Force white text in dark mode for ALL Streamlit text elements */
+p,span,label,div,h1,h2,h3,h4,li,td,th,code {
+  color:var(--text) !important;
+}
+/* Markdown text */
+.stMarkdown p,.stMarkdown li,.stMarkdown span,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] li {
+  color:var(--text) !important;
+}
+/* Metric labels and values */
+[data-testid="stMetric"] label,[data-testid="stMetric"] [data-testid="stMetricValue"],
+[data-testid="stMetric"] [data-testid="stMetricDelta"]{color:var(--text) !important}
+/* Expander */
+.streamlit-expanderHeader{color:var(--text) !important;background:var(--card2) !important}
+.streamlit-expanderContent{background:var(--bg2) !important;color:var(--text) !important}
+/* Tab text */
+.stTabs [data-baseweb="tab"]{color:var(--text2) !important}
+.stTabs [aria-selected="true"]{color:var(--text) !important}
+/* Select / radio labels */
+.stSelectbox label,.stRadio label,.stCheckbox label,.stNumberInput label,
+.stTextInput label,.stTextArea label,.stSlider label{color:var(--text2) !important}
+/* Light mode text */
+[data-theme="light"] p,[data-theme="light"] span,[data-theme="light"] div,
+[data-theme="light"] label,[data-theme="light"] li,[data-theme="light"] td,
+[data-theme="light"] h1,[data-theme="light"] h2,[data-theme="light"] h3 {
+  color:var(--text) !important;
+}
+
 [data-theme="light"] .stApp {
   background:radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.04) 0%,transparent 50%),hsl(220,20%,97%) !important;
 }
 #MainMenu,footer,header{visibility:hidden}
 .stDeployButton{display:none}
+/* Sidebar hidden by default — re-enabled when user is logged in */
 section[data-testid="stSidebar"]{display:none}
 .block-container{padding:1.5rem 2rem 2rem !important;max-width:1400px !important}
 
@@ -235,11 +269,7 @@ section[data-testid="stSidebar"]{display:none}
 .cs-nav{animation:slideDown .55s cubic-bezier(.23,1,.32,1) both}
 
 /* ═══════════════════════════ AOS OVERRIDES ═══════════════════════════ */
-[data-aos="fade-up"] { 
-  opacity: 0;
-  transform: translateY(40px);
-}
-
+[data-aos]{pointer-events:none}
 [data-aos].aos-animate{pointer-events:auto}
 [data-aos="fade-up"]{opacity:0;transform:translateY(40px);transition:opacity .7s ease,transform .7s ease}
 [data-aos="fade-up"].aos-animate{opacity:1;transform:translateY(0)}
@@ -263,12 +293,15 @@ section[data-testid="stSidebar"]{display:none}
   position:fixed;bottom:1.2rem;right:1.2rem;z-index:9999;
   width:44px;height:44px;border-radius:50%;
   border:1px solid var(--border);background:var(--card);color:var(--text);
-  font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 20px rgba(0,0,0,.45);
   transition:transform .2s,box-shadow .2s,background .25s,border-color .25s;
+  padding:0;
 }
+#cs-theme-btn svg{stroke:var(--text) !important;width:18px;height:18px}
 #cs-theme-btn:hover{transform:scale(1.12);box-shadow:0 6px 28px hsla(355,78%,55%,.4)}
 [data-theme="light"] #cs-theme-btn{background:white;border-color:hsl(220,20%,84%);box-shadow:0 2px 12px rgba(0,0,0,.15)}
+[data-theme="light"] #cs-theme-btn svg{stroke:hsl(222,40%,20%) !important}
 
 /* ═══════════════════════════ SCROLLBAR ═══════════════════════════ */
 ::-webkit-scrollbar{width:6px;height:6px}
@@ -289,93 +322,57 @@ section[data-testid="stSidebar"]{display:none}
 
 # ── AOS + Theme toggle via components.html (correct way in Streamlit) ─────────
 # This runs in the parent document context through postMessage
-components.html("""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
+# ── Theme toggle button is injected purely via CSS + a Streamlit button (no iframe Unicode issues)
+# AOS is loaded via st.markdown link tag already included in the CSS block above
+# The floating toggle btn is rendered as a pure CSS fixed element triggered by a hidden checkbox trick
+# We use a simple st.markdown approach for AOS re-init on DOM changes
+st.markdown("""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
-</head>
-<body style="margin:0;padding:0;background:transparent;overflow:hidden;height:0">
 <script>
 (function(){
-  var KEY = 'cs_theme';
-  var theme = localStorage.getItem(KEY) || 'dark';
-
+  var KEY='cs_theme';
+  var theme=localStorage.getItem(KEY)||'dark';
   function applyTheme(t){
-    theme = t;
-    localStorage.setItem(KEY, t);
-    try {
-      var p = window.parent.document;
-      p.documentElement.setAttribute('data-theme', t);
-      [].forEach.call(p.querySelectorAll('.stApp,body'), function(el){
-        el.setAttribute('data-theme', t);
-      });
-      var isDark = t === 'dark';
-      [].forEach.call(p.querySelectorAll('.stApp'), function(el){
-        el.style.background = isDark
-          ? 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),hsl(222,58%,5%)'
-          : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
-      });
-      var btn = p.getElementById('cs-theme-btn');
-      if(btn) btn.textContent = (t === 'dark') ? 'Light Mode' : 'Dark Mode';
-    } catch(e){}
+    theme=t; localStorage.setItem(KEY,t);
+    document.documentElement.setAttribute('data-theme',t);
+    var els=document.querySelectorAll('.stApp,body,[data-testid="stAppViewContainer"]');
+    for(var i=0;i<els.length;i++) els[i].setAttribute('data-theme',t);
+    var apps=document.querySelectorAll('.stApp');
+    for(var j=0;j<apps.length;j++){
+      apps[j].style.background=t==='dark'
+        ? 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),hsl(222,58%,5%)'
+        : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
+    }
+    var btn=document.getElementById('cs-theme-btn');
+    if(btn) btn.innerHTML=t==='dark' ? SUN_ICON : MOON_ICON;
+    document.documentElement.setAttribute('data-theme',t);
   }
-
+  var SUN_ICON='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var MOON_ICON='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   function injectBtn(){
-    try {
-      var p = window.parent.document;
-      if(p.getElementById('cs-theme-btn')) return;
-      var btn = p.createElement('button');
-      btn.id = 'cs-theme-btn';
-      btn.title = 'Toggle light / dark mode';
-      btn.textContent = (theme === 'dark') ? 'Light Mode' : 'Dark Mode';
-      btn.onclick = function(){ applyTheme(theme === 'dark' ? 'light' : 'dark'); };
-      p.body.appendChild(btn);
-    } catch(e){}
+    if(document.getElementById('cs-theme-btn')) return;
+    var btn=document.createElement('button');
+    btn.id='cs-theme-btn'; btn.title='Toggle light / dark mode';
+    btn.innerHTML=theme==='dark' ? SUN_ICON : MOON_ICON;
+    btn.onclick=function(){ applyTheme(theme==='dark'?'light':'dark'); };
+    document.body.appendChild(btn);
   }
-
   function initAOS(){
-    try {
-      var p = window.parent;
-      if(p.AOS){
-        p.AOS.init({duration:700,easing:'cubic-bezier(0.23,1,0.32,1)',once:false,mirror:true,offset:60});
-        new p.MutationObserver(function(){ p.AOS.refresh(); })
-          .observe(p.document.body,{childList:true,subtree:true});
-      } else { setTimeout(initAOS, 150); }
-    } catch(e){ setTimeout(initAOS, 150); }
+    if(typeof AOS!=='undefined'){
+      AOS.init({duration:700,easing:'cubic-bezier(0.23,1,0.32,1)',once:false,mirror:true,offset:60});
+      new MutationObserver(function(){ AOS.refresh(); })
+        .observe(document.body,{childList:true,subtree:true});
+    } else { setTimeout(initAOS,150); }
   }
-
-  function loadAOS(cb){
-    try {
-      var p = window.parent;
-      if(p.AOS){ cb(); return; }
-      var d = p.document;
-      if(!d.querySelector('link[href*="aos"]')){
-        var l=d.createElement('link');l.rel='stylesheet';
-        l.href='https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css';
-        d.head.appendChild(l);
-      }
-      if(!d.querySelector('script[src*="aos.min"]')){
-        var s=d.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js';
-        s.onload=cb; d.head.appendChild(s);
-      } else { cb(); }
-    } catch(e){ setTimeout(function(){ loadAOS(cb); }, 200); }
-  }
-
-  function boot(){
-    applyTheme(theme);
-    injectBtn();
-    loadAOS(initAOS);
-  }
-
+  function boot(){ applyTheme(theme); injectBtn(); initAOS(); }
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded',boot);
   } else { boot(); }
-  setTimeout(boot, 500);
+  setTimeout(boot,600);
 })();
 </script>
-</body></html>
-""", height=0, scrolling=False)
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENCRYPTION ENGINE
@@ -875,7 +872,7 @@ def render_nav():
             ("admin_dashboard", "🏠 Dashboard"),
             ("monitor",         "❤️ Monitor"),
             ("admin_users",     "👥 Users"),
-            ("all_records",     "📋 Records"),
+            ("admin_records",   "📋 Records"),
             ("encryption",      "🔒 Encryption Lab"),
         ]
     elif u:
@@ -1146,15 +1143,17 @@ if not st.session_state.logged_in:
     pg = st.session_state.page
 
     # ── Landing page ─────────────────────────────────────────────────────────
+    # ── Landing page ─────────────────────────────────────────────────────────
     if pg == "landing":
-        # Minimal nav for landing (no user links)
         render_nav()
-        # CTA button that goes to login
-        c1, c2, c3 = st.columns([1, 0.4, 1])
-        with c2:
-            if st.button("Get Started →", type="primary", use_container_width=True, key="landing_cta"):
-                go("login")
         render_landing()
+        _, ca, cb, _ = st.columns([2, 1.2, 1.2, 2])
+        with ca:
+            if st.button("Get Started →", type="primary", use_container_width=True, key="land_cta"):
+                go("login")
+        with cb:
+            if st.button("View Demo", use_container_width=True, key="land_demo"):
+                go("login")
         st.stop()
 
     # ── Login / Register page ─────────────────────────────────────────────────
@@ -1295,10 +1294,33 @@ with st.sidebar:
     if st.button("🚪 Sign Out", use_container_width=True, type="secondary"):
         logout()
 
-# Show sidebar
-st.markdown("""<style>section[data-testid="stSidebar"]{display:block !important;
-background:var(--bg2) !important;border-right:1px solid var(--border) !important;}
-section[data-testid="stSidebar"] > div:first-child{padding-top:1rem !important;}
+# Show sidebar with full dark/light mode support
+st.markdown(f"""<style>
+section[data-testid="stSidebar"]{{
+  display:block !important;
+  background:var(--bg2) !important;
+  border-right:1px solid var(--border) !important;
+  min-width:220px !important;
+}}
+section[data-testid="stSidebar"] > div:first-child{{padding-top:1rem !important}}
+section[data-testid="stSidebar"] .stButton>button{{
+  text-align:left !important;justify-content:flex-start !important;
+  background:transparent !important;border:none !important;
+  color:var(--text2) !important;padding:.5rem 1rem !important;
+  border-radius:8px !important;font-size:.88rem !important;
+}}
+section[data-testid="stSidebar"] .stButton>button:hover{{
+  background:var(--card) !important;color:var(--text) !important;
+}}
+section[data-testid="stSidebar"] .stButton[data-testid*="primary"]>button,
+section[data-testid="stSidebar"] .stButton>button[kind="primary"]{{
+  background:hsla(355,78%,55%,.15) !important;
+  color:var(--accent) !important;border:1px solid hsla(355,78%,55%,.3) !important;
+}}
+[data-theme="light"] section[data-testid="stSidebar"]{{
+  background:hsl(220,20%,95%) !important;
+  border-right-color:hsl(220,20%,85%) !important;
+}}
 </style>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3180,7 +3202,7 @@ CardioSecure · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
 else:
     if st.session_state.page not in [p for p,_,_ in ENC_STEPS] and \
        st.session_state.page not in ["monitor","results","admin_dashboard",
-                                      "admin_users","admin_records","raw_data"]:
+                                      "admin_users","admin_records","all_records","raw_data","encryption"]:
         st.session_state.page = "monitor"
         st.rerun()
 
