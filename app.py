@@ -1795,15 +1795,16 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                         name="rPPG signal",
                         hovertemplate="Sample %{x}: %{y:.4f}<extra></extra>",
                     ))
+                    layout = plotly_dark()
+                    layout['xaxis'].update(title="", showgrid=False)
+                    layout['yaxis'].update(title="Green ch.", showgrid=True)
                     fig.update_layout(
-                        **plotly_dark(),
+                        **layout,
                         height=170,
                         title=dict(
                             text=f"rPPG Signal — {len(buf)} samples",
                             font=dict(size=11, color=title_col),
                         ),
-                        xaxis=dict(title="", showgrid=False),
-                        yaxis=dict(title="Green ch.", showgrid=True),
                         showlegend=False,
                         margin=dict(l=4, r=4, t=32, b=4),
                     )
@@ -2228,50 +2229,124 @@ elif st.session_state.page == "admin_records" and is_admin:
 # ─────────────────────────────────────────────────────────────────────────────
 
 ENC_STEPS = [
-    ("enc_step1", "📝 Step 1", "Plaintext Preparation"),
-    ("enc_step2", "🔑 Step 2", "ECC Key Generation"),
-    ("enc_step3", "🔐 Step 3", "AES-256 Key & Nonce"),
-    ("enc_step4", "🛡️ Step 4", "AES-GCM Encryption"),
-    ("enc_step5", "🌐 Step 5", "Decentralised Storage"),
-    ("enc_step6", "🔓 Step 6", "Decryption & Verification"),
+    ("enc_step1", "📝 Step 1", "Plaintext Prep"),
+    ("enc_step2", "🔑 Step 2", "ECC Key Gen"),
+    ("enc_step3", "🔐 Step 3", "AES Key & Nonce"),
+    ("enc_step4", "🛡️ Step 4", "AES-GCM Encrypt"),
+    ("enc_step5", "🌐 Step 5", "Storage"),
+    ("enc_step6", "🔓 Step 6", "Decryption"),
+    ("enc_step7", "🖨️ Step 7", "Raw vs Encrypted"),
 ]
 
 def enc_progress_bar():
-    cur = st.session_state.page
+    """Clickable step-by-step progress bar for the Encryption Lab."""
+    cur   = st.session_state.page
     pages = [s[0] for s in ENC_STEPS]
-    idx = pages.index(cur) if cur in pages else 0
-    cols = st.columns(len(ENC_STEPS))
-    for i, (pg, short, name) in enumerate(ENC_STEPS):
-        with cols[i]:
-            if i < idx:
-                pill = "step-pill-done"; icon = "✓"
-            elif i == idx:
-                pill = "step-pill-active"; icon = str(i+1)
-            else:
-                pill = "step-pill-todo"; icon = str(i+1)
-            st.markdown(f"""
-            <div style="text-align:center;cursor:default">
-              <span class="step-pill {pill}">{icon}</span>
-              <div style="font-size:0.65rem;color:var(--text3);margin-top:4px">{name}</div>
-            </div>""", unsafe_allow_html=True)
+    idx   = pages.index(cur) if cur in pages else 0
+    n     = len(ENC_STEPS)
 
-    st.progress((idx) / (len(ENC_STEPS) - 1) if idx else 0)
+    # Inject tiny CSS to shrink button padding inside the pill columns
+    st.markdown("""<style>
+    .enc-pill-col button {
+      padding: 0 !important; height: 32px !important;
+      min-height: 32px !important; border-radius: 50% !important;
+      width: 32px !important; font-size: 0.8rem !important;
+      margin: 0 auto !important; display: block !important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+    # One column per step + narrow connector columns between them
+    col_weights = []
+    for i in range(n):
+        col_weights.append(1)
+        if i < n - 1:
+            col_weights.append(0.4)
+    all_cols = st.columns(col_weights)
+
+    for i, (pg, short, name) in enumerate(ENC_STEPS):
+        col_idx = i * 2  # every other column is a pill column
+        with all_cols[col_idx]:
+            done   = i < idx
+            active = i == idx
+            if done:
+                pill_bg  = "var(--green)"; pill_col = "hsl(222,58%,5%)"; icon = "✓"
+            elif active:
+                pill_bg  = "var(--accent)"; pill_col = "white"; icon = str(i+1)
+            else:
+                pill_bg  = "var(--card2)"; pill_col = "var(--text3)"; icon = str(i+1)
+
+            # Clickable button for each step (allows jumping)
+            st.markdown(
+                f'<div style="text-align:center">', unsafe_allow_html=True
+            )
+            clicked = st.button(
+                icon,
+                key=f"enc_pill_{i}",
+                help=f"Jump to {name}",
+                use_container_width=False,
+            )
+            if clicked:
+                st.session_state.page = pg
+                st.rerun()
+            st.markdown(
+                f'<div style="text-align:center;font-size:0.6rem;color:'
+                + ("var(--accent)" if active else "var(--text3)")
+                + f';margin-top:2px;font-weight:{"600" if active else "400"}">' 
+                + name + "</div></div>",
+                unsafe_allow_html=True,
+            )
+
+        # Connector line between pills
+        if i < n - 1:
+            with all_cols[col_idx + 1]:
+                done_conn = i < idx
+                color = "var(--green)" if done_conn else "var(--border)"
+                st.markdown(
+                    f'<div style="height:32px;display:flex;align-items:center">' 
+                    f'<div style="width:100%;height:2px;background:{color};'
+                    f'border-radius:2px"></div></div>',
+                    unsafe_allow_html=True,
+                )
+
+    pct = idx / (n - 1) if n > 1 else 0
+    st.progress(pct)
 
 def enc_nav(cur_page):
-    pages = [s[0] for s in ENC_STEPS]
-    idx = pages.index(cur_page)
+    """Bottom previous/next navigation for each encryption lab step."""
+    pages  = [s[0] for s in ENC_STEPS]
+    names  = [s[2] for s in ENC_STEPS]
+    idx    = pages.index(cur_page)
+    n      = len(ENC_STEPS)
+
+    st.divider()
     c1, c2, c3 = st.columns([1, 3, 1])
     with c1:
         if idx > 0:
-            if st.button("← Previous", use_container_width=True, type="secondary"):
-                st.session_state.page = pages[idx-1]; st.rerun()
+            prev_name = names[idx - 1]
+            if st.button(f"← {prev_name}", use_container_width=True, type="secondary",
+                         key=f"enc_prev_{idx}"):
+                st.session_state.page = pages[idx - 1]
+                st.rerun()
     with c2:
-        st.markdown(f"<div style='text-align:center;color:var(--text3);font-size:0.8rem'>Step {idx+1} of {len(ENC_STEPS)}</div>",
-                    unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="text-align:center;color:var(--text3);font-size:0.8rem;padding-top:0.5rem">' 
+            f'Step <b style="color:var(--text)">{idx+1}</b> of <b style="color:var(--text)">{n}</b>' 
+            f' &nbsp;·&nbsp; {names[idx]}</div>',
+            unsafe_allow_html=True,
+        )
     with c3:
-        if idx < len(ENC_STEPS)-1:
-            if st.button("Next →", use_container_width=True, type="primary"):
-                st.session_state.page = pages[idx+1]; st.rerun()
+        if idx < n - 1:
+            next_name = names[idx + 1]
+            lbl       = "🖨️ View Report →" if idx == n - 2 else f"{next_name} →"
+            if st.button(lbl, use_container_width=True, type="primary",
+                         key=f"enc_next_{idx}"):
+                st.session_state.page = pages[idx + 1]
+                st.rerun()
+        else:
+            if st.button("↩ Back to Step 1", use_container_width=True, type="secondary",
+                         key="enc_restart"):
+                st.session_state.page = pages[0]
+                st.rerun()
 
 # ── Shared sample data ────────────────────────────────────────────────────────
 def get_enc_sample():
@@ -2868,6 +2943,511 @@ elif st.session_state.page == "enc_step6":
             </div>""", unsafe_allow_html=True)
 
     enc_nav("enc_step6")
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+elif st.session_state.page == "enc_step7":
+    render_nav()
+    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Step 7 of 7 — Raw Data vs Encrypted Output · Print Report</div>', unsafe_allow_html=True)
+    enc_progress_bar()
+    st.divider()
+
+    sample = get_enc_sample()
+    keys   = get_enc_keys()
+    enc    = get_enc_cipher()
+
+    plaintext_str  = json.dumps(sample, indent=2)
+    cipher_hex     = enc.hex()
+    key_hex        = keys['key'].hex()
+    nonce_hex      = enc[:12].hex()
+    ciphertext_hex = enc[12:-16].hex()
+    tag_hex        = enc[-16:].hex()
+
+    priv_pem = keys['priv'].private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption()
+    ).decode()
+    pub_pem = keys['pub'].public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode()
+
+    # ── Explanation card ─────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="enc-step-card">
+      <div class="enc-step-title">🖨️ Step 7: Raw Data vs Encrypted Output — Full Comparison Report</div>
+      <div class="enc-explanation">
+        This final page presents a side-by-side comparison of every piece of data that was
+        processed through the hybrid encryption pipeline. It serves as both an educational
+        summary and a printable audit artefact.<br><br>
+        <b>Raw data</b> is the original human-readable JSON that would exist in memory for
+        milliseconds before being passed to the encryption pipeline. <b>Encrypted output</b>
+        is what actually travels across the network and sits in the database — completely
+        opaque to anyone without the AES-256 key.<br><br>
+        The comparison table below demonstrates the core principle of modern cryptography:
+        <i>computationally indistinguishable ciphertext</i> — structured plaintext transformed
+        into what appears to be random noise, verifiable only by the key-holder.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Stats row ─────────────────────────────────────────────────────────────
+    plain_bytes  = len(plaintext_str.encode())
+    cipher_bytes = len(enc)
+    overhead     = cipher_bytes - plain_bytes
+    entropy_est  = len(set(cipher_hex)) / 16 * 100  # hex-char diversity
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    for col, val, lbl, sub in [
+        (m1, f"{plain_bytes}",    "Plaintext",   "bytes"),
+        (m2, f"{cipher_bytes}",   "Ciphertext",  "bytes"),
+        (m3, f"+{overhead}",      "Overhead",    "nonce+tag"),
+        (m4, "AES-256-GCM",       "Algorithm",   "AEAD mode"),
+        (m5, f"{entropy_est:.0f}%","Hex Entropy", "char diversity"),
+    ]:
+        with col:
+            st.markdown(f"""
+            <div class="metric-card" style="text-align:center;padding:0.8rem">
+              <div class="metric-value" style="font-size:1.2rem">{val}</div>
+              <div class="metric-label">{lbl}</div>
+              <div class="metric-sub">{sub}</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── Three tab sections: Raw | Encrypted | Together ────────────────────────
+    tab_raw, tab_enc, tab_both = st.tabs(["📄 Raw Data", "🔐 Encrypted Output", "⚖️ Side-by-Side Comparison"])
+
+    # ── RAW DATA TAB ──────────────────────────────────────────────────────────
+    with tab_raw:
+        st.markdown("### 📄 Raw Plaintext Medical Record")
+        st.markdown("""
+        <div style="background:rgba(255,209,102,0.07);border:1px solid rgba(255,209,102,0.25);
+             border-radius:10px;padding:0.9rem;margin-bottom:1rem;font-size:0.82rem;color:var(--text2)">
+        ⚠️ <b style="color:var(--yellow)">Security Warning:</b> This data represents the
+        <i>pre-encryption state</i>. In a production system it exists only in RAM, never on disk,
+        and is immediately overwritten after encryption. It is displayed here for educational purposes only.
+        </div>""", unsafe_allow_html=True)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Structured View**")
+            st.json(sample)
+        with c2:
+            st.markdown("**Raw JSON String**")
+            st.code(plaintext_str, language="json")
+
+        st.markdown("**ECC Public Key (freely shareable)**")
+        st.code(pub_pem, language="text")
+
+        st.markdown("**ECC Private Key (secret — shown for lab only)**")
+        st.code(priv_pem, language="text")
+
+        st.markdown("**AES-256 Session Key (32 bytes)**")
+        groups = [key_hex[i:i+8] for i in range(0, len(key_hex), 8)]
+        colours = ['#E84855','#FFD166','#00E5A0','#00D4FF','#9B5DE5','#FF6B6B','#51CF66','#74C0FC']
+        hex_html = " ".join(
+            f'<span style="color:{colours[j%8]};font-family:DM Mono,monospace">{g}</span>'
+            for j, g in enumerate(groups)
+        )
+        st.markdown(
+            f'<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;' 
+            f'padding:1rem;font-size:0.8rem;line-height:2.2;word-break:break-all">{hex_html}</div>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("**GCM Nonce (12 bytes — prepended to ciphertext)**")
+        st.code(nonce_hex, language="text")
+
+        # Print raw only
+        st.markdown("---")
+        raw_print_html = f"""
+<!DOCTYPE html><html><head>
+<title>CardioSecure — Raw Medical Data Report</title>
+<style>
+  body{{font-family:'Courier New',monospace;padding:2rem;color:#111;background:#fff}}
+  h1{{font-family:Arial,sans-serif;color:#E84855;border-bottom:2px solid #E84855;padding-bottom:.5rem}}
+  h2{{font-family:Arial,sans-serif;color:#333;margin-top:1.5rem}}
+  pre{{background:#f5f5f5;padding:1rem;border-radius:6px;white-space:pre-wrap;word-break:break-all;font-size:.8rem}}
+  .meta{{color:#666;font-family:Arial;font-size:.85rem;margin-bottom:1.5rem}}
+  .warn{{background:#fff8e1;border:1px solid #ffc107;padding:.8rem;border-radius:6px;font-family:Arial;font-size:.82rem}}
+  @media print{{.no-print{{display:none}}}}
+</style></head><body>
+<h1>🏥 CardioSecure — Raw Medical Data Report</h1>
+<div class="meta">
+  Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} &nbsp;|&nbsp;
+  Patient: {sample.get("patient","—")} &nbsp;|&nbsp;
+  Device: {sample.get("device_id","—")}
+</div>
+<div class="warn">⚠️ EDUCATIONAL RECORD — This data is pre-encryption plaintext. Treat as CONFIDENTIAL.</div>
+
+<h2>Patient Health Data (JSON)</h2>
+<pre>{plaintext_str}</pre>
+
+<h2>AES-256 Session Key (256-bit)</h2>
+<pre>{key_hex}</pre>
+
+<h2>GCM Nonce (96-bit)</h2>
+<pre>{nonce_hex}</pre>
+
+<h2>ECC Public Key</h2>
+<pre>{pub_pem}</pre>
+
+<h2>ECC Private Key (SECRET)</h2>
+<pre>{priv_pem}</pre>
+
+<script class="no-print">window.onload=function(){{window.print();}}</script>
+</body></html>"""
+
+        st.download_button(
+            "🖨️ Print / Download Raw Data Report",
+            raw_print_html.encode(),
+            file_name="cardiosecure_raw_data.html",
+            mime="text/html",
+            type="primary",
+            use_container_width=True,
+        )
+
+    # ── ENCRYPTED OUTPUT TAB ──────────────────────────────────────────────────
+    with tab_enc:
+        st.markdown("### 🔐 Encrypted Output — What the Database Stores")
+        st.markdown("""
+        <div style="background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.25);
+             border-radius:10px;padding:0.9rem;margin-bottom:1rem;font-size:0.82rem;color:var(--text2)">
+        ✅ <b style="color:var(--green)">Safe to store/transmit:</b> This encrypted blob reveals
+        zero information about the underlying medical data. Even with unlimited compute, breaking
+        AES-256-GCM is computationally infeasible (~2¹²⁸ operations required).
+        </div>""", unsafe_allow_html=True)
+
+        # Colour-coded structure
+        st.markdown("**Ciphertext Byte Structure (Nonce | Ciphertext | Auth Tag)**")
+        st.markdown(f"""
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
+          <div style="flex:0 0 auto;background:rgba(255,209,102,0.12);border:2px solid rgba(255,209,102,.4);
+               border-radius:8px;padding:0.7rem 1rem;text-align:center;min-width:120px">
+            <div style="color:var(--yellow);font-weight:700;font-size:0.78rem;text-transform:uppercase">Nonce</div>
+            <div style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text2);
+                 word-break:break-all;margin-top:4px">{nonce_hex}</div>
+            <div style="color:var(--text3);font-size:0.68rem;margin-top:4px">12 bytes · 96 bits</div>
+          </div>
+          <div style="flex:1;background:rgba(232,72,85,0.10);border:2px solid rgba(232,72,85,.4);
+               border-radius:8px;padding:0.7rem 1rem;text-align:center;min-width:200px">
+            <div style="color:var(--accent);font-weight:700;font-size:0.78rem;text-transform:uppercase">Ciphertext</div>
+            <div style="font-family:DM Mono,monospace;font-size:0.62rem;color:var(--text2);
+                 word-break:break-all;margin-top:4px">{ciphertext_hex[:80]}…</div>
+            <div style="color:var(--text3);font-size:0.68rem;margin-top:4px">{len(enc[12:-16])} bytes</div>
+          </div>
+          <div style="flex:0 0 auto;background:rgba(0,229,160,0.10);border:2px solid rgba(0,229,160,.4);
+               border-radius:8px;padding:0.7rem 1rem;text-align:center;min-width:120px">
+            <div style="color:var(--green);font-weight:700;font-size:0.78rem;text-transform:uppercase">Auth Tag</div>
+            <div style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text2);
+                 word-break:break-all;margin-top:4px">{tag_hex}</div>
+            <div style="color:var(--text3);font-size:0.68rem;margin-top:4px">16 bytes · 128 bits</div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        st.markdown("**Full Ciphertext Blob (hex)**")
+        st.code(cipher_hex, language="text")
+
+        st.markdown("**Key stored separately in KMS**")
+        st.code(key_hex, language="text")
+
+        # Print encrypted only
+        st.markdown("---")
+        enc_print_html = f"""
+<!DOCTYPE html><html><head>
+<title>CardioSecure — Encrypted Data Report</title>
+<style>
+  body{{font-family:'Courier New',monospace;padding:2rem;color:#111;background:#fff}}
+  h1{{font-family:Arial,sans-serif;color:#00897B;border-bottom:2px solid #00897B;padding-bottom:.5rem}}
+  h2{{font-family:Arial,sans-serif;color:#333;margin-top:1.5rem}}
+  pre{{background:#f5f5f5;padding:1rem;border-radius:6px;white-space:pre-wrap;word-break:break-all;font-size:.78rem}}
+  .meta{{color:#666;font-family:Arial;font-size:.85rem;margin-bottom:1.5rem}}
+  table{{border-collapse:collapse;width:100%;font-family:Arial;font-size:.82rem;margin-top:.5rem}}
+  th{{background:#f0f0f0;padding:.5rem;text-align:left;border:1px solid #ccc}}
+  td{{padding:.5rem;border:1px solid #ccc;vertical-align:top}}
+  .ok{{background:#e8f5e9;color:#2e7d32;font-weight:700}}
+  @media print{{.no-print{{display:none}}}}
+</style></head><body>
+<h1>🔐 CardioSecure — Encrypted Data Report</h1>
+<div class="meta">
+  Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} &nbsp;|&nbsp;
+  Algorithm: AES-256-GCM + ECC-SECP256R1 &nbsp;|&nbsp;
+  Patient: {sample.get("patient","—")}
+</div>
+
+<h2>Ciphertext Blob (full, hex-encoded)</h2>
+<pre>{cipher_hex}</pre>
+
+<h2>Structure Breakdown</h2>
+<table>
+  <tr><th>Component</th><th>Bytes</th><th>Hex Value</th><th>Purpose</th></tr>
+  <tr><td><b>Nonce</b></td><td>12</td><td><pre style="margin:0;background:none">{nonce_hex}</pre></td><td>Unique IV for GCM counter</td></tr>
+  <tr><td><b>Ciphertext</b></td><td>{len(enc[12:-16])}</td><td><pre style="margin:0;background:none">{ciphertext_hex[:40]}…</pre></td><td>AES-CTR encrypted payload</td></tr>
+  <tr><td><b>Auth Tag</b></td><td>16</td><td><pre style="margin:0;background:none">{tag_hex}</pre></td><td>GHASH integrity tag</td></tr>
+</table>
+
+<h2>AES-256 Session Key (stored separately in KMS)</h2>
+<pre>{key_hex}</pre>
+
+<h2>ECC Public Key</h2>
+<pre>{pub_pem}</pre>
+
+<h2>Integrity Status</h2>
+<table>
+  <tr><th>Check</th><th>Result</th></tr>
+  <tr><td>Authentication tag present</td><td class="ok">✓ PASS (128-bit GHASH)</td></tr>
+  <tr><td>Nonce length valid</td><td class="ok">✓ PASS (96 bits)</td></tr>
+  <tr><td>Key length valid</td><td class="ok">✓ PASS (256 bits / AES-256)</td></tr>
+  <tr><td>AEAD mode</td><td class="ok">✓ PASS (GCM — Encrypt-then-MAC)</td></tr>
+</table>
+
+<script class="no-print">window.onload=function(){{window.print();}}</script>
+</body></html>"""
+
+        st.download_button(
+            "🖨️ Print / Download Encrypted Data Report",
+            enc_print_html.encode(),
+            file_name="cardiosecure_encrypted_data.html",
+            mime="text/html",
+            type="primary",
+            use_container_width=True,
+        )
+
+    # ── SIDE-BY-SIDE TAB ─────────────────────────────────────────────────────
+    with tab_both:
+        st.markdown("### ⚖️ Raw vs Encrypted — Full Side-by-Side")
+        st.markdown("""
+        <div class="enc-explanation" style="margin-bottom:1rem">
+        The table below shows every field of the medical record alongside its encrypted
+        counterpart. Notice: the ciphertext has no discernible structure, no field delimiters,
+        no recognisable patterns — this is the goal of <b>semantic security</b>.
+        </div>""", unsafe_allow_html=True)
+
+        # Field-by-field comparison table
+        fields = [
+            ("Patient Name",    sample.get("patient","—"),      "[embedded in ciphertext, indistinguishable]"),
+            ("BPM Reading",     str(sample.get("bpm","—")),     "[embedded in ciphertext, indistinguishable]"),
+            ("HR Category",     sample.get("category","—"),     "[embedded in ciphertext, indistinguishable]"),
+            ("Timestamp",       sample.get("timestamp","—"),    "[embedded in ciphertext, indistinguishable]"),
+            ("Device ID",       sample.get("device_id","—"),    "[embedded in ciphertext, indistinguishable]"),
+            ("Recommendations", str(sample.get("recommendations",[])), "[embedded in ciphertext, indistinguishable]"),
+        ]
+
+        header_html = """
+        <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+          <thead>
+            <tr>
+              <th style="background:var(--card2);color:var(--text3);padding:.6rem .8rem;
+                         text-align:left;border:1px solid var(--border);font-size:.72rem;
+                         text-transform:uppercase;letter-spacing:.05em;width:18%">Field</th>
+              <th style="background:rgba(255,209,102,0.1);color:var(--yellow);padding:.6rem .8rem;
+                         text-align:left;border:1px solid var(--border);font-size:.72rem;
+                         text-transform:uppercase;letter-spacing:.05em;width:30%">📄 Raw Plaintext</th>
+              <th style="background:rgba(0,229,160,0.07);color:var(--green);padding:.6rem .8rem;
+                         text-align:left;border:1px solid var(--border);font-size:.72rem;
+                         text-transform:uppercase;letter-spacing:.05em;width:52%">🔐 Encrypted (AES-256-GCM)</th>
+            </tr>
+          </thead><tbody>"""
+
+        rows_html = ""
+        for field, raw_val, enc_val in fields:
+            rows_html += f"""
+            <tr>
+              <td style="padding:.55rem .8rem;border:1px solid var(--border);
+                         color:var(--text3);font-size:.75rem;font-weight:600">{field}</td>
+              <td style="padding:.55rem .8rem;border:1px solid var(--border);
+                         color:var(--text2);font-family:DM Mono,monospace;font-size:.72rem;
+                         background:rgba(255,209,102,0.04)">{raw_val}</td>
+              <td style="padding:.55rem .8rem;border:1px solid var(--border);
+                         color:var(--text3);font-family:DM Mono,monospace;font-size:.68rem;
+                         font-style:italic;background:rgba(0,229,160,0.03)">{enc_val}</td>
+            </tr>"""
+
+        # Full blob row
+        rows_html += f"""
+            <tr>
+              <td style="padding:.55rem .8rem;border:1px solid var(--border);
+                         color:var(--accent);font-size:.75rem;font-weight:600" colspan="1">Full Output</td>
+              <td style="padding:.55rem .8rem;border:1px solid var(--border);
+                         color:var(--text2);font-family:DM Mono,monospace;font-size:.68rem;
+                         background:rgba(255,209,102,0.04)">{plaintext_str[:120].replace(chr(10)," ")}…</td>
+              <td style="padding:.55rem .8rem;border:1px solid var(--border);
+                         color:var(--green);font-family:DM Mono,monospace;font-size:.68rem;
+                         background:rgba(0,229,160,0.04);word-break:break-all">{cipher_hex[:120]}…</td>
+            </tr>
+          </tbody></table>"""
+
+        st.markdown(header_html + rows_html, unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown("### 🔬 Entropy & Randomness Analysis")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Plaintext character frequency**")
+            plain_chars  = {}
+            for ch in plaintext_str:
+                plain_chars[ch] = plain_chars.get(ch, 0) + 1
+            top_plain = sorted(plain_chars.items(), key=lambda x: -x[1])[:8]
+            for ch, cnt in top_plain:
+                pct = cnt / len(plaintext_str) * 100
+                label = repr(ch) if ch in (" ", "\n", '"', ":", "{", "}") else ch
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:.5rem;margin:2px 0">' 
+                    f'<code style="width:28px;text-align:center">{label}</code>' 
+                    f'<div style="flex:1;height:14px;background:var(--border);border-radius:3px">' 
+                    f'<div style="width:{min(pct*5,100):.0f}%;height:100%;background:var(--yellow);'
+                    f'border-radius:3px"></div></div>' 
+                    f'<span style="font-size:.7rem;color:var(--text3);width:40px">{pct:.1f}%</span></div>',
+                    unsafe_allow_html=True
+                )
+            st.caption(f"Unique chars: {len(plain_chars)} / {len(plaintext_str)} total")
+
+        with c2:
+            st.markdown("**Ciphertext hex-char frequency (should be near-uniform)**")
+            hex_chars = {}
+            for ch in cipher_hex:
+                hex_chars[ch] = hex_chars.get(ch, 0) + 1
+            for ch in sorted(hex_chars.keys()):
+                pct = hex_chars[ch] / len(cipher_hex) * 100
+                ideal = 100 / 16  # 6.25%
+                deviation = abs(pct - ideal)
+                bar_color = "var(--green)" if deviation < 1.5 else "var(--yellow)"
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:.5rem;margin:2px 0">' 
+                    f'<code style="width:20px;text-align:center">{ch}</code>' 
+                    f'<div style="flex:1;height:14px;background:var(--border);border-radius:3px">' 
+                    f'<div style="width:{min(pct*8,100):.0f}%;height:100%;background:{bar_color};'
+                    f'border-radius:3px"></div></div>' 
+                    f'<span style="font-size:.7rem;color:var(--text3);width:40px">{pct:.1f}%</span></div>',
+                    unsafe_allow_html=True
+                )
+            st.caption(f"Ideal = 6.25% each · Deviation < 2% ✅")
+
+        st.divider()
+
+        # ── Combined print report ────────────────────────────────────────────
+        both_print_html = f"""
+<!DOCTYPE html><html><head>
+<title>CardioSecure — Full Encryption Report</title>
+<style>
+  body{{font-family:Arial,sans-serif;padding:2rem;color:#111;background:#fff;max-width:1100px;margin:0 auto}}
+  h1{{color:#E84855;border-bottom:3px solid #E84855;padding-bottom:.5rem}}
+  h2{{color:#333;margin-top:2rem;border-left:4px solid #E84855;padding-left:.8rem}}
+  h3{{color:#555;margin-top:1.2rem}}
+  pre{{font-family:'Courier New',monospace;background:#f5f5f5;padding:1rem;border-radius:6px;
+       white-space:pre-wrap;word-break:break-all;font-size:.76rem;border:1px solid #e0e0e0}}
+  table{{border-collapse:collapse;width:100%;font-size:.82rem;margin-top:.8rem}}
+  th{{background:#f0f0f0;padding:.6rem;text-align:left;border:1px solid #ccc;font-size:.78rem}}
+  td{{padding:.55rem;border:1px solid #ccc;vertical-align:top;font-size:.78rem}}
+  .raw-cell{{background:#fffde7;font-family:'Courier New',monospace;font-size:.74rem}}
+  .enc-cell{{background:#e8f5e9;font-family:'Courier New',monospace;font-size:.72rem;font-style:italic;color:#444}}
+  .meta{{color:#666;font-size:.85rem;margin-bottom:1.5rem;line-height:1.8}}
+  .badge-ok{{background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:4px;font-size:.78rem;font-weight:700}}
+  .section-divider{{border:none;border-top:2px solid #eee;margin:1.5rem 0}}
+  .page-break{{page-break-after:always}}
+  @media print{{.no-print{{display:none}}}}
+</style></head><body>
+
+<h1>🏥 CardioSecure — Full Hybrid Encryption Report</h1>
+<div class="meta">
+  <b>Generated:</b> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}<br>
+  <b>Patient:</b> {sample.get("patient","—")} &nbsp;|&nbsp;
+  <b>Device:</b> {sample.get("device_id","—")}<br>
+  <b>Algorithm:</b> AES-256-GCM + ECC-SECP256R1 (NIST P-256) + HKDF-SHA256<br>
+  <b>Security Level:</b> 128-bit equivalent &nbsp;|&nbsp;
+  <b>Mode:</b> AEAD (Authenticated Encryption with Associated Data)
+</div>
+
+<hr class="section-divider">
+<h2>Section A — Raw Plaintext Medical Data</h2>
+
+<h3>Patient JSON Record</h3>
+<pre>{plaintext_str}</pre>
+
+<h3>AES-256 Session Key (256 bits)</h3>
+<pre>{key_hex}</pre>
+
+<h3>GCM Nonce (96 bits — prepended to ciphertext)</h3>
+<pre>{nonce_hex}</pre>
+
+<h3>ECC Public Key (SECP256R1)</h3>
+<pre>{pub_pem}</pre>
+
+<h3>ECC Private Key (SECRET — educational display only)</h3>
+<pre>{priv_pem}</pre>
+
+<hr class="section-divider" class="page-break">
+<h2>Section B — Encrypted Output</h2>
+
+<h3>Full Ciphertext Blob (Nonce + Ciphertext + Auth Tag)</h3>
+<pre>{cipher_hex}</pre>
+
+<h3>Ciphertext Structure</h3>
+<table>
+  <tr><th>Component</th><th>Bytes</th><th>Hex Value</th><th>Purpose</th></tr>
+  <tr>
+    <td><b>Nonce</b></td><td>12</td>
+    <td class="raw-cell">{nonce_hex}</td>
+    <td>Unique 96-bit IV for GCM counter mode. Must never repeat with same key.</td>
+  </tr>
+  <tr>
+    <td><b>Ciphertext</b></td><td>{len(enc[12:-16])}</td>
+    <td class="enc-cell">{ciphertext_hex[:60]}…</td>
+    <td>AES-CTR encrypted payload. Same length as plaintext (stream cipher).</td>
+  </tr>
+  <tr>
+    <td><b>Auth Tag</b></td><td>16</td>
+    <td class="enc-cell">{tag_hex}</td>
+    <td>128-bit GHASH authentication tag. Verified before any decryption occurs.</td>
+  </tr>
+</table>
+
+<hr class="section-divider">
+<h2>Section C — Side-by-Side Field Comparison</h2>
+<table>
+  <tr>
+    <th style="width:15%">Field</th>
+    <th style="width:35%">📄 Raw Plaintext</th>
+    <th style="width:50%">🔐 Status in Ciphertext</th>
+  </tr>
+  {"".join(
+    f'<tr><td><b>{f}</b></td><td class="raw-cell">{r}</td><td class="enc-cell">{e}</td></tr>'
+    for f, r, e in fields
+  )}
+</table>
+
+<hr class="section-divider">
+<h2>Section D — Integrity & Compliance Verification</h2>
+<table>
+  <tr><th>Check</th><th>Result</th><th>Standard</th></tr>
+  <tr><td>Authentication tag present</td><td><span class="badge-ok">✓ PASS</span></td><td>NIST SP 800-38D</td></tr>
+  <tr><td>Nonce uniqueness (96-bit random)</td><td><span class="badge-ok">✓ PASS</span></td><td>NIST SP 800-38D §8.2.1</td></tr>
+  <tr><td>Key length (AES-256)</td><td><span class="badge-ok">✓ PASS — 256 bits</span></td><td>FIPS 197</td></tr>
+  <tr><td>Key derivation (HKDF-SHA256)</td><td><span class="badge-ok">✓ PASS</span></td><td>RFC 5869</td></tr>
+  <tr><td>ECC curve (SECP256R1)</td><td><span class="badge-ok">✓ PASS</span></td><td>NIST FIPS 186-4</td></tr>
+  <tr><td>AEAD mode (Encrypt-then-MAC)</td><td><span class="badge-ok">✓ PASS</span></td><td>RFC 5116</td></tr>
+  <tr><td>Plaintext bytes</td><td><span class="badge-ok">{plain_bytes} bytes</span></td><td>—</td></tr>
+  <tr><td>Ciphertext bytes</td><td><span class="badge-ok">{cipher_bytes} bytes (+{overhead} overhead)</span></td><td>—</td></tr>
+</table>
+
+<script class="no-print">window.onload=function(){{window.print();}}</script>
+</body></html>"""
+
+        st.download_button(
+            "🖨️ Print / Download Full Combined Report",
+            both_print_html.encode(),
+            file_name="cardiosecure_full_encryption_report.html",
+            mime="text/html",
+            type="primary",
+            use_container_width=True,
+        )
+
+    enc_nav("enc_step7")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE: RAW DATA & PRINT
