@@ -1,21 +1,70 @@
 import streamlit as st
-import cv2
-import numpy as np
+import sys
+import os
+
+# ── Safe imports with clear error messages ────────────────────────────────────
+try:
+    import cv2
+except ImportError:
+    st.error("""
+    **Missing dependency: opencv-python-headless**
+
+    Make sure your `requirements.txt` contains:
+    ```
+    opencv-python-headless>=4.9.0.80
+    ```
+    And your `packages.txt` (for Streamlit Cloud) contains:
+    ```
+    libgl1-mesa-glx
+    libglib2.0-0
+    ```
+    Then redeploy / restart the app.
+    """)
+    st.stop()
+
+try:
+    import numpy as np
+except ImportError:
+    st.error("Missing: numpy. Add `numpy>=1.26.0` to requirements.txt")
+    st.stop()
+
+try:
+    from scipy import signal
+except ImportError:
+    st.error("Missing: scipy. Add `scipy>=1.12.0` to requirements.txt")
+    st.stop()
+
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+except ImportError:
+    st.error("Missing: cryptography. Add `cryptography>=42.0.0` to requirements.txt")
+    st.stop()
+
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+except ImportError:
+    st.error("Missing: plotly. Add `plotly>=5.19.0` to requirements.txt")
+    st.stop()
+
+try:
+    import pandas as pd
+except ImportError:
+    st.error("Missing: pandas. Add `pandas>=2.2.0` to requirements.txt")
+    st.stop()
+
+# Standard library — always available
+import streamlit.components.v1 as components
 from collections import deque
-from scipy import signal
 import time
 import sqlite3
 import hashlib
 import json
 from datetime import datetime, timedelta
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-import os
-import plotly.graph_objects as go
-import plotly.express as px
-import pandas as pd
+import base64
 import random
 import math
 
@@ -1465,7 +1514,6 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
     # ── Frame receiver: use st.components to get frames back from JS ──────────
     # Pattern: JS writes frame b64 into component, Python reads it each rerun.
     # We use a dedicated receiver component that returns the latest frame.
-    import streamlit.components.v1 as components
 
     # Frame bridge component — returns latest frame as base64 string
     frame_data = components.html(
@@ -1502,7 +1550,6 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         This is the core bridge: JS captured the frame, cv2 processes it.
         Returns: (annotated_rgb_frame, bpm, filtered_signal, face_box, roi_box)
         """
-        import base64
         try:
             img_bytes = base64.b64decode(b64_str)
             np_arr    = np.frombuffer(img_bytes, np.uint8)
