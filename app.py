@@ -788,10 +788,10 @@ except Exception as _db_err:
 defaults = {
     "logged_in": False, "user": None, "page": "landing",
     "theme": "dark",          # "dark" or "light"
-    "data_buffer": deque(maxlen=300),
-    "chrom_x": deque(maxlen=300),
-    "chrom_y": deque(maxlen=300),
-    "times": deque(maxlen=300),
+    "data_buffer": deque(maxlen=60),
+    "chrom_x": deque(maxlen=60),
+    "chrom_y": deque(maxlen=60),
+    "times": deque(maxlen=60),
     "bpm": 0, "bpm_history": [], "running": False,
     "test_complete": False, "last_result": None,
     "enc_step": 0,            # current encryption walkthrough step
@@ -1027,11 +1027,8 @@ def render_landing():
         Research-grade cardiac monitoring, fully secured.
       </p>
       <div class="hero-btns">
-        <button class="btn-primary" onclick="window.parent.document.querySelector('[data-testid=stButton]').click()">
-          Get Started →</button>
-        <button class="btn-secondary"
-          onclick="window.scrollTo({{top:window.innerHeight,behavior:'smooth'}})">
-          Learn More ↓</button>
+        <button class="btn-primary" onclick="triggerLogin()">Get Started →</button>
+        <button class="btn-secondary" onclick="triggerLogin()">Learn More ↓</button>
       </div>
       <div
            style="margin-top:1.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text3)">
@@ -1057,28 +1054,28 @@ def render_landing():
         Powered by advanced computer vision and military-grade encryption</p>
 
       <div class="feature-grid">
-        <div class="feature-card">
+        <div class="feature-card" onclick="triggerLogin()" style="cursor:pointer">
           <div style="font-size:2rem;margin-bottom:.8rem">❤️</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             rPPG Detection</h3>
           <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
             Non-contact heart rate via CHROM method with 4th-order Butterworth bandpass and FFT analysis.</p>
         </div>
-        <div class="feature-card">
+        <div class="feature-card" onclick="triggerLogin()" style="cursor:pointer">
           <div style="font-size:2rem;margin-bottom:.8rem">🛡️</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             Hybrid Encryption</h3>
           <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
             AES-256-GCM symmetric + ECC-SECP256R1 asymmetric key exchange for end-to-end security.</p>
         </div>
-        <div class="feature-card">
+        <div class="feature-card" onclick="triggerLogin()" style="cursor:pointer">
           <div style="font-size:2rem;margin-bottom:.8rem">📈</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             ML Refinement</h3>
           <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
             Contextual prior model validates against rolling history, age-ceiling estimates, temporal consistency.</p>
         </div>
-        <div class="feature-card">
+        <div class="feature-card" onclick="triggerLogin()" style="cursor:pointer">
           <div style="font-size:2rem;margin-bottom:.8rem">⚡</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             Real-Time Analysis</h3>
@@ -1094,7 +1091,7 @@ def render_landing():
           style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text)">
         How It Works</h2>
       <div class="how-grid">
-        <div class="how-card"
+        <div class="how-card" onclick="triggerLogin()"
              style="border-top-color:var(--cyan)">
           <div class="step-num">01</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
@@ -1102,7 +1099,7 @@ def render_landing():
           <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
             Haar Cascade isolates forehead/cheek ROI regions with dense vasculature.</p>
         </div>
-        <div class="how-card"
+        <div class="how-card" onclick="triggerLogin()"
              style="border-top-color:var(--accent)">
           <div class="step-num">02</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
@@ -1110,7 +1107,7 @@ def render_landing():
           <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
             CHROM chrominance + Butterworth bandpass (0.67–4.0 Hz) + FFT peak detection.</p>
         </div>
-        <div class="how-card"
+        <div class="how-card" onclick="triggerLogin()"
              style="border-top-color:var(--green)">
           <div class="step-num">03</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
@@ -1127,7 +1124,25 @@ def render_landing():
         🔒 End-to-end encrypted with AES-256-GCM + ECC-SECP256R1 &nbsp;·&nbsp;
         ⚠️ For research &amp; educational purposes only &nbsp;·&nbsp; Not a certified medical device
       </p>
+      <p style="margin-top:1rem">
+        <button class="btn-primary" onclick="triggerLogin()" style="font-size:.85rem;padding:.5rem 1.8rem">
+          Sign In / Register →</button>
+      </p>
     </div>
+
+    <script>
+    function triggerLogin() {{
+      /* Find and click the hidden Streamlit login-trigger button */
+      var p = window.parent.document;
+      var btns = p.querySelectorAll('button');
+      for (var i = 0; i < btns.length; i++) {{
+        if (btns[i].innerText.trim() === '__login__') {{
+          btns[i].click();
+          return;
+        }}
+      }}
+    }}
+    </script>
     """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1142,12 +1157,18 @@ if not st.session_state.logged_in:
     if pg == "landing":
         render_nav()
         render_landing()
+        # Hidden trigger button — clicked by JS triggerLogin() on ANY landing element
+        st.markdown('<div style="display:none">', unsafe_allow_html=True)
+        if st.button("__login__", key="__login_trigger__"):
+            go("login")
+        st.markdown('</div>', unsafe_allow_html=True)
+        # Visible fallback buttons (shown below the landing HTML)
         _, ca, cb, _ = st.columns([2, 1.2, 1.2, 2])
         with ca:
             if st.button("Get Started →", type="primary", use_container_width=True, key="land_cta"):
                 go("login")
         with cb:
-            if st.button("View Demo", use_container_width=True, key="land_demo"):
+            if st.button("Sign In / Register", use_container_width=True, key="land_demo"):
                 go("login")
         st.stop()
 
@@ -1415,8 +1436,8 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         if start_btn:
             st.session_state.running = True
             st.session_state.test_complete = False
-            st.session_state.data_buffer = deque(maxlen=300)
-            st.session_state.times = deque(maxlen=300)
+            st.session_state.data_buffer = deque(maxlen=60)
+            st.session_state.times = deque(maxlen=60)
             st.session_state.bpm_history = []
             log_action(user['id'], "TEST_START", "Heart rate test initiated")
 
@@ -1505,7 +1526,7 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
     #   3. We process it immediately (cv2 pipeline) and show the annotated frame
     #   4. Progress bar + BPM update live in session_state
     #   5. User retakes / next sample by clicking the camera shutter again
-    #   6. We accumulate up to 150 samples then mark test_complete
+    #   6. We accumulate up to 20 samples then mark test_complete
     #   NO st.rerun() is called automatically — Streamlit reruns only on user action
 
     if st.session_state.running:
@@ -1514,7 +1535,7 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         with cam_area:
             # Fixed key = widget survives reruns without resetting
             cam_img = st.camera_input(
-                f"📸 Take photo — sample {sample_count + 1}/150  "
+                f"📸 Take photo — sample {sample_count + 1}/20  "
                 f"(retake for more samples)",
                 key="rppg_camera",
             )
@@ -1543,14 +1564,14 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                     "signal_data": sig_filtered,
                 }
                 # Mark complete once we have enough samples for a stable reading
-                if len(st.session_state.data_buffer) >= 30:
+                if len(st.session_state.data_buffer) >= 10:
                     st.session_state.test_complete = True
 
         # ── Show sample progress ──────────────────────────────────────────────
         n = len(st.session_state.data_buffer)
         if n > 0:
             with cam_area:
-                pct = min(n / 150, 1.0)
+                pct = min(n / 20, 1.0)
                 st.markdown(
                     f"""<div style="margin-top:.4rem">
                     <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
@@ -1559,13 +1580,13 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                            border-radius:3px;transition:width .3s"></div>
                     </div>
                     <div style="font-size:.7rem;color:var(--text3);margin-top:3px">
-                      {n} / 150 samples — keep retaking for better accuracy</div>
+                      {n} / 20 samples — keep retaking for better accuracy</div>
                     </div>""",
                     unsafe_allow_html=True,
                 )
-            if n >= 150:
+            if n >= 20:
                 st.session_state.running = False
-                st.success("✅ 150 samples collected! Press 💾 Save Result.")
+                st.success("✅ 20 samples collected! Press 💾 Save Result.")
                 st.rerun()
 
     else:
@@ -1587,7 +1608,7 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
     bpm_val      = st.session_state.bpm
     sample_count = len(st.session_state.data_buffer)
     cls          = bpm_class(bpm_val)
-    pct          = min(sample_count / 150 * 100, 100)
+    pct          = min(sample_count / 20 * 100, 100)
     state_label  = '❤️ Live Heart Rate' if st.session_state.running else '📋 Last Reading'
     bpm_disp     = str(bpm_val) if bpm_val else '&ndash;'
 
@@ -1601,7 +1622,7 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         '<div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">'
         f'<div style="height:100%;width:{pct:.0f}%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:3px"></div>'
         '</div>'
-        f'<div style="font-size:.68rem;color:var(--text3);margin-top:3px">{sample_count} / 150 samples</div>'
+        f'<div style="font-size:.68rem;color:var(--text3);margin-top:3px">{sample_count} / 20 samples</div>'
         '</div>'
         '</div>'
     )
