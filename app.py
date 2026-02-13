@@ -82,7 +82,7 @@ st.set_page_config(
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBAL CSS  (medical dark-mode, refined clinical aesthetic)
 # ─────────────────────────────────────────────────────────────────────────────
-
+html_code = html_code.encode("utf-8", "ignore").decode("utf-8")
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
