@@ -312,7 +312,7 @@ components.html("""<!DOCTYPE html>
           : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
       });
       var btn = p.getElementById('cs-theme-btn');
-      if(btn) btn.textContent = (t === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+      if(btn) btn.textContent = (t === 'dark') ? String.fromCharCode(0x2600, 0xFE0F) : String.fromCharCode(0xD83C, 0xDF19);
     } catch(e){}
   }
 
@@ -323,7 +323,7 @@ components.html("""<!DOCTYPE html>
       var btn = p.createElement('button');
       btn.id = 'cs-theme-btn';
       btn.title = 'Toggle light / dark mode';
-      btn.textContent = (theme === 'dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+      btn.textContent = (theme === 'dark') ? String.fromCharCode(0x2600, 0xFE0F) : String.fromCharCode(0xD83C, 0xDF19);
       btn.onclick = function(){ applyTheme(theme === 'dark' ? 'light' : 'dark'); };
       p.body.appendChild(btn);
     } catch(e){}
@@ -372,6 +372,7 @@ components.html("""<!DOCTYPE html>
 </script>
 </body></html>
 """, height=0, scrolling=False)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENCRYPTION ENGINE
