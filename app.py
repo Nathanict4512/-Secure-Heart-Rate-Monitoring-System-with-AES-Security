@@ -83,296 +83,282 @@ st.set_page_config(
 # GLOBAL CSS  (medical dark-mode, refined clinical aesthetic)
 # ─────────────────────────────────────────────────────────────────────────────
 
-st.markdown("""
+# ── CSS + theme toggle (pure Streamlit session_state approach) ──────────────
+
+def _apply_theme_css():
+    """Inject CSS with hardcoded dark OR light values based on session_state."""
+    is_light = st.session_state.get("theme", "dark") == "light"
+
+    # ── Colour values ──
+    if is_light:
+        bg      = "hsl(220,20%,97%)"
+        bg2     = "hsl(220,20%,93%)"
+        card    = "hsl(0,0%,100%)"
+        card2   = "hsl(220,20%,95%)"
+        border  = "hsl(220,20%,84%)"
+        text    = "hsl(222,40%,12%)"
+        text2   = "hsl(222,20%,45%)"
+        text3   = "hsl(222,15%,65%)"
+        accent  = "hsl(355,78%,48%)"
+        accent2 = "hsl(355,78%,58%)"
+        green   = "hsl(160,70%,35%)"
+        yellow  = "hsl(40,80%,42%)"
+        cyan    = "hsl(195,80%,38%)"
+        purple  = "hsl(265,55%,48%)"
+        glow    = "hsla(355,78%,48%,.2)"
+        app_bg  = f"radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),{bg}"
+        nav_bg  = f"linear-gradient(90deg,{card},{bg2})"
+        nav_bdr = border
+        nav_shd = "0 2px 12px rgba(0,0,0,.1)"
+        inp_bg  = card2
+        tab_list= bg2
+        tab_act = card
+        scr_trk = "hsl(220,20%,93%)"
+        scr_thm = "hsl(220,20%,78%)"
+        btn_svg  = text
+        tog_bg  = card
+        tog_bdr = border
+        tog_shd = "0 2px 12px rgba(0,0,0,.15)"
+    else:
+        bg      = "hsl(222,58%,5%)"
+        bg2     = "hsl(222,50%,8%)"
+        card    = "hsl(222,40%,12%)"
+        card2   = "hsl(222,35%,16%)"
+        border  = "hsl(222,30%,22%)"
+        text    = "hsl(220,30%,92%)"
+        text2   = "hsl(220,15%,55%)"
+        text3   = "hsl(222,20%,35%)"
+        accent  = "hsl(355,78%,55%)"
+        accent2 = "hsl(355,78%,68%)"
+        green   = "hsl(160,100%,45%)"
+        yellow  = "hsl(40,100%,70%)"
+        cyan    = "hsl(195,100%,50%)"
+        purple  = "hsl(265,70%,60%)"
+        glow    = "hsla(355,78%,55%,.3)"
+        app_bg  = f"radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),{bg}"
+        nav_bg  = f"linear-gradient(90deg,{card},{card2})"
+        nav_bdr = border
+        nav_shd = "0 4px 20px rgba(0,0,0,.4)"
+        inp_bg  = bg2
+        tab_list= bg2
+        tab_act = card
+        scr_trk = bg2
+        scr_thm = border
+        btn_svg  = text
+        tog_bg  = card
+        tog_bdr = border
+        tog_shd = "0 4px 20px rgba(0,0,0,.45)"
+
+    st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
-@import url('https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css');
 
-/* ═══════════════════════════ DESIGN TOKENS ═══════════════════════════ */
-:root {
-  --bg:      hsl(222,58%,5%);   --bg2:     hsl(222,50%,8%);
-  --card:    hsl(222,40%,12%);  --card2:   hsl(222,35%,16%);
-  --border:  hsl(222,30%,22%);
-  --text:    hsl(220,30%,92%);  --text2:   hsl(220,15%,55%);  --text3:  hsl(222,20%,35%);
-  --accent:  hsl(355,78%,55%);  --accent2: hsl(355,78%,68%);
-  --green:   hsl(160,100%,45%); --yellow:  hsl(40,100%,70%);
-  --cyan:    hsl(195,100%,50%); --purple:  hsl(265,70%,60%);
-  --glow:    hsla(355,78%,55%,.3);
-  --r: .75rem;
-}
-[data-theme="light"] {
-  --bg:     hsl(220,20%,97%);  --bg2:    hsl(220,20%,93%);
-  --card:   hsl(0,0%,100%);    --card2:  hsl(220,20%,95%);
-  --border: hsl(220,20%,84%);
-  --text:   hsl(222,40%,12%);  --text2:  hsl(222,20%,45%);  --text3: hsl(222,15%,65%);
-  --accent: hsl(355,78%,48%);  --accent2:hsl(355,78%,58%);
-  --green:  hsl(160,70%,35%);  --yellow: hsl(40,80%,42%);
-  --cyan:   hsl(195,80%,38%);  --purple: hsl(265,55%,48%);
-  --glow:   hsla(355,78%,48%,.2);
-}
-
-/* ═══════════════════════════ BASE ═══════════════════════════ */
-html,body,[class*="css"],.stApp,
+/* ── HARDCODED THEME VALUES (no JS needed) ── */
+html,body,.stApp,[class*="css"],
 [data-testid="stAppViewContainer"],
 [data-testid="stVerticalBlock"],
-[data-testid="stHorizontalBlock"] {
+[data-testid="stHorizontalBlock"] {{
   font-family:'DM Sans',sans-serif !important;
-  background-color:var(--bg) !important;
-  color:var(--text) !important;
-}
-/* Force white text in dark mode for ALL Streamlit text elements */
-p,span,label,div,h1,h2,h3,h4,li,td,th,code {
-  color:var(--text) !important;
-}
-/* Markdown text */
+  background-color:{bg} !important;
+  color:{text} !important;
+}}
+.stApp {{ background:{app_bg} !important; }}
+
+/* All text white (dark) or dark (light) */
+p,span,div,h1,h2,h3,h4,h5,h6,li,td,th,code,label,
 .stMarkdown p,.stMarkdown li,.stMarkdown span,
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] span,
-[data-testid="stMarkdownContainer"] li {
-  color:var(--text) !important;
-}
-/* Metric labels and values */
-[data-testid="stMetric"] label,[data-testid="stMetric"] [data-testid="stMetricValue"],
-[data-testid="stMetric"] [data-testid="stMetricDelta"]{color:var(--text) !important}
-/* Expander */
-.streamlit-expanderHeader{color:var(--text) !important;background:var(--card2) !important}
-.streamlit-expanderContent{background:var(--bg2) !important;color:var(--text) !important}
-/* Tab text */
-.stTabs [data-baseweb="tab"]{color:var(--text2) !important}
-.stTabs [aria-selected="true"]{color:var(--text) !important}
-/* Select / radio labels */
+[data-testid="stMarkdownContainer"] li {{color:{text} !important}}
+[data-testid="stMetric"] label,[data-testid="stMetricValue"],[data-testid="stMetricDelta"]{{color:{text} !important}}
+.streamlit-expanderHeader{{color:{text} !important;background:{card2} !important}}
+.streamlit-expanderContent{{background:{bg2} !important;color:{text} !important}}
 .stSelectbox label,.stRadio label,.stCheckbox label,.stNumberInput label,
-.stTextInput label,.stTextArea label,.stSlider label{color:var(--text2) !important}
-/* Light mode text */
-[data-theme="light"] p,[data-theme="light"] span,[data-theme="light"] div,
-[data-theme="light"] label,[data-theme="light"] li,[data-theme="light"] td,
-[data-theme="light"] h1,[data-theme="light"] h2,[data-theme="light"] h3 {
-  color:var(--text) !important;
-}
+.stTextInput label,.stTextArea label,.stSlider label{{color:{text2} !important}}
 
-[data-theme="light"] .stApp {
-  background:radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.04) 0%,transparent 50%),hsl(220,20%,97%) !important;
-}
-#MainMenu,footer,header{visibility:hidden}
-.stDeployButton{display:none}
-/* Sidebar hidden by default — re-enabled when user is logged in */
-section[data-testid="stSidebar"]{display:none}
-.block-container{padding:1.5rem 2rem 2rem !important;max-width:1400px !important}
-
-/* ═══════════════════════════ CARDS ═══════════════════════════ */
-.cs-card {
-  background:var(--card);border:1px solid var(--border);
-  border-radius:16px;padding:1.5rem;margin-bottom:1rem;
-  box-shadow:0 4px 24px rgba(0,0,0,.3);
-  transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s ease;
-}
-.cs-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.45)}
-[data-theme="light"] .cs-card{background:white;border-color:var(--border);box-shadow:0 2px 16px rgba(0,0,0,.08)}
-.metric-card {
-  background:var(--card2);border:1px solid var(--border);border-radius:12px;
+/* Cards */
+.cs-card{{background:{card};border:1px solid {border};border-radius:16px;padding:1.5rem;
+  margin-bottom:1rem;box-shadow:0 4px 24px rgba(0,0,0,.3);
+  transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s;}}
+.cs-card:hover{{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.45)}}
+.metric-card{{background:{card2};border:1px solid {border};border-radius:12px;
   padding:1.2rem;text-align:center;
-  transition:transform .25s cubic-bezier(.23,1,.32,1),border-color .25s,box-shadow .25s;
-}
-.metric-card:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 12px 32px rgba(0,0,0,.5)}
-[data-theme="light"] .metric-card{background:var(--card2);border-color:var(--border)}
+  transition:transform .25s cubic-bezier(.23,1,.32,1),border-color .25s,box-shadow .25s;}}
+.metric-card:hover{{transform:translateY(-5px);border-color:{accent};box-shadow:0 12px 32px rgba(0,0,0,.5)}}
 
-/* ═══════════════════════════ NAV ═══════════════════════════ */
-.cs-nav {
-  background:linear-gradient(90deg,var(--card),var(--card2));
-  border-bottom:1px solid var(--border);border-radius:0;
-  padding:.8rem 1.5rem;display:flex;align-items:center;
-  justify-content:space-between;margin-bottom:1.5rem;
-  box-shadow:0 4px 20px rgba(0,0,0,.4);
-  animation:slideDown .55s cubic-bezier(.23,1,.32,1) both;
-  position:sticky;top:0;z-index:100;
-}
-[data-theme="light"] .cs-nav{
-  background:linear-gradient(90deg,white,hsl(220,20%,97%));
-  border-color:var(--border);box-shadow:0 2px 12px rgba(0,0,0,.1);
-}
+/* Nav */
+.cs-nav{{background:{nav_bg};border-bottom:1px solid {nav_bdr};padding:.8rem 1.5rem;
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1.5rem;box-shadow:{nav_shd};position:sticky;top:0;z-index:100;
+  animation:slideDown .45s cubic-bezier(.23,1,.32,1) both;}}
 
-/* ═══════════════════════════ TYPOGRAPHY ═══════════════════════════ */
-.section-header{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--text);margin-bottom:.3rem}
-.section-sub{font-size:.85rem;color:var(--text2);margin-bottom:1.2rem}
-.gradient-text{
-  background:linear-gradient(135deg,var(--accent2) 0%,var(--accent) 45%,var(--cyan) 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-.metric-value{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;color:var(--accent)}
-.metric-label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}
-.metric-sub{font-size:.7rem;color:var(--text3);margin-top:.2rem}
+/* Typography */
+.section-header{{font-family:'DM Serif Display',serif;font-size:1.6rem;color:{text};margin-bottom:.3rem}}
+.section-sub{{font-size:.85rem;color:{text2};margin-bottom:1.2rem}}
+.gradient-text{{background:linear-gradient(135deg,{accent2} 0%,{accent} 45%,{cyan} 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}}
+.metric-value{{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;color:{accent}}}
+.metric-label{{font-size:.75rem;color:{text2};text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}}
+.metric-sub{{font-size:.7rem;color:{text3};margin-top:.2rem}}
 
-/* ═══════════════════════════ BPM ═══════════════════════════ */
-@keyframes pulse-text{0%,100%{opacity:1}50%{opacity:.7}}
-@keyframes heartbeat-ring{0%{box-shadow:0 0 0 0 hsla(355,78%,55%,.5)}50%{box-shadow:0 0 0 18px hsla(355,78%,55%,0)}100%{box-shadow:0 0 0 0 hsla(355,78%,55%,0)}}
-.bpm-display{
-  font-family:'DM Serif Display',serif;font-size:6rem;line-height:1;
+/* BPM */
+@keyframes pulse-text{{0%,100%{{opacity:1}}50%{{opacity:.7}}}}
+@keyframes heartbeat-ring{{0%{{box-shadow:0 0 0 0 hsla(355,78%,55%,.5)}}50%{{box-shadow:0 0 0 18px hsla(355,78%,55%,0)}}100%{{box-shadow:0 0 0 0 hsla(355,78%,55%,0)}}}}
+.bpm-display{{font-family:'DM Serif Display',serif;font-size:6rem;line-height:1;
   display:inline-block;border-radius:50%;padding:.2rem 1rem;
-  animation:pulse-text 1.5s ease-in-out infinite,heartbeat-ring 1.5s ease-out infinite;
-}
-.bpm-normal{color:var(--green)} .bpm-warning{color:var(--yellow)} .bpm-danger{color:var(--accent)}
+  animation:pulse-text 1.5s ease-in-out infinite,heartbeat-ring 1.5s ease-out infinite;}}
+.bpm-normal{{color:{green}}} .bpm-warning{{color:{yellow}}} .bpm-danger{{color:{accent}}}
 
-/* ═══════════════════════════ BADGES ═══════════════════════════ */
-.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
-.badge-normal {background:hsla(160,100%,45%,.15);border:1px solid hsla(160,100%,45%,.4);color:var(--green)}
-.badge-warning{background:hsla(40,100%,70%,.15); border:1px solid hsla(40,100%,70%,.4); color:var(--yellow)}
-.badge-danger {background:hsla(355,78%,55%,.15); border:1px solid hsla(355,78%,55%,.4); color:var(--accent)}
-.badge-info   {background:hsla(195,100%,50%,.15);border:1px solid hsla(195,100%,50%,.4);color:var(--cyan)}
+/* Badges */
+.status-badge{{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;
+  border-radius:20px;font-size:.75rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}}
+.badge-normal {{background:hsla(160,100%,45%,.15);border:1px solid hsla(160,100%,45%,.4);color:{green}}}
+.badge-warning{{background:hsla(40,100%,70%,.15);border:1px solid hsla(40,100%,70%,.4);color:{yellow}}}
+.badge-danger {{background:hsla(355,78%,55%,.15);border:1px solid hsla(355,78%,55%,.4);color:{accent}}}
+.badge-info   {{background:hsla(195,100%,50%,.15);border:1px solid hsla(195,100%,50%,.4);color:{cyan}}}
 
-/* ═══════════════════════════ ECG ═══════════════════════════ */
-@keyframes ecg{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
-.ecg-line{height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:ecg 2s linear infinite;margin:.5rem 0}
+/* ECG */
+@keyframes ecg{{0%{{opacity:.3}}50%{{opacity:1}}100%{{opacity:.3}}}}
+.ecg-line{{height:2px;background:linear-gradient(90deg,transparent,{accent},transparent);
+  animation:ecg 2s linear infinite;margin:.5rem 0}}
 
-/* ═══════════════════════════ INPUTS / BUTTONS ═══════════════════════════ */
-.stTextInput input,.stSelectbox>div,.stTextArea textarea,.stNumberInput input{
-  background:var(--bg2) !important;border:1px solid var(--border) !important;
-  border-radius:10px !important;color:var(--text) !important;font-family:'DM Sans',sans-serif !important;
-}
-.stTextInput input:focus{border-color:var(--accent) !important;box-shadow:0 0 0 2px hsla(355,78%,55%,.2) !important}
-.stButton>button{
-  background:linear-gradient(135deg,var(--accent),hsl(355,78%,38%)) !important;
+/* Inputs & Buttons */
+.stTextInput input,.stSelectbox>div,.stTextArea textarea,.stNumberInput input{{
+  background:{inp_bg} !important;border:1px solid {border} !important;
+  border-radius:10px !important;color:{text} !important;font-family:'DM Sans',sans-serif !important;}}
+.stTextInput input:focus{{border-color:{accent} !important;
+  box-shadow:0 0 0 2px {glow} !important}}
+.stButton>button{{
+  background:linear-gradient(135deg,{accent},hsl(355,78%,38%)) !important;
   color:white !important;border:none !important;border-radius:10px !important;
   font-family:'DM Sans',sans-serif !important;font-weight:500 !important;
-  padding:.5rem 1.5rem !important;transition:all .2s !important;
-}
-.stButton>button:hover{transform:translateY(-1px) !important;box-shadow:0 4px 20px var(--glow) !important}
-.stButton>button[kind="secondary"]{background:var(--card) !important;border:1px solid var(--border) !important;color:var(--text) !important}
-[data-theme="light"] .stButton>button{
-  background:linear-gradient(135deg,hsl(355,78%,48%),hsl(355,78%,36%)) !important;
-  box-shadow:0 2px 12px hsla(355,78%,48%,.3) !important;
-}
-[data-theme="light"] .stTextInput input,[data-theme="light"] .stSelectbox>div>div,[data-theme="light"] .stNumberInput input{background:var(--card2) !important;color:var(--text) !important;border-color:var(--border) !important}
+  padding:.5rem 1.5rem !important;transition:all .2s !important;}}
+.stButton>button:hover{{transform:translateY(-1px) !important;
+  box-shadow:0 4px 20px {glow} !important}}
+.stButton>button[kind="secondary"]{{background:{card} !important;
+  border:1px solid {border} !important;color:{text} !important}}
 
-/* ═══════════════════════════ TABS ═══════════════════════════ */
-.stTabs [data-baseweb="tab-list"]{background:var(--bg2) !important;border-radius:12px !important;padding:4px !important;gap:4px !important;border:1px solid var(--border) !important}
-.stTabs [data-baseweb="tab"]{background:transparent !important;color:var(--text2) !important;border-radius:8px !important;font-size:.85rem !important;font-weight:500 !important;padding:.5rem 1rem !important;border:none !important;transition:all .2s !important}
-.stTabs [aria-selected="true"]{background:var(--card) !important;color:var(--text) !important;border:1px solid var(--border) !important}
-[data-theme="light"] .stTabs [data-baseweb="tab-list"]{background:hsl(220,20%,93%) !important}
-[data-theme="light"] .stTabs [aria-selected="true"]{background:white !important;color:var(--text) !important}
+/* Tabs */
+.stTabs [data-baseweb="tab-list"]{{background:{tab_list} !important;
+  border-radius:12px !important;padding:4px !important;gap:4px !important;
+  border:1px solid {border} !important}}
+.stTabs [data-baseweb="tab"]{{background:transparent !important;color:{text2} !important;
+  border-radius:8px !important;font-size:.85rem !important;font-weight:500 !important;
+  padding:.5rem 1rem !important;border:none !important;transition:all .2s !important}}
+.stTabs [aria-selected="true"]{{background:{tab_act} !important;color:{text} !important;
+  border:1px solid {border} !important}}
 
-/* ═══════════════════════════ STEP PILLS ═══════════════════════════ */
-.step-pill{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;font-family:'DM Mono',monospace;font-weight:500;font-size:.85rem;margin-right:.5rem}
-.step-pill-active{background:var(--accent);color:white;animation:popIn .4s cubic-bezier(.175,.885,.32,1.275) both}
-.step-pill-done{background:var(--green);color:hsl(222,58%,5%)}
-.step-pill-todo{background:var(--card2);border:1px solid var(--border);color:var(--text3)}
+/* Step pills */
+.step-pill{{display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;font-family:'DM Mono',monospace;
+  font-weight:500;font-size:.85rem;margin-right:.5rem}}
+.step-pill-active{{background:{accent};color:white;
+  animation:popIn .4s cubic-bezier(.175,.885,.32,1.275) both}}
+.step-pill-done{{background:{green};color:hsl(222,58%,5%)}}
+.step-pill-todo{{background:{card2};border:1px solid {border};color:{text3}}}
 
-/* ═══════════════════════════ ENC CARDS ═══════════════════════════ */
-.enc-step-card{animation:slideDown .5s ease both}
+/* Animations */
+@keyframes slideDown{{from{{opacity:0;transform:translateY(-24px)}}to{{opacity:1;transform:translateY(0)}}}}
+@keyframes fadeIn{{from{{opacity:0}}to{{opacity:1}}}}
+@keyframes popIn{{0%{{opacity:0;transform:scale(.88) translateY(20px)}}70%{{transform:scale(1.03)}}100%{{opacity:1;transform:scale(1) translateY(0)}}}}
+@keyframes heartbeat{{0%,100%{{transform:scale(1)}}14%{{transform:scale(1.15)}}28%{{transform:scale(1)}}42%{{transform:scale(1.08)}}56%{{transform:scale(1)}}}}
+@keyframes float{{0%,100%{{transform:translateY(0)}}50%{{transform:translateY(-10px)}}}}
 
-/* ═══════════════════════════ ANIMATIONS ═══════════════════════════ */
-@keyframes slideDown{from{opacity:0;transform:translateY(-24px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes popIn{0%{opacity:0;transform:scale(.88) translateY(20px)}70%{transform:scale(1.03)}100%{opacity:1;transform:scale(1) translateY(0)}}
-@keyframes heartbeat{0%,100%{transform:scale(1)}14%{transform:scale(1.15)}28%{transform:scale(1)}42%{transform:scale(1.08)}56%{transform:scale(1)}}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
-.cs-nav{animation:slideDown .55s cubic-bezier(.23,1,.32,1) both}
-
-/* ═══════════════════════════ AOS OVERRIDES ═══════════════════════════ */
-[data-aos]{pointer-events:none}
-[data-aos].aos-animate{pointer-events:auto}
-[data-aos="fade-up"]{opacity:0;transform:translateY(40px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-up"].aos-animate{opacity:1;transform:translateY(0)}
-[data-aos="fade-down"]{opacity:0;transform:translateY(-40px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-down"].aos-animate{opacity:1;transform:translateY(0)}
-[data-aos="fade-left"]{opacity:0;transform:translateX(60px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-left"].aos-animate{opacity:1;transform:translateX(0)}
-[data-aos="fade-right"]{opacity:0;transform:translateX(-60px);transition:opacity .7s ease,transform .7s ease}
-[data-aos="fade-right"].aos-animate{opacity:1;transform:translateX(0)}
-[data-aos="zoom-in"]{opacity:0;transform:scale(.82);transition:opacity .65s ease,transform .65s cubic-bezier(.175,.885,.32,1.275)}
-[data-aos="zoom-in"].aos-animate{opacity:1;transform:scale(1)}
-[data-aos-delay="100"]{transition-delay:100ms !important}[data-aos-delay="150"]{transition-delay:150ms !important}
-[data-aos-delay="200"]{transition-delay:200ms !important}[data-aos-delay="250"]{transition-delay:250ms !important}
-[data-aos-delay="300"]{transition-delay:300ms !important}[data-aos-delay="350"]{transition-delay:350ms !important}
-[data-aos-delay="400"]{transition-delay:400ms !important}[data-aos-delay="450"]{transition-delay:450ms !important}
-[data-aos-delay="500"]{transition-delay:500ms !important}[data-aos-delay="600"]{transition-delay:600ms !important}
-[data-aos-delay="700"]{transition-delay:700ms !important}[data-aos-delay="800"]{transition-delay:800ms !important}
-
-/* ═══════════════════════════ THEME TOGGLE BUTTON ═══════════════════════════ */
-#cs-theme-btn{
+/* Theme toggle button */
+#cs-theme-btn{{
   position:fixed;bottom:1.2rem;right:1.2rem;z-index:9999;
   width:44px;height:44px;border-radius:50%;
-  border:1px solid var(--border);background:var(--card);color:var(--text);
+  border:1px solid {tog_bdr};background:{tog_bg};
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 20px rgba(0,0,0,.45);
-  transition:transform .2s,box-shadow .2s,background .25s,border-color .25s;
-  padding:0;
-}
-#cs-theme-btn svg{stroke:var(--text) !important;width:18px;height:18px}
-#cs-theme-btn:hover{transform:scale(1.12);box-shadow:0 6px 28px hsla(355,78%,55%,.4)}
-[data-theme="light"] #cs-theme-btn{background:white;border-color:hsl(220,20%,84%);box-shadow:0 2px 12px rgba(0,0,0,.15)}
-[data-theme="light"] #cs-theme-btn svg{stroke:hsl(222,40%,20%) !important}
+  box-shadow:{tog_shd};padding:0;
+  transition:transform .2s,box-shadow .2s;}}
+#cs-theme-btn svg{{stroke:{btn_svg} !important;width:18px;height:18px}}
+#cs-theme-btn:hover{{transform:scale(1.12);
+  box-shadow:0 6px 28px hsla(355,78%,55%,.4)}}
 
-/* ═══════════════════════════ SCROLLBAR ═══════════════════════════ */
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--bg2)}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--text3)}
-[data-theme="light"] ::-webkit-scrollbar-track{background:hsl(220,20%,93%)}
-[data-theme="light"] ::-webkit-scrollbar-thumb{background:hsl(220,20%,78%)}
+/* Scrollbar */
+::-webkit-scrollbar{{width:6px;height:6px}}
+::-webkit-scrollbar-track{{background:{scr_trk}}}
+::-webkit-scrollbar-thumb{{background:{scr_thm};border-radius:3px}}
 
-/* ═══════════════════════════ TRANSITIONS ═══════════════════════════ */
-*,*::before,*::after{transition:background-color .25s ease,border-color .2s ease,color .2s ease,box-shadow .25s ease !important}
-[data-aos],.bpm-display,.ecg-line,.animate-heartbeat{transition-property:opacity,transform !important}
+/* Layout */
+#MainMenu,footer,header{{visibility:hidden}}
+.stDeployButton{{display:none}}
+section[data-testid="stSidebar"]{{display:none}}
+.block-container{{padding:1.5rem 2rem 2rem !important;max-width:1400px !important}}
 
-/* ═══════════════════════════ PRINT ═══════════════════════════ */
-@media print{.stButton,#cs-theme-btn{display:none !important}body{background:white !important;color:black !important}}
+/* Transition for smooth switching */
+.stApp,.cs-card,.metric-card,.cs-nav,.stButton>button{{
+  transition:background-color .2s ease,color .2s ease,border-color .2s ease !important}}
+
+/* Print */
+@media print{{.stButton,#cs-theme-btn{{display:none !important}}
+  body{{background:white !important;color:black !important}}}}
 </style>
 """, unsafe_allow_html=True)
 
-# ── AOS + Theme toggle via components.html (correct way in Streamlit) ─────────
-# This runs in the parent document context through postMessage
-# ── Theme toggle button is injected purely via CSS + a Streamlit button (no iframe Unicode issues)
-# AOS is loaded via st.markdown link tag already included in the CSS block above
-# The floating toggle btn is rendered as a pure CSS fixed element triggered by a hidden checkbox trick
-# We use a simple st.markdown approach for AOS re-init on DOM changes
+# ── Theme toggle button: hidden st.button clicked by injected JS ─────────────
+# The JS button injects into the DOM. When clicked it updates ?theme= URL param
+# which Streamlit detects, updates session_state, and reruns → correct CSS.
+
+# Hidden trigger button (0px, invisible)
 st.markdown("""
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.min.js"></script>
+<style>#__theme_trigger__{display:none !important}</style>
+""", unsafe_allow_html=True)
+
+_theme_toggled = st.button("__theme__", key="__theme_trigger__")
+if _theme_toggled:
+    st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+    st.rerun()
+
+import streamlit.components.v1 as _c
+_c.html("""<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;height:0;overflow:hidden;background:transparent">
 <script>
 (function(){
-  var KEY='cs_theme';
-  var theme=localStorage.getItem(KEY)||'dark';
-  function applyTheme(t){
-    theme=t; localStorage.setItem(KEY,t);
-    document.documentElement.setAttribute('data-theme',t);
-    var els=document.querySelectorAll('.stApp,body,[data-testid="stAppViewContainer"]');
-    for(var i=0;i<els.length;i++) els[i].setAttribute('data-theme',t);
-    var apps=document.querySelectorAll('.stApp');
-    for(var j=0;j<apps.length;j++){
-      apps[j].style.background=t==='dark'
-        ? 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),hsl(222,58%,5%)'
-        : 'radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),hsl(220,20%,97%)';
+  var SUN  = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function clickHiddenBtn() {
+    var p = window.parent.document;
+    var btns = p.querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) {
+      if (btns[i].textContent.trim() === '__theme__') {
+        btns[i].click();
+        return true;
+      }
     }
-    var btn=document.getElementById('cs-theme-btn');
-    if(btn) btn.innerHTML=t==='dark' ? SUN_ICON : MOON_ICON;
-    document.documentElement.setAttribute('data-theme',t);
+    return false;
   }
-  var SUN_ICON='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-  var MOON_ICON='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-  function injectBtn(){
-    if(document.getElementById('cs-theme-btn')) return;
-    var btn=document.createElement('button');
-    btn.id='cs-theme-btn'; btn.title='Toggle light / dark mode';
-    btn.innerHTML=theme==='dark' ? SUN_ICON : MOON_ICON;
-    btn.onclick=function(){ applyTheme(theme==='dark'?'light':'dark'); };
-    document.body.appendChild(btn);
+
+  function inject() {
+    try {
+      var p = window.parent.document;
+      if (p.getElementById('cs-theme-btn')) return;
+      var btn = p.createElement('button');
+      btn.id        = 'cs-theme-btn';
+      btn.title     = 'Toggle dark / light mode';
+      btn.innerHTML = SUN;
+      btn.onclick   = function() {
+        /* Toggle icon immediately */
+        btn.innerHTML = (btn.innerHTML.indexOf('circle') !== -1) ? MOON : SUN;
+        /* Click hidden Streamlit button to trigger rerun */
+        clickHiddenBtn();
+      };
+      p.body.appendChild(btn);
+    } catch(e) { setTimeout(inject, 400); }
   }
-  function initAOS(){
-    if(typeof AOS!=='undefined'){
-      AOS.init({duration:700,easing:'cubic-bezier(0.23,1,0.32,1)',once:false,mirror:true,offset:60});
-      new MutationObserver(function(){ AOS.refresh(); })
-        .observe(document.body,{childList:true,subtree:true});
-    } else { setTimeout(initAOS,150); }
-  }
-  function boot(){ applyTheme(theme); injectBtn(); initAOS(); }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',boot);
-  } else { boot(); }
-  setTimeout(boot,600);
+
+  setTimeout(inject, 200);
+  setTimeout(inject, 1200);
+  setTimeout(inject, 4000);
 })();
 </script>
-""", unsafe_allow_html=True)
+</body></html>
+""", height=0, scrolling=False)
+
+
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENCRYPTION ENGINE
@@ -816,6 +802,16 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ── Read theme from query params on first load (set by JS toggle button) ──────
+_qp = st.query_params
+if "theme" in _qp and st.session_state.theme == "dark":
+    _t = _qp["theme"]
+    if _t in ("dark", "light"):
+        st.session_state.theme = _t
+
+# ── Apply CSS immediately — uses session_state.theme, so correct from frame 1 ─
+_apply_theme_css()
+
 def go(page):
     st.session_state.page = page
     st.rerun()
@@ -909,8 +905,7 @@ def render_nav():
         )
 
     st.markdown(f"""
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css"/>
-    <div class="cs-nav" id="cs-navbar">
+        <div class="cs-nav" id="cs-navbar">
       <div style="display:flex;align-items:center;gap:.65rem;flex-shrink:0">
         <div style="animation:heartbeat 1.5s ease-in-out infinite;display:flex">
           {LOGO_SVG_SM}
@@ -1022,27 +1017,27 @@ def render_landing():
 
     <!-- HERO -->
     <div class="landing-hero">
-      <div data-aos="fade-up" style="animation:heartbeat 1.5s ease-in-out infinite;margin-bottom:1rem">
+      <div style="animation:heartbeat 1.5s ease-in-out infinite;margin-bottom:1rem">
         {LOGO_SVG_LG}
       </div>
-      <p class="hero-sub" data-aos="fade-up" data-aos-delay="100">Hybrid-Encrypted Heart Rate Monitor</p>
-      <h1 class="hero-title" data-aos="fade-up" data-aos-delay="150">CardioSecure</h1>
-      <p class="hero-desc" data-aos="fade-up" data-aos-delay="200">
+      <p class="hero-sub">Hybrid-Encrypted Heart Rate Monitor</p>
+      <h1 class="hero-title">CardioSecure</h1>
+      <p class="hero-desc">
         Real-time rPPG measurement via webcam with AES-256-GCM + ECC-SECP256R1 end-to-end encryption.
         Research-grade cardiac monitoring, fully secured.
       </p>
-      <div class="hero-btns" data-aos="fade-up" data-aos-delay="280">
+      <div class="hero-btns">
         <button class="btn-primary" onclick="window.parent.document.querySelector('[data-testid=stButton]').click()">
           Get Started →</button>
         <button class="btn-secondary"
           onclick="window.scrollTo({{top:window.innerHeight,behavior:'smooth'}})">
           Learn More ↓</button>
       </div>
-      <div data-aos="fade-up" data-aos-delay="350"
+      <div
            style="margin-top:1.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text3)">
         EBSU/PG/PhD/2021/10930 · Yunisa Sunday
       </div>
-      <div data-aos="fade-up" data-aos-delay="400"
+      <div
            style="margin-top:.8rem;padding:4px 14px;border:1px solid hsla(195,100%,50%,.25);
                   border-radius:20px;background:hsla(195,100%,50%,.06);font-size:.68rem;
                   color:var(--cyan);letter-spacing:.06em">
@@ -1054,36 +1049,36 @@ def render_landing():
 
     <!-- FEATURES -->
     <div style="max-width:1100px;margin:0 auto;padding:4rem 1rem 2rem">
-      <h2 data-aos="fade-up"
+      <h2
           style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text);margin-bottom:.5rem">
         Clinical-Grade Features</h2>
-      <p data-aos="fade-up" data-aos-delay="100"
+      <p
          style="text-align:center;color:var(--text2);margin-bottom:0">
         Powered by advanced computer vision and military-grade encryption</p>
 
       <div class="feature-grid">
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
+        <div class="feature-card">
           <div style="font-size:2rem;margin-bottom:.8rem">❤️</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             rPPG Detection</h3>
           <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
             Non-contact heart rate via CHROM method with 4th-order Butterworth bandpass and FFT analysis.</p>
         </div>
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="150">
+        <div class="feature-card">
           <div style="font-size:2rem;margin-bottom:.8rem">🛡️</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             Hybrid Encryption</h3>
           <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
             AES-256-GCM symmetric + ECC-SECP256R1 asymmetric key exchange for end-to-end security.</p>
         </div>
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+        <div class="feature-card">
           <div style="font-size:2rem;margin-bottom:.8rem">📈</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             ML Refinement</h3>
           <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
             Contextual prior model validates against rolling history, age-ceiling estimates, temporal consistency.</p>
         </div>
-        <div class="feature-card" data-aos="fade-up" data-aos-delay="450">
+        <div class="feature-card">
           <div style="font-size:2rem;margin-bottom:.8rem">⚡</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             Real-Time Analysis</h3>
@@ -1095,11 +1090,11 @@ def render_landing():
 
     <!-- HOW IT WORKS -->
     <div class="how-section">
-      <h2 data-aos="fade-up"
+      <h2
           style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text)">
         How It Works</h2>
       <div class="how-grid">
-        <div class="how-card" data-aos="fade-up" data-aos-delay="0"
+        <div class="how-card"
              style="border-top-color:var(--cyan)">
           <div class="step-num">01</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
@@ -1107,7 +1102,7 @@ def render_landing():
           <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
             Haar Cascade isolates forehead/cheek ROI regions with dense vasculature.</p>
         </div>
-        <div class="how-card" data-aos="fade-up" data-aos-delay="200"
+        <div class="how-card"
              style="border-top-color:var(--accent)">
           <div class="step-num">02</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
@@ -1115,7 +1110,7 @@ def render_landing():
           <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
             CHROM chrominance + Butterworth bandpass (0.67–4.0 Hz) + FFT peak detection.</p>
         </div>
-        <div class="how-card" data-aos="fade-up" data-aos-delay="400"
+        <div class="how-card"
              style="border-top-color:var(--green)">
           <div class="step-num">03</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
@@ -1162,7 +1157,7 @@ if not st.session_state.logged_in:
     col_l, col_m, col_r = st.columns([1, 1.8, 1])
     with col_m:
         st.markdown(f"""
-        <div style="text-align:center;padding:2rem 0 1.5rem" data-aos="fade-down" data-aos-duration="700">
+        <div style="text-align:center;padding:2rem 0 1.5rem">
           <div style="display:flex;align-items:center;justify-content:center;
                       margin-bottom:.9rem;animation:heartbeat 1.5s ease-in-out infinite">
             {LOGO_SVG_LG}
@@ -1328,8 +1323,8 @@ section[data-testid="stSidebar"] .stButton>button[kind="primary"]{{
 # ─────────────────────────────────────────────────────────────────────────────
 
 if st.session_state.page == "monitor":
-    st.markdown('<div class="section-header" data-aos="fade-down">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Real-time rPPG measurement via webcam · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Real-time rPPG measurement via webcam · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
 
     # HOW IT WORKS panel
     with st.expander("ℹ️ How Does Webcam Heart Rate Detection Work? (Click to read)", expanded=False):
@@ -1982,8 +1977,8 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "results":
-    st.markdown('<div class="section-header" data-aos="fade-down">📊 My Health History</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-sub" data-aos="fade-down" data-aos-delay="100">All readings for {user["full_name"]}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📊 My Health History</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-sub">All readings for {user["full_name"]}</div>', unsafe_allow_html=True)
 
     results = get_user_results(user['id'])
 
@@ -2010,7 +2005,7 @@ elif st.session_state.page == "results":
         for col, label, val, sub, delay in metrics:
             with col:
                 st.markdown(f"""
-                <div class="metric-card" data-aos="fade-up" data-aos-delay="{delay}">
+                <div class="metric-card">
                   <div class="metric-value">{val}</div>
                   <div class="metric-label">{label}</div>
                   <div class="metric-sub">{sub}</div>
@@ -2104,8 +2099,8 @@ elif st.session_state.page == "results":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "admin_dashboard" and is_admin:
-    st.markdown('<div class="section-header" data-aos="fade-down">🏠 Admin Dashboard</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">System overview · All users · Live stats</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🏠 Admin Dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">System overview · All users · Live stats</div>', unsafe_allow_html=True)
 
     all_results = get_all_results_admin()
     all_users   = get_all_users()
@@ -2122,7 +2117,7 @@ elif st.session_state.page == "admin_dashboard" and is_admin:
     for col, label, val, icon, color, delay in metrics:
         with col:
             st.markdown(f"""
-            <div class="metric-card" data-aos="zoom-in" data-aos-delay="{delay}">
+            <div class="metric-card">
               <div style="font-size:1.8rem">{icon}</div>
               <div class="metric-value" style="color:{color}">{val}</div>
               <div class="metric-label">{label}</div>
@@ -2171,8 +2166,7 @@ elif st.session_state.page == "admin_dashboard" and is_admin:
             delay = min(li * 60, 500)
             st.markdown(f"""
             <div style="display:flex;align-items:center;gap:0.8rem;padding:0.5rem 0.8rem;
-                 border-bottom:1px solid var(--border);font-size:0.82rem"
-                 data-aos="fade-right" data-aos-delay="{delay}">
+                 border-bottom:1px solid var(--border);font-size:0.82rem">
               <span>{icon}</span>
               <span style="color:var(--cyan);font-weight:500">{entry['username']}</span>
               <span style="color:var(--text2)">{entry['action']}</span>
@@ -2184,8 +2178,8 @@ elif st.session_state.page == "admin_dashboard" and is_admin:
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "admin_users" and is_admin:
-    st.markdown('<div class="section-header" data-aos="fade-down">👥 User Management</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Click a user to view their complete test history</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">👥 User Management</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Click a user to view their complete test history</div>', unsafe_allow_html=True)
 
     all_users = get_all_users()
     non_admin = [u for u in all_users if not u['is_admin']]
@@ -2210,8 +2204,7 @@ elif st.session_state.page == "admin_users" and is_admin:
                     last_date = user_results[0]['test_date'][:10] if user_results else "No tests"
 
                     st.markdown(f"""
-                    <div class="cs-card" style="margin-bottom:0.5rem;cursor:default"
-                         data-aos="fade-right" data-aos-delay="{delay}">
+                    <div class="cs-card" style="margin-bottom:0.5rem;cursor:default">
                       <div style="display:flex;align-items:center;gap:1rem">
                         <div style="width:44px;height:44px;border-radius:50%;
                              background:linear-gradient(135deg,#E84855,#9B5DE5);
@@ -2303,8 +2296,8 @@ elif st.session_state.page == "admin_users" and is_admin:
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "admin_records" and is_admin:
-    st.markdown('<div class="section-header" data-aos="fade-down">📋 All Test Records</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Every encrypted test result across all patients</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📋 All Test Records</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Every encrypted test result across all patients</div>', unsafe_allow_html=True)
 
     results = get_all_results_admin()
     if not results:
@@ -2326,7 +2319,7 @@ elif st.session_state.page == "admin_records" and is_admin:
         if sel_user != "All": dff = dff[dff['User'] == sel_user]
         if sel_cat  != "All": dff = dff[dff['Category'] == sel_cat]
 
-        st.markdown(f'<div data-aos="fade-up"><b>{len(dff)} records</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<div><b>{len(dff)} records</b></div>', unsafe_allow_html=True)
         st.dataframe(dff, use_container_width=True, hide_index=True, height=400)
 
         st.download_button("⬇ Export All CSV", df.to_csv(index=False),
@@ -2413,15 +2406,15 @@ def get_enc_cipher():
 
 # ────────────────────────────────────────────────────────────────────────────
 if st.session_state.page == "enc_step1":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
     sample = get_enc_sample()
 
     st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
+    <div class="enc-step-card">
       <div class="enc-step-title">📝 Step 1: Plaintext Medical Data Preparation</div>
       <div class="enc-explanation">
         Before any encryption can occur, the raw medical data must be serialised into a
@@ -2472,8 +2465,8 @@ if st.session_state.page == "enc_step1":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step2":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -2484,7 +2477,7 @@ elif st.session_state.page == "enc_step2":
                   serialization.PublicFormat.SubjectPublicKeyInfo).decode()
 
     st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
+    <div class="enc-step-card">
       <div class="enc-step-title">🔑 Step 2: Elliptic Curve Cryptography (ECC) Key Pair Generation</div>
       <div class="enc-explanation">
         ECC provides <b>asymmetric cryptography</b> — a mathematically linked pair of keys where data
@@ -2535,7 +2528,7 @@ elif st.session_state.page == "enc_step2":
     c1, c2, c3 = st.columns([2,1,2])
     with c1:
         st.markdown("""
-        <div class="metric-card" data-aos="fade-right" data-aos-delay="0">
+        <div class="metric-card">
           <div style="font-size:0.9rem;color:var(--cyan);font-weight:600">📱 Patient Device</div>
           <div style="font-size:0.75rem;color:var(--text2);margin-top:0.3rem">Has: own private key + server public key</div>
           <div style="margin-top:0.5rem;font-family:'DM Mono';font-size:0.7rem;color:var(--text3)">
@@ -2548,7 +2541,7 @@ elif st.session_state.page == "enc_step2":
         """, unsafe_allow_html=True)
     with c3:
         st.markdown("""
-        <div class="metric-card" data-aos="fade-left" data-aos-delay="0">
+        <div class="metric-card">
           <div style="font-size:0.9rem;color:var(--purple);font-weight:600">🏥 Hospital Server</div>
           <div style="font-size:0.75rem;color:var(--text2);margin-top:0.3rem">Has: own private key + patient public key</div>
           <div style="margin-top:0.5rem;font-family:'DM Mono';font-size:0.7rem;color:var(--text3)">
@@ -2565,15 +2558,15 @@ elif st.session_state.page == "enc_step2":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step3":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
     keys = get_enc_keys()
 
     st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
+    <div class="enc-step-card">
       <div class="enc-step-title">🔐 Step 3: AES-256 Session Key & Nonce Generation</div>
       <div class="enc-explanation">
         <b>AES-256 (Advanced Encryption Standard)</b> with a 256-bit key is the gold standard
@@ -2676,8 +2669,8 @@ derived_key = HKDF(
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step4":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -2688,7 +2681,7 @@ elif st.session_state.page == "enc_step4":
     plaintext_bytes = json.dumps(sample).encode()
 
     st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
+    <div class="enc-step-card">
       <div class="enc-step-title">🛡️ Step 4: AES-256-GCM Authenticated Encryption</div>
       <div class="enc-explanation">
         AES-GCM (Galois/Counter Mode) is an <b>AEAD</b> cipher — Authenticated Encryption with
@@ -2773,8 +2766,8 @@ plaintext = aesgcm.decrypt(nonce, ciphertext, None)""", language="python")
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step5":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -2782,7 +2775,7 @@ elif st.session_state.page == "enc_step5":
     keys = get_enc_keys()
 
     st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
+    <div class="enc-step-card">
       <div class="enc-step-title">🌐 Step 5: Decentralised Storage Architecture</div>
       <div class="enc-explanation">
         In a production medical IoT system, encrypted data is <b>never stored in a single location</b>.
@@ -2859,8 +2852,8 @@ elif st.session_state.page == "enc_step5":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step6":
-    st.markdown('<div class="section-header" data-aos="fade-down">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -2869,7 +2862,7 @@ elif st.session_state.page == "enc_step6":
     enc    = get_enc_cipher()
 
     st.markdown("""
-    <div class="enc-step-card" data-aos="fade-up" data-aos-delay="150">
+    <div class="enc-step-card">
       <div class="enc-step-title">🔓 Step 6: Decryption, Verification & Integrity Check</div>
       <div class="enc-explanation">
         Decryption in AES-GCM is the reverse of encryption, but with a crucial difference:
@@ -2983,8 +2976,8 @@ elif st.session_state.page == "enc_step6":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "raw_data":
-    st.markdown('<div class="section-header" data-aos="fade-down">📦 Raw Data & Print Center</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub" data-aos="fade-down" data-aos-delay="100">View, compare, and print raw or encrypted data records</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📦 Raw Data & Print Center</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">View, compare, and print raw or encrypted data records</div>', unsafe_allow_html=True)
 
     all_results = get_all_results_admin() if is_admin else get_user_results(user['id'])
     results_admin = get_all_results_admin() if is_admin else []
@@ -3134,7 +3127,7 @@ elif st.session_state.page == "raw_data":
         raw_str = json.dumps(raw, indent=2)
         with c1:
             st.markdown("""
-            <div class="cs-card" style="text-align:center" data-aos="zoom-in" data-aos-delay="0">
+            <div class="cs-card" style="text-align:center">
               <div style="font-size:2rem;margin-bottom:0.5rem">📄</div>
               <div style="font-weight:600;margin-bottom:0.3rem">Print Raw Data</div>
               <div style="font-size:0.78rem;color:var(--text2)">Patient-readable plaintext report</div>
@@ -3150,7 +3143,7 @@ h1{{color:#E84855}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px}}</sty
 
         with c2:
             st.markdown("""
-            <div class="cs-card" style="text-align:center" data-aos="zoom-in" data-aos-delay="150">
+            <div class="cs-card" style="text-align:center">
               <div style="font-size:2rem;margin-bottom:0.5rem">🔐</div>
               <div style="font-weight:600;margin-bottom:0.3rem">Print Encrypted</div>
               <div style="font-size:0.78rem;color:var(--text2)">Technical encrypted audit record</div>
@@ -3170,7 +3163,7 @@ h1{{color:#00B09B}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px;word-b
 
         with c3:
             st.markdown("""
-            <div class="cs-card" style="text-align:center" data-aos="zoom-in" data-aos-delay="300">
+            <div class="cs-card" style="text-align:center">
               <div style="font-size:2rem;margin-bottom:0.5rem">📋</div>
               <div style="font-weight:600;margin-bottom:0.3rem">Print Both</div>
               <div style="font-size:0.78rem;color:var(--text2)">Combined full report (raw + encrypted)</div>
