@@ -187,7 +187,7 @@ p,span,div,h1,h2,h3,h4,h5,h6,li,td,th,code,label,
 .metric-card:hover{{transform:translateY(-5px);border-color:{accent};box-shadow:0 12px 32px rgba(0,0,0,.5)}}
 
 /* Nav */
-.cs-nav{{background:{nav_bg};border-bottom:1px solid {nav_bdr};padding:.8rem 1.5rem;
+.cs-nav{{background:{nav_bg};border-bottom:1px solid {nav_bdr};padding:.8rem 2rem;width:100vw;margin-left:calc(-50vw + 50%);box-sizing:border-box;
   display:flex;align-items:center;justify-content:space-between;
   margin-bottom:1.5rem;box-shadow:{nav_shd};position:sticky;top:0;z-index:100;
   animation:slideDown .45s cubic-bezier(.23,1,.32,1) both;}}
@@ -285,7 +285,29 @@ p,span,div,h1,h2,h3,h4,h5,h6,li,td,th,code,label,
 #MainMenu,footer,header{{visibility:hidden}}
 .stDeployButton{{display:none}}
 section[data-testid="stSidebar"]{{display:none}}
-.block-container{{padding:1.5rem 2rem 2rem !important;max-width:1400px !important}}
+.block-container{{padding:0 !important;max-width:100% !important}}
+  .main .block-container{{padding:0 !important}}
+  [data-testid="stAppViewContainer"]>section>div{{padding:0 !important}}
+  /* Full-width page styling */
+  .page-full{{width:100%;box-sizing:border-box}}
+  .page-hero-bg{{
+    margin:-1rem -2rem 2rem;padding:3.5rem 2rem 2.5rem;
+    background:
+      radial-gradient(ellipse at 8% 20%,hsla(355,78%,55%,.09) 0%,transparent 50%),
+      radial-gradient(ellipse at 92% 80%,hsla(195,100%,50%,.06) 0%,transparent 50%),
+      radial-gradient(ellipse at 50% 100%,hsla(222,40%,8%,1) 0%,transparent 70%);
+    border-bottom:1px solid var(--border);text-align:center
+  }}
+  .metric-card{{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:1.3rem 1rem;text-align:center;height:100%;
+    transition:transform .2s,box-shadow .2s;
+  }}
+  .metric-card:hover{{transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.3)}}
+  .metric-value{{font-family:'DM Serif Display',serif;font-size:2.2rem;line-height:1;
+    font-weight:400;color:var(--accent);margin:.3rem 0 .2rem}}
+  .metric-label{{font-size:.78rem;font-weight:600;color:var(--text)}}
+  .metric-sub{{font-size:.68rem;color:var(--text3);margin-top:.2rem}}
 
 /* Transition for smooth switching */
 .stApp,.cs-card,.metric-card,.cs-nav,.stButton>button{{
@@ -1021,7 +1043,7 @@ def render_nav():
       <div style="flex:1"></div>
       <div style="display:flex;align-items:center;gap:.6rem;flex-shrink:0">
         {user_html}
-        {datetime.now().strftime("%d %b %Y")}
+        <span style="color:var(--text2);font-size:.78rem">{datetime.now().strftime("%d %b %Y")}</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1036,12 +1058,51 @@ def render_nav():
       border-radius:8px !important; box-shadow:none !important;
       line-height:1.4 !important; min-height:unset !important;
     }
+    /* ── Full-page content padding wrapper ── */
+    .page-body { padding: 0 2rem 3rem; max-width: 1400px; margin: 0 auto; }
+    /* Streamlit element containers get side padding in full-width mode */
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
+      padding-left: 1.5rem !important;
+      padding-right: 1.5rem !important;
+    }
+    /* Charts and wide elements go full width */
+    [data-testid="stPlotlyChart"], [data-testid="stDataFrame"],
+    [data-testid="element-container"] { width: 100% !important; }
+    /* Make expanders full width */
+    [data-testid="stExpander"] { width: 100% !important; }
+    /* Tab styling */
+    [data-testid="stTabs"] { width: 100% !important; }
+    /* Force full viewport width for all page content */
+    section[data-testid="stMain"] > div:first-child {{
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        padding-top: 0 !important;
+    }}
+    section[data-testid="stMain"] {{
+        padding: 0 !important;
+    }}
+    .main .block-container, [data-testid="stAppViewBlockContainer"],
+    [data-testid="stMainBlockContainer"] {{
+        padding: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }}
+    /* Add padding to non-hero content automatically */
+    [data-testid="stVerticalBlock"] > div:not(:first-child) {{
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }}
+    /* Content sections get internal padding */
+    .stTabs, .stExpander, [data-testid="stVerticalBlock"] > div > [data-testid="stVerticalBlock"] {{
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }}
     .nav-btn-row button:hover { color:var(--text) !important;
       background:var(--card2) !important; }
     </style>""", unsafe_allow_html=True)
 
     if nav_items:
-        st.markdown('<div class="nav-btn-row">', unsafe_allow_html=True)
+        st.markdown('<div class="nav-btn-row" style="padding:0 1.5rem">', unsafe_allow_html=True)
         # Build one column per nav item + 1 for sign-out
         n_cols = len(nav_items) + 1
         cols = st.columns(n_cols)
@@ -1152,7 +1213,7 @@ def render_landing():
       <p class="hero-sub">EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
       <h1 class="hero-title">MedChainSecure</h1>
       <p class="hero-desc">
-        Hybrid Encryption &amp; Blockchain Techniques for Secure IoMT Data Management
+        Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management
         Research-grade cardiac monitoring, fully secured.
       </p>
       <div class="hero-btns">
@@ -1824,6 +1885,67 @@ function stopAndSave(){
 """
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FULL-WIDTH PAGE HERO HELPER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def render_page_hero(icon: str, title: str, subtitle: str,
+                     accent: str = "var(--accent)",
+                     badge: str = ""):
+    """Renders a full-width hero banner matching the landing page aesthetic."""
+    badge_html = (f'<span style="display:inline-block;font-size:.72rem;font-weight:600;'
+                  f'letter-spacing:.12em;text-transform:uppercase;padding:3px 14px;'
+                  f'border-radius:20px;border:1px solid {accent}55;color:{accent};'
+                  f'background:{accent}18;margin-bottom:1.1rem">{badge}</span><br>' if badge else "")
+    st.markdown(f"""
+<div style="
+  width:100vw;position:relative;left:50%;right:50%;
+  margin-left:-50vw;margin-right:-50vw;
+  padding:4rem 2rem 3rem;
+  background:
+    radial-gradient(ellipse at 8% 20%, hsla(355,78%,55%,.10) 0%, transparent 52%),
+    radial-gradient(ellipse at 92% 80%, hsla(195,100%,50%,.07) 0%, transparent 52%),
+    radial-gradient(ellipse at 50% 0%,  hsla(222,40%,14%,1)   0%, transparent 80%);
+  border-bottom:1px solid var(--border);
+  text-align:center;
+  box-sizing:border-box;
+">
+  {badge_html}
+  <div style="font-size:3.5rem;margin-bottom:.8rem;filter:drop-shadow(0 0 20px {accent}66)">{icon}</div>
+  <h1 style="font-family:'DM Serif Display',serif;font-size:clamp(2.2rem,5vw,3.6rem);
+    background:linear-gradient(135deg,hsl(355,78%,68%) 0%,hsl(355,78%,55%) 40%,hsl(195,100%,55%) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    margin:.2rem 0 .7rem;line-height:1.1">{title}</h1>
+  <p style="color:var(--text2);font-size:1rem;max-width:600px;margin:0 auto;
+    line-height:1.65">{subtitle}</p>
+</div>
+<div style="height:2rem"></div>
+""", unsafe_allow_html=True)
+
+
+def stat_card(value, label, color="var(--accent)", icon=""):
+    """Renders a full-width stat metric card."""
+    return (f'<div class="cs-card" style="text-align:center;padding:1.4rem 1rem">'
+            f'<div style="font-size:1.3rem;margin-bottom:.3rem">{icon}</div>'
+            f'<div style="font-size:2.6rem;font-family:DM Serif Display,serif;'
+            f'color:{color};font-weight:400;line-height:1">{value}</div>'
+            f'<div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;'
+            f'letter-spacing:.1em;margin-top:.4rem">{label}</div></div>')
+
+def page_padding():
+    """Injects left/right padding for page body content after a full-bleed hero."""
+    st.markdown(
+        '<style>.element-container:not(:has([data-full-bleed])){}'        '</style>',
+        unsafe_allow_html=True
+    )
+    # Use a zero-height div to push content into padded area
+    st.markdown(
+        '<div data-page-content style="padding:0 1.5rem"></div>',
+        unsafe_allow_html=True
+    )
+
+
+
 if st.session_state.page == "monitor":
 
     # ╔══════════════════════════════════════════════════════════════════════╗
@@ -1959,8 +2081,10 @@ html,body{{margin:0;background:#eef2f7;min-height:100vh;
 
 
 
-    st.markdown('<div class="section-header">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">IoMT Heart Rate Monitor · 30fps rPPG · AES-256-GCM + ECC + Blockchain Ledger</div>', unsafe_allow_html=True)
+    render_page_hero("❤️","Heart Rate Monitor",
+    "Continuous 30fps rPPG · AES-256-GCM encrypted · Blockchain-logged",
+    badge="IoMT biometric capture")
+    page_padding()
 
     # HOW IT WORKS panel
     with st.expander("ℹ️ How Does Webcam Heart Rate Detection Work? (Click to read)", expanded=False):
@@ -2272,8 +2396,8 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
 
         return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), bpm, sig_filtered,                (x, y, w, h), (rx, ry, rw, rh)
 
-    # ── Layout: camera left, live stats right ─────────────────────────────────
-    col_cam, col_stats = st.columns([3, 2], gap="large")
+    # ── Layout: full-width two-panel grid ─────────────────────────────────────
+    col_cam, col_stats = st.columns([3, 2], gap="medium")
 
     # ── Control buttons (outside columns so they span full width on rerun) ────
     with col_cam:
@@ -2580,8 +2704,10 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "results":
-    st.markdown('<div class="section-header">📊 My Health History</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-sub">All readings for {user["full_name"]}</div>', unsafe_allow_html=True)
+    render_page_hero("📊","My Health History",
+    "Your encrypted heart rate records · Blockchain-verified · Decentralised backup",
+    badge="Patient records")
+    page_padding()
 
     results = get_user_results(user['id'])
 
@@ -2728,8 +2854,10 @@ elif st.session_state.page == "results":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "admin_dashboard" and is_admin:
-    st.markdown('<div class="section-header">🏠 Admin Dashboard</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">System overview · All users · Live stats</div>', unsafe_allow_html=True)
+    render_page_hero("🏠","Admin Dashboard",
+    "System overview · User management · All encrypted records",
+    badge="Administrator")
+    page_padding()
 
     all_results = get_all_results_admin()
     all_users   = get_all_users()
@@ -2809,8 +2937,10 @@ elif st.session_state.page == "admin_dashboard" and is_admin:
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "admin_users" and is_admin:
-    st.markdown('<div class="section-header">👥 User Management</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Click a user to view their complete test history</div>', unsafe_allow_html=True)
+    render_page_hero("👥","User Management",
+    "Manage registered users · View activity · Remote backup status",
+    badge="Administrator")
+    page_padding()
 
     all_users = get_all_users()
     non_admin = [u for u in all_users if not u['is_admin']]
@@ -2927,8 +3057,10 @@ elif st.session_state.page == "admin_users" and is_admin:
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "admin_records" and is_admin:
-    st.markdown('<div class="section-header">📋 All Test Records</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Every encrypted test result across all patients</div>', unsafe_allow_html=True)
+    render_page_hero("📋","All Test Records",
+    "Complete encrypted health record ledger · AES-256-GCM protected",
+    badge="Administrator")
+    page_padding()
 
     results = get_all_results_admin()
     if not results:
@@ -3116,8 +3248,10 @@ if st.session_state.page == "encryption":
     st.rerun()
 
 if st.session_state.page == "enc_step1":
-    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
+    render_page_hero("🔒","Encryption Laboratory",
+    "Step-by-step AES-256-GCM + ECC-SECP256R1 hybrid encryption walkthrough",
+    badge="Interactive lab")
+    page_padding()
     enc_progress_bar()
     st.divider()
 
@@ -3175,8 +3309,6 @@ if st.session_state.page == "enc_step1":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step2":
-    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -3268,8 +3400,6 @@ elif st.session_state.page == "enc_step2":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step3":
-    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -3379,8 +3509,6 @@ derived_key = HKDF(
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step4":
-    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -3476,8 +3604,6 @@ plaintext = aesgcm.decrypt(nonce, ciphertext, None)""", language="python")
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step5":
-    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -3562,8 +3688,6 @@ elif st.session_state.page == "enc_step5":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "enc_step6":
-    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -3685,8 +3809,6 @@ elif st.session_state.page == "enc_step6":
 
 elif st.session_state.page == "enc_step7":
     render_nav()
-    st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Step 7 of 7 — Raw Data vs Encrypted Output · Print Report</div>', unsafe_allow_html=True)
     enc_progress_bar()
     st.divider()
 
@@ -4191,8 +4313,18 @@ elif st.session_state.page == "enc_step7":
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "raw_data":
-    st.markdown('<div class="section-header">📦 Raw Data & Print Center</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">View, compare, and print raw or encrypted data records</div>', unsafe_allow_html=True)
+    render_page_hero("📦","Raw Data & Print Centre",
+    "Inspect, compare, and export plaintext vs encrypted records",
+    badge="Data forensics")
+    page_padding()
+
+    st.markdown('<div style="width:100%;background:hsla(40,100%,70%,.07);'
+        'border:1px solid hsla(40,100%,70%,.2);border-radius:12px;padding:.8rem 1.4rem;'
+        'font-size:.78rem;color:var(--text2);margin-bottom:1.2rem">'
+        '⚠️ <b>Security Notice:</b> This page displays both plaintext (decrypted) and '
+        'ciphertext views of health records. All access is logged to the blockchain audit ledger. '
+        'In production, access to plaintext is restricted to authorised clinicians only.'
+        '</div>', unsafe_allow_html=True)
 
     all_results = get_all_results_admin() if is_admin else get_user_results(user['id'])
     results_admin = get_all_results_admin() if is_admin else []
@@ -4413,8 +4545,40 @@ MedChainSecure · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "decentral":
-    st.markdown('<div class="section-header">🌐 Decentralisation & Storage</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Distributed ledger architecture · Local + Remote backup topology</div>', unsafe_allow_html=True)
+    render_page_hero("🌐","Decentralisation & Storage",
+    "Three-layer distributed architecture · Local SQLite → Remote backup → Blockchain audit ledger",
+    badge="Distributed storage")
+    page_padding()
+
+    # Full-width topology diagram
+    st.markdown('''<div style="width:100%;background:var(--card);border:1px solid var(--border);
+    border-radius:16px;padding:1.2rem 2rem;margin-bottom:1.5rem;
+    display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;">
+    <div style="text-align:center;padding:.6rem 1.2rem">
+      <div style="font-size:2rem">📷</div>
+      <div style="font-size:.72rem;color:var(--text2);margin-top:.2rem">Webcam<br>rPPG capture</div>
+    </div>
+    <div style="color:var(--accent);font-size:1.4rem;padding:0 .4rem">→</div>
+    <div style="text-align:center;padding:.6rem 1.2rem">
+      <div style="font-size:2rem">🔐</div>
+      <div style="font-size:.72rem;color:var(--text2);margin-top:.2rem">AES-256-GCM<br>+ ECC encrypt</div>
+    </div>
+    <div style="color:var(--accent);font-size:1.4rem;padding:0 .4rem">→</div>
+    <div style="text-align:center;padding:.6rem 1.2rem">
+      <div style="font-size:2rem">💾</div>
+      <div style="font-size:.72rem;color:var(--text2);margin-top:.2rem">Layer 1<br>Local SQLite</div>
+    </div>
+    <div style="color:var(--cyan);font-size:1.4rem;padding:0 .4rem">→</div>
+    <div style="text-align:center;padding:.6rem 1.2rem">
+      <div style="font-size:2rem">🌍</div>
+      <div style="font-size:.72rem;color:var(--text2);margin-top:.2rem">Layer 2<br>Remote Backup</div>
+    </div>
+    <div style="color:var(--cyan);font-size:1.4rem;padding:0 .4rem">→</div>
+    <div style="text-align:center;padding:.6rem 1.2rem">
+      <div style="font-size:2rem">🔗</div>
+      <div style="font-size:.72rem;color:var(--text2);margin-top:.2rem">Layer 3<br>Blockchain ledger</div>
+    </div>
+    </div>''', unsafe_allow_html=True)
 
     tab_overview, tab_nodes, tab_blockchain, tab_verify = st.tabs([
         "📡 Architecture", "🖧 Storage Nodes", "🔗 Blockchain Ledger", "✅ Verify Integrity"
@@ -4598,8 +4762,32 @@ A valid tag proves the ciphertext has not been modified since it was saved.
 # ─────────────────────────────────────────────────────────────────────────────
 
 elif st.session_state.page == "decryption":
-    st.markdown('<div class="section-header">🔓 Decryption Center</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Decrypt and verify AES-256-GCM + ECC encrypted health records</div>', unsafe_allow_html=True)
+    render_page_hero("🔓","Decryption Centre",
+    "Verify and decrypt AES-256-GCM + ECC-SECP256R1 protected health records",
+    badge="Cryptographic verification")
+    page_padding()
+
+    # Full-width scheme info bar
+    _dsc1, _dsc2, _dsc3 = st.columns(3)
+    with _dsc1:
+        st.markdown('<div class="cs-card" style="text-align:center;padding:1.1rem">'
+            '<div style="font-size:1.6rem">🔑</div>'
+            '<div style="font-weight:700;font-size:.85rem;margin:.3rem 0">AES-256-GCM</div>'
+            '<div style="font-size:.72rem;color:var(--text2)">256-bit key · 96-bit nonce · 128-bit GCM tag</div>'
+            '</div>', unsafe_allow_html=True)
+    with _dsc2:
+        st.markdown('<div class="cs-card" style="text-align:center;padding:1.1rem">'
+            '<div style="font-size:1.6rem">📐</div>'
+            '<div style="font-weight:700;font-size:.85rem;margin:.3rem 0">ECC SECP256R1</div>'
+            '<div style="font-size:.72rem;color:var(--text2)">Elliptic curve key encapsulation · ECDH exchange</div>'
+            '</div>', unsafe_allow_html=True)
+    with _dsc3:
+        st.markdown('<div class="cs-card" style="text-align:center;padding:1.1rem">'
+            '<div style="font-size:1.6rem">✅</div>'
+            '<div style="font-weight:700;font-size:.85rem;margin:.3rem 0">Authenticated</div>'
+            '<div style="font-size:.72rem;color:var(--text2)">GCM tag verifies ciphertext integrity on decrypt</div>'
+            '</div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     _tab_auto, _tab_manual = st.tabs(["🗃️ Decrypt My Records", "🔑 Manual Decryption"])
 
@@ -4713,7 +4901,7 @@ else:
 st.markdown("""
 <div class="cs-footer">
   🔗 MedChainSecure · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
-  Hybrid Encryption &amp; Blockchain Techniques for Secure IoMT Data Management ·
+  Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management ·
   EBSU/PG/PhD/2021/10930 · Yunisa Sunday<br>
   ⚠️ Research &amp; educational purposes only — not a certified medical device
 </div>
@@ -4741,7 +4929,7 @@ components.html("""
   var m = JSON.stringify({
     name:'MedChainSecure',
     short_name:'MedChain',
-    description:'Hybrid Encryption & Blockchain Techniques for Secure IoMT Data Management',
+    description:'Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management',
     start_url:'/',
     display:'standalone',
     background_color:'#0A0E1A',
