@@ -1021,7 +1021,7 @@ def render_nav():
       <div style="flex:1"></div>
       <div style="display:flex;align-items:center;gap:.6rem;flex-shrink:0">
         {user_html}
-        <span style="color:var(--text2);font-size:.78rem">{datetime.now().strftime("%d %b %Y")}</span>
+        {datetime.now().strftime("%d %b %Y")}
       </div>
     </div>
     """, unsafe_allow_html=True)
