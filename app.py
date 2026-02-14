@@ -1474,6 +1474,137 @@ section[data-testid="stSidebar"] .stButton>button[kind="primary"]{{
 # ─────────────────────────────────────────────────────────────────────────────
 
 if st.session_state.page == "monitor":
+
+    # ╔══════════════════════════════════════════════════════════════════════╗
+    # ║  POPUP GATE — runs INSTEAD of the full page, st.stop() blocks rest ║
+    # ╚══════════════════════════════════════════════════════════════════════╝
+    if st.session_state.get("_popup_data"):
+        import time as _tp
+        import streamlit.components.v1 as _compp
+        pd = st.session_state["_popup_data"]
+
+        if pd["phase"] == "loading":
+            _html = """<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+html,body{margin:0;background:#eef2f7;min-height:100vh;
+  display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}
+.card{background:#fff;border-radius:20px;padding:2rem 2.4rem;width:430px;
+  box-shadow:0 16px 50px rgba(0,0,0,.14)}
+.icon{text-align:center;font-size:2rem;margin-bottom:.4rem}
+.title{font-size:1.05rem;font-weight:700;color:#111;text-align:center;margin-bottom:1.1rem}
+.row{display:flex;align-items:center;gap:.5rem;font-size:.82rem;
+  color:#9CA3AF;padding:2px 0;transition:color .25s}
+.row.done{color:#1f2937}.sym{width:18px;text-align:center;flex-shrink:0}
+</style></head><body><div class="card">
+<div class="icon">🔐</div>
+<div class="title">Encrypting &amp; Distributing…</div>
+<div id="L">
+<div class="row" id="r0"><span class="sym">⏳</span>Serialising medical data to JSON…</div>
+<div class="row" id="r1"><span class="sym">◻</span>Generating 256-bit AES session key…</div>
+<div class="row" id="r2"><span class="sym">◻</span>Generating 96-bit GCM nonce…</div>
+<div class="row" id="r3"><span class="sym">◻</span>AES-256-GCM encryption…</div>
+<div class="row" id="r4"><span class="sym">◻</span>GHASH authentication tag…</div>
+<div class="row" id="r5"><span class="sym">◻</span>Writing to local database…</div>
+<div class="row" id="r6"><span class="sym">◻</span>Replicating to Node 1 (EU-West)…</div>
+<div class="row" id="r7"><span class="sym">◻</span>Replicating to Node 2 (US-East)…</div>
+<div class="row" id="r8"><span class="sym">◻</span>Syncing to remote backup server…</div>
+<div class="row" id="r9"><span class="sym">◻</span>Writing audit ledger entry…</div>
+</div></div>
+<script>
+var d=[260,170,170,350,240,350,240,240,430,240];
+var i=0;
+function go(){
+  if(i>0){var p=document.getElementById('r'+(i-1));
+    p.classList.add('done');p.querySelector('.sym').textContent='✅';}
+  if(i<d.length){var c=document.getElementById('r'+i);
+    c.querySelector('.sym').textContent='⏳';setTimeout(go,d[i]);i++;}}
+go();
+</script></body></html>"""
+            _compp.html(_html, height=410)
+            _tp.sleep(3.0)
+            st.session_state["_popup_data"]["phase"] = "saving"
+            st.rerun()
+
+        elif pd["phase"] == "saving":
+            r = pd["result"]
+            try:
+                result_info = save_test_result(
+                    pd["user_id"], r["bpm"],
+                    pd["data_buffer"], r["analysis"]
+                )
+                log_action(pd["user_id"], "RESULT_SAVED",
+                           f"BPM={r['bpm']}, Cat={r['analysis']['category']}, "
+                           f"Remote={'OK' if result_info['remote'] else 'FAIL'}")
+                st.session_state["_popup_data"]["remote_ok"]  = result_info["remote"]
+                st.session_state["_popup_data"]["remote_msg"] = result_info.get("remote_msg","")
+            except Exception as _se:
+                del st.session_state["_popup_data"]
+                st.error(f"❌ Save failed: {_se}")
+                st.stop()
+            st.session_state.test_complete = False
+            st.session_state.last_result   = None
+            st.session_state.data_buffer   = deque(maxlen=60)
+            st.session_state.times         = deque(maxlen=60)
+            st.session_state.bpm           = 0
+            st.session_state.running       = False
+            st.session_state["_popup_data"]["phase"] = "success"
+            st.rerun()
+
+        elif pd["phase"] == "success":
+            r          = pd["result"]
+            remote_ok  = pd.get("remote_ok", False)
+            remote_msg = pd.get("remote_msg","")
+            bpm_val    = r["bpm"]
+            cat_val    = r["analysis"]["category"]
+            stress_lbl = r["stress"]["label"] if r.get("stress") else ""
+            stress_bit = f" | Stress: {stress_lbl}" if stress_lbl else ""
+            if remote_ok:
+                rrow = '<div class="row ok"><span class="sym">✅</span>Remote backup saved to steadywebhosting.com</div>'
+            else:
+                safe_msg = remote_msg[:70].replace('<','&lt;').replace('>','&gt;')
+                rrow = (f'<div class="row warn"><span class="sym">⚠️</span>'
+                        f'Remote backup unreachable — local copy safe'
+                        f'<div style="font-size:.68rem;color:#9CA3AF;margin-left:24px">{safe_msg}</div></div>')
+            _html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+html,body{{margin:0;background:#eef2f7;min-height:100vh;
+  display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}}
+.card{{background:#fff;border-top:5px solid #10B981;border-radius:20px;
+  padding:2rem 2.4rem;width:450px;box-shadow:0 16px 50px rgba(0,0,0,.14)}}
+.icon{{text-align:center;font-size:2.4rem;margin-bottom:.3rem}}
+.title{{font-size:1.05rem;font-weight:700;color:#059669;text-align:center;margin-bottom:1rem}}
+.row{{display:flex;gap:.5rem;font-size:.82rem;color:#1f2937;padding:2px 0;align-items:flex-start}}
+.row.ok{{color:#059669}}.row.warn{{color:#D97706}}.sym{{width:18px;flex-shrink:0;text-align:center}}
+.box{{margin-top:1rem;padding:.7rem .9rem;background:#F9FAFB;
+  border:1px solid #E5E7EB;border-radius:10px}}
+.lbl{{font-size:.61rem;color:#9CA3AF;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.25rem}}
+.mono{{font-family:'Courier New',monospace;font-size:.67rem;color:#6B7280;line-height:1.4}}
+.note{{text-align:center;margin-top:.8rem;color:#9CA3AF;font-size:.73rem}}
+</style></head><body>
+<div class="card">
+<div class="icon">✅</div>
+<div class="title">Record Encrypted &amp; Saved</div>
+<div class="row"><span class="sym">✅</span>JSON serialised → AES-256-GCM encrypted</div>
+<div class="row"><span class="sym">✅</span>128-bit GHASH authentication tag computed</div>
+<div class="row"><span class="sym">✅</span>Saved to local SQLite database</div>
+<div class="row"><span class="sym">✅</span>Node 1 replica (EU-West) — distributed</div>
+<div class="row"><span class="sym">✅</span>Node 2 replica (US-East) — distributed</div>
+{rrow}
+<div class="row"><span class="sym">✅</span>Audit ledger entry written</div>
+<div class="box">
+  <div class="lbl">Encrypted Payload</div>
+  <div class="mono">AES-256-GCM &nbsp;|&nbsp; {bpm_val} BPM &nbsp;|&nbsp; {cat_val}{stress_bit}</div>
+</div>
+<div class="note">Closing in 3 seconds…</div>
+</div></body></html>"""
+            _compp.html(_html, height=450)
+            _tp.sleep(3.2)
+            del st.session_state["_popup_data"]
+            st.rerun()
+
+        st.stop()  # ← nothing else renders while popup is active
+
+    # ── Normal monitor page renders below ─────────────────────────────────────
     st.markdown('<div class="section-header">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Real-time rPPG measurement via webcam · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
 
@@ -2024,35 +2155,53 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         # ── Stress card ──────────────────────────────────────────────────────
         stress = st.session_state.get("stress")
         if stress:
-            sc   = stress["score"]
+            sc      = stress["score"]
             bar_pct = int(sc * 100)
-            comps = stress.get("components", {})
+            comps   = stress.get("components", {})
+            # Human-readable tooltips for each component
+            comp_tips = {
+                "Skin Redness":  "Blood flow increase detected in cheeks (facial flush signal)",
+                "Pallor":        "Skin brightness drop — vasoconstriction indicator",
+                "Micro-tension": "Forehead pixel variance — facial muscle micro-expression",
+                "Eye Fatigue":   "Under-eye darkness relative to cheeks — fatigue signal",
+                "Brow Tension":  "Edge energy above brows — furrowing / frown indicator",
+            }
             comp_bars = "".join(
-                f'<div style="display:flex;align-items:center;gap:.4rem;margin-top:3px">' 
-                f'<div style="font-size:.62rem;color:#6B7280;width:90px;flex-shrink:0">{k}</div>' 
-                f'<div style="flex:1;height:5px;background:#E5E7EB;border-radius:3px">' 
+                f'<div style="margin-top:5px" title="{comp_tips.get(k,k)}">' 
+                f'<div style="display:flex;justify-content:space-between;'
+                f'font-size:.61rem;color:#6B7280;margin-bottom:1px">'
+                f'<span>{k}</span><span>{int(v*100)}%</span></div>'
+                f'<div style="height:4px;background:#E5E7EB;border-radius:3px">'
                 f'<div style="width:{int(v*100)}%;height:100%;background:{stress["color"]};'
-                f'border-radius:3px"></div></div>' 
-                f'<div style="font-size:.62rem;color:#9CA3AF;width:28px">{int(v*100)}%</div></div>'
+                f'border-radius:3px"></div></div></div>'
                 for k, v in comps.items()
             )
+            note = (
+                "High values indicate physiological signals associated with stress "
+                "— these modulate the BPM estimate alongside your age and gender."
+            )
             st.markdown(
-                f'<div class="cs-card" style="margin-top:.6rem;background:#fff;'
-                f'border:1px solid {stress["color"]}55;padding:1rem">' 
-                f'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' 
-                f'<span style="font-size:1.4rem">{stress["icon"]}</span>' 
-                f'<div><div style="font-size:.78rem;font-weight:700;color:{stress["color"]}">' 
-                f'{stress["label"]}</div>' 
-                f'<div style="font-size:.66rem;color:#9CA3AF">Stress Index: {bar_pct}%</div></div></div>' 
-                f'<div style="background:#F3F4F6;border-radius:6px;height:8px;margin-bottom:.6rem">' 
-                f'<div style="width:{bar_pct}%;height:100%;border-radius:6px;' 
-                f'background:linear-gradient(90deg,#00E5A0,{stress["color"]})"></div></div>' 
-                + comp_bars + '</div>',
+                f'<div class="cs-card" style="margin-top:.6rem;padding:1rem;'
+                f'border:1px solid {stress["color"]}44">'
+                f'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">'
+                f'<span style="font-size:1.3rem">{stress["icon"]}</span>'
+                f'<div>'
+                f'<div style="font-size:.78rem;font-weight:700;color:{stress["color"]}">'
+                f'{stress["label"]}</div>'
+                f'<div style="font-size:.63rem;color:#9CA3AF">'
+                f'Facial stress index: {bar_pct}%</div></div></div>'
+                f'<div style="background:#F3F4F6;border-radius:5px;height:7px;margin-bottom:.5rem">'
+                f'<div style="width:{bar_pct}%;height:100%;border-radius:5px;'
+                f'background:linear-gradient(90deg,#00E5A0,{stress["color"]})"></div></div>'
+                + comp_bars +
+                f'<div style="margin-top:.6rem;font-size:.61rem;color:#9CA3AF;'
+                f'line-height:1.4;border-top:1px solid #F3F4F6;padding-top:.4rem">'
+                f'ℹ️ {note}</div></div>',
                 unsafe_allow_html=True
             )
         elif st.session_state.running:
             st.markdown(
-                '<div class="cs-card" style="margin-top:.6rem;text-align:center;' 
+                '<div class="cs-card" style="margin-top:.6rem;text-align:center;'
                 'padding:.8rem;color:#9CA3AF;font-size:.78rem">'
                 '🧠 Stress analysis appears after first photo</div>',
                 unsafe_allow_html=True
@@ -2136,115 +2285,15 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
 
     # ── Save handler (outside columns) ────────────────────────────────────────
     if save_btn and st.session_state.last_result:
-        r = st.session_state.last_result
-
-        # ── Animated encryption simulation popup ──────────────────────────────
-        popup = st.empty()
-        popup.markdown("""
-        <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;
-             display:flex;align-items:center;justify-content:center">
-          <div style="background:#ffffff;border:none;border-radius:20px;
-               padding:2.5rem 3rem;max-width:520px;width:90%;
-               box-shadow:0 24px 80px rgba(0,0,0,0.22)">
-            <div style="text-align:center;font-size:2.5rem;margin-bottom:.6rem">🔐</div>
-            <div style="font-family:Georgia,serif;font-size:1.25rem;font-weight:700;
-                 color:#111827;text-align:center;margin-bottom:1.6rem">
-              Encrypting &amp; Distributing…</div>
-            <div style="font-size:.84rem;color:#374151;line-height:2.4">
-              <div>⏳ Serialising medical data to JSON…</div>
-              <div style="color:#9CA3AF">◻ Generating 256-bit AES session key…</div>
-              <div style="color:#9CA3AF">◻ Generating 96-bit GCM nonce…</div>
-              <div style="color:#9CA3AF">◻ AES-256-GCM encryption…</div>
-              <div style="color:#9CA3AF">◻ GHASH authentication tag…</div>
-              <div style="color:#9CA3AF">◻ Writing to local database…</div>
-              <div style="color:#9CA3AF">◻ Replicating to Node 1 (EU-West)…</div>
-              <div style="color:#9CA3AF">◻ Replicating to Node 2 (US-East)…</div>
-              <div style="color:#9CA3AF">◻ Syncing to remote backup server…</div>
-              <div style="color:#9CA3AF">◻ Writing audit ledger entry…</div>
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        import time as _t
-        steps_delay = [0.3, 0.2, 0.2, 0.4, 0.3, 0.4, 0.3, 0.3, 0.5, 0.3]
-        for i, delay in enumerate(steps_delay):
-            _t.sleep(delay)
-
-        # ── Real save ─────────────────────────────────────────────────────────
-        try:
-            result_info = save_test_result(
-                user['id'], r['bpm'],
-                list(st.session_state.data_buffer), r['analysis']
-            )
-            log_action(user['id'], "RESULT_SAVED",
-                       f"BPM={r['bpm']}, Cat={r['analysis']['category']}, "
-                       f"Remote={'OK' if result_info['remote'] else 'FAIL'}")
-            remote_ok  = result_info['remote']
-            remote_msg = result_info['remote_msg']
-        except Exception as save_err:
-            popup.empty()
-            st.error(f"❌ Save failed: {save_err}")
-            st.stop()
-
-        # ── Clear state ───────────────────────────────────────────────────────
-        st.session_state.test_complete = False
-        st.session_state.last_result   = None
-        st.session_state.data_buffer   = deque(maxlen=60)
-        st.session_state.times         = deque(maxlen=60)
-        st.session_state.bpm           = 0
-        st.session_state.running       = False
-
-        # ── Show result popup ─────────────────────────────────────────────────
-        remote_badge  = ('<span style="color:var(--green)">✅ Remote backup saved</span>'
-                         if remote_ok else
-                         '<span style="color:var(--yellow)">⚠️ Remote backup unreachable (local copy safe)</span>')
-        remote_detail = f'<div style="font-size:.72rem;color:var(--text3);margin-top:.2rem">{remote_msg}</div>' if not remote_ok else ""
-
-        remote_status_html = (
-            '<div style="color:#059669">✅ Remote backup saved to steadywebhosting.com</div>'
-            if remote_ok else
-            '<div style="color:#D97706">⚠️ Remote backup unreachable — local copy is safe</div>'
-            + f'<div style="font-size:.72rem;color:#9CA3AF;margin-left:1.4rem">{remote_msg}</div>'
-        )
-        popup.markdown(f"""
-        <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;
-             display:flex;align-items:center;justify-content:center">
-          <div style="background:#ffffff;border-top:5px solid #10B981;border-radius:20px;
-               padding:2.5rem 3rem;max-width:540px;width:90%;
-               box-shadow:0 24px 80px rgba(0,0,0,0.22)">
-            <div style="text-align:center;font-size:3rem;margin-bottom:.4rem">✅</div>
-            <div style="font-family:Georgia,serif;font-size:1.25rem;font-weight:700;
-                 color:#059669;text-align:center;margin-bottom:1.4rem">
-              Record Encrypted &amp; Saved</div>
-
-            <div style="font-size:.84rem;color:#374151;line-height:2.4">
-              <div>✅ JSON serialised → AES-256-GCM encrypted</div>
-              <div>✅ 128-bit GHASH authentication tag computed</div>
-              <div>✅ Saved to local SQLite database</div>
-              <div>✅ Node 1 replica (EU-West) — distributed</div>
-              <div>✅ Node 2 replica (US-East) — distributed</div>
-              {remote_status_html}
-              <div>✅ Audit ledger entry written</div>
-            </div>
-
-            <div style="margin-top:1.4rem;padding:.9rem 1rem;background:#F9FAFB;
-                 border:1px solid #E5E7EB;border-radius:10px">
-              <div style="color:#9CA3AF;text-transform:uppercase;font-size:.66rem;
-                   letter-spacing:.08em;margin-bottom:.4rem">Encrypted Payload</div>
-              <div style="font-family:Courier New,monospace;color:#6B7280;
-                   font-size:.7rem;line-height:1.6">
-                Algorithm: AES-256-GCM &nbsp;|&nbsp; {r['bpm']} BPM &nbsp;|&nbsp; {r['analysis']['category']}
-                {"&nbsp;|&nbsp; Stress: " + r["stress"]["label"] if r.get("stress") else ""}
-              </div>
-            </div>
-
-            <div style="text-align:center;margin-top:1.2rem;color:#9CA3AF;font-size:.78rem">
-              Closing in 3 seconds…</div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        _t.sleep(3)
-        popup.empty()
+        # Store everything needed for the popup in session_state,
+        # then rerun — the popup gate at the top of this page takes over
+        # and renders ONLY the popup (st.stop() prevents anything else).
+        st.session_state["_popup_data"] = {
+            "phase":       "loading",
+            "user_id":     user["id"],
+            "result":      st.session_state.last_result,
+            "data_buffer": list(st.session_state.data_buffer),
+        }
         st.rerun()
 
 # ─────────────────────────────────────────────────────────────────────────────
