@@ -73,7 +73,7 @@ import math
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="CardioSecure – Heart Rate Monitor",
+    page_title="MedChainSecure – Heart Rate Monitor",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -584,7 +584,7 @@ def _send_remote_backup(payload: dict) -> tuple:
         req  = urllib.request.Request(
             REMOTE_BACKUP_URL, data=body,
             headers={"Content-Type": "application/json",
-                     "X-Sig": sig, "User-Agent": "CardioSecure/2.0"},
+                     "X-Sig": sig, "User-Agent": "MedChainSecure/2.0"},
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=6) as resp:
@@ -1008,7 +1008,7 @@ def render_nav():
         <div style="animation:heartbeat 1.5s ease-in-out infinite;display:flex">{LOGO_SVG_SM}</div>
         <div>
           <div style="font-family:'DM Serif Display',serif;font-size:1.05rem;
-                      color:var(--text);line-height:1">CardioSecure</div>
+                      color:var(--text);line-height:1">MedChainSecure</div>
           <div style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
                       text-transform:uppercase;margin-top:1px">Heart Rate Monitor</div>
         </div>
@@ -1146,7 +1146,7 @@ def render_landing():
         {LOGO_SVG_LG}
       </div>
       <p class="hero-sub">Hybrid-Encrypted Heart Rate Monitor</p>
-      <h1 class="hero-title">CardioSecure</h1>
+      <h1 class="hero-title">MedChainSecure</h1>
       <p class="hero-desc">
         Real-time rPPG measurement via webcam with AES-256-GCM + ECC-SECP256R1 end-to-end encryption.
         Research-grade cardiac monitoring, fully secured.
@@ -1311,7 +1311,7 @@ if not st.session_state.logged_in:
           <div style="font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1.1;
                       background:linear-gradient(135deg,#FF6B6B 0%,#E84855 45%,#00D4FF 100%);
                       -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
-            CardioSecure</div>
+            MedChainSecure</div>
           <div style="color:var(--text3);font-size:.72rem;letter-spacing:.18em;
                       text-transform:uppercase;margin-top:.4rem">
             Hybrid-Encrypted Heart Rate Monitor</div>
@@ -1410,7 +1410,7 @@ with st.sidebar:
     <div style="padding:1rem 0 0.5rem;text-align:center">
       <span style="font-size:2rem">❤️</span>
       <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:#E8EDF8;margin-top:4px">
-        CardioSecure</div>
+        MedChainSecure</div>
     </div>
     """, unsafe_allow_html=True)
     st.divider()
@@ -3794,7 +3794,7 @@ elif st.session_state.page == "enc_step7":
         st.markdown("---")
         raw_print_html = f"""
 <!DOCTYPE html><html><head>
-<title>CardioSecure — Raw Medical Data Report</title>
+<title>MedChainSecure — Raw Medical Data Report</title>
 <style>
   body{{font-family:'Courier New',monospace;padding:2rem;color:#111;background:#fff}}
   h1{{font-family:Arial,sans-serif;color:#E84855;border-bottom:2px solid #E84855;padding-bottom:.5rem}}
@@ -3804,7 +3804,7 @@ elif st.session_state.page == "enc_step7":
   .warn{{background:#fff8e1;border:1px solid #ffc107;padding:.8rem;border-radius:6px;font-family:Arial;font-size:.82rem}}
   @media print{{.no-print{{display:none}}}}
 </style></head><body>
-<h1>🏥 CardioSecure — Raw Medical Data Report</h1>
+<h1>🏥 MedChainSecure — Raw Medical Data Report</h1>
 <div class="meta">
   Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} &nbsp;|&nbsp;
   Patient: {sample.get("patient","—")} &nbsp;|&nbsp;
@@ -3887,7 +3887,7 @@ elif st.session_state.page == "enc_step7":
         st.markdown("---")
         enc_print_html = f"""
 <!DOCTYPE html><html><head>
-<title>CardioSecure — Encrypted Data Report</title>
+<title>MedChainSecure — Encrypted Data Report</title>
 <style>
   body{{font-family:'Courier New',monospace;padding:2rem;color:#111;background:#fff}}
   h1{{font-family:Arial,sans-serif;color:#00897B;border-bottom:2px solid #00897B;padding-bottom:.5rem}}
@@ -3900,7 +3900,7 @@ elif st.session_state.page == "enc_step7":
   .ok{{background:#e8f5e9;color:#2e7d32;font-weight:700}}
   @media print{{.no-print{{display:none}}}}
 </style></head><body>
-<h1>🔐 CardioSecure — Encrypted Data Report</h1>
+<h1>🔐 MedChainSecure — Encrypted Data Report</h1>
 <div class="meta">
   Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} &nbsp;|&nbsp;
   Algorithm: AES-256-GCM + ECC-SECP256R1 &nbsp;|&nbsp;
@@ -4061,7 +4061,7 @@ elif st.session_state.page == "enc_step7":
         # ── Combined print report ────────────────────────────────────────────
         both_print_html = f"""
 <!DOCTYPE html><html><head>
-<title>CardioSecure — Full Encryption Report</title>
+<title>MedChainSecure — Full Encryption Report</title>
 <style>
   body{{font-family:Arial,sans-serif;padding:2rem;color:#111;background:#fff;max-width:1100px;margin:0 auto}}
   h1{{color:#E84855;border-bottom:3px solid #E84855;padding-bottom:.5rem}}
@@ -4081,7 +4081,7 @@ elif st.session_state.page == "enc_step7":
   @media print{{.no-print{{display:none}}}}
 </style></head><body>
 
-<h1>🏥 CardioSecure — Full Hybrid Encryption Report</h1>
+<h1>🏥 MedChainSecure — Full Hybrid Encryption Report</h1>
 <div class="meta">
   <b>Generated:</b> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}<br>
   <b>Patient:</b> {sample.get("patient","—")} &nbsp;|&nbsp;
@@ -4339,10 +4339,10 @@ elif st.session_state.page == "raw_data":
               <div style="font-weight:600;margin-bottom:0.3rem">Print Raw Data</div>
               <div style="font-size:0.78rem;color:var(--text2)">Patient-readable plaintext report</div>
             </div>""", unsafe_allow_html=True)
-            raw_html = f"""<html><head><title>CardioSecure Report</title>
+            raw_html = f"""<html><head><title>MedChainSecure Report</title>
 <style>body{{font-family:monospace;padding:2rem;color:#000}}
 h1{{color:#E84855}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px}}</style></head>
-<body><h1>❤️ CardioSecure – Patient Report</h1>
+<body><h1>❤️ MedChainSecure – Patient Report</h1>
 <p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</p>
 <hr><pre>{raw_str}</pre></body></html>"""
             st.download_button("⬇ Download Raw Report",
@@ -4355,10 +4355,10 @@ h1{{color:#E84855}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px}}</sty
               <div style="font-weight:600;margin-bottom:0.3rem">Print Encrypted</div>
               <div style="font-size:0.78rem;color:var(--text2)">Technical encrypted audit record</div>
             </div>""", unsafe_allow_html=True)
-            enc_html = f"""<html><head><title>CardioSecure Encrypted Record</title>
+            enc_html = f"""<html><head><title>MedChainSecure Encrypted Record</title>
 <style>body{{font-family:monospace;padding:2rem;color:#000}}
 h1{{color:#00B09B}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px;word-break:break-all}}</style></head>
-<body><h1>🔐 CardioSecure – Encrypted Record</h1>
+<body><h1>🔐 MedChainSecure – Encrypted Record</h1>
 <p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</p>
 <p>Record ID: #{record.get('test_id','')}</p>
 <hr><h3>Encrypted Data (AES-256-GCM):</h3>
@@ -4375,12 +4375,12 @@ h1{{color:#00B09B}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px;word-b
               <div style="font-weight:600;margin-bottom:0.3rem">Print Both</div>
               <div style="font-size:0.78rem;color:var(--text2)">Combined full report (raw + encrypted)</div>
             </div>""", unsafe_allow_html=True)
-            both_html = f"""<html><head><title>CardioSecure Full Report</title>
+            both_html = f"""<html><head><title>MedChainSecure Full Report</title>
 <style>body{{font-family:monospace;padding:2rem;color:#000;max-width:900px;margin:0 auto}}
 h1{{color:#E84855}}h2{{color:#333;border-bottom:2px solid #E84855;padding-bottom:0.3rem}}
 pre{{background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap;word-break:break-all}}
 .grid{{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}}</style></head>
-<body><h1>❤️ CardioSecure – Full Report</h1>
+<body><h1>❤️ MedChainSecure – Full Report</h1>
 <p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Record ID: #{record.get('test_id','')}</p>
 <hr>
 <div class="grid">
@@ -4390,7 +4390,7 @@ pre{{background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap;word
 </div>
 <hr><p style="font-size:0.8rem;color:#666">
 ⚠️ Secure document — handle in accordance with HIPAA/GDPR regulations.
-CardioSecure · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
+MedChainSecure · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
 </body></html>"""
             st.download_button("⬇ Download Full Report",
                                both_html, f"report_full_{record.get('test_id','')}.html", "text/html")
