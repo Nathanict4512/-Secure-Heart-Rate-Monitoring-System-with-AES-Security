@@ -1544,10 +1544,7 @@ button{border:none;border-radius:8px;padding:8px 20px;font-size:.84rem;
   <div id="msg">Click Start Camera — allow browser camera permission</div>
 </div>
 
-<!-- Hidden form that submits result to parent Streamlit page -->
-<form id="rf" method="GET" action="/" target="_top" style="display:none">
-  <input type="hidden" id="ri" name="rppg_result" value="">
-</form>
+
 
 <script>
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -1768,13 +1765,13 @@ async function startCam(){
   }
 }
 
-// ─── Stop & submit result via form targeting _top ─────────────────────────────
+// ─── Stop & send result to Python via Streamlit postMessage protocol ────────
 function stopAndSave(){
   running=false;
   if(raf)cancelAnimationFrame(raf);
   if(stream)stream.getTracks().forEach(function(t){t.stop();});
   document.getElementById('bx').disabled=true;
-  document.getElementById('msg').textContent='⏳ Processing…';
+  document.getElementById('msg').textContent='✅ Result ready — check the panel on the right';
 
   var avgSt=stHist.length?stHist.reduce(function(a,b){return a+b;},0)/stHist.length:0;
   var stLabels=["Relaxed","Mild Tension","Moderate Stress","High Stress","Acute Stress"];
@@ -1782,14 +1779,14 @@ function stopAndSave(){
   var stColors=["#00E5A0","#74C0FC","#FFD166","#FF6B6B","#E84855"];
   var si=avgSt<0.25?0:avgSt<0.45?1:avgSt<0.65?2:avgSt<0.82?3:4;
 
-  var mX=cX.length?cX.reduce(function(a,b){return a+b;},0)/cX.length:0;
-  var mY=cY.length?cY.reduce(function(a,b){return a+b;},0)/cY.length:0;
+  var mX=cX.reduce(function(a,b){return a+b;},0)/(cX.length||1);
+  var mY=cY.reduce(function(a,b){return a+b;},0)/(cY.length||1);
   var sdX=Math.sqrt(cX.reduce(function(a,v){return a+(v-mX)*(v-mX);},0)/(cX.length||1))||1;
   var sdY=Math.sqrt(cY.reduce(function(a,v){return a+(v-mY)*(v-mY);},0)/(cY.length||1))||1;
   var alpha=sdX/sdY;
   var chrom=cX.slice(-120).map(function(x,i){return+(x-alpha*cY[i]).toFixed(4);});
 
-  var result=JSON.stringify({
+  var result={
     bpm:curBpm||0,
     quality:curQual||0,
     frames:frames,
@@ -1801,21 +1798,21 @@ function stopAndSave(){
       components:{"Signal Quality":(curQual||0)/100,"Stress Index":Math.round(avgSt*100)/100}
     },
     signal:chrom
-  });
+  };
 
-  // Submit via form targeting _top (allowed from same-origin iframes)
-  var form=document.getElementById('rf');
-  var input=document.getElementById('ri');
-  input.value=result;
-  // Set action to current parent URL
-  try{
-    form.action=window.location.href.split('?')[0];
-  }catch(e){
-    form.action='/';
-  }
-  form.submit();
+  // Streamlit component postMessage protocol:
+  // 1. Send componentReady, 2. Send setComponentValue
+  window.parent.postMessage({type:'streamlit:componentReady',apiVersion:1},'*');
+  setTimeout(function(){
+    window.parent.postMessage({
+      type:'streamlit:setComponentValue',
+      value: result,
+      dataType:'json'
+    },'*');
+  }, 50);
 }
-</script></body></html>"""
+</script></body></html>
+"""
 
 
 if st.session_state.page == "monitor":
@@ -1951,45 +1948,7 @@ html,body{{margin:0;background:#eef2f7;min-height:100vh;
 
     # ── Normal monitor page renders below ─────────────────────────────────────
 
-    # ── Read result posted back by JS component via URL query param ───────────
-    _rppg_qp = st.query_params.get("rppg_result", None)
-    if _rppg_qp:
-        try:
-            _rppg_data = json.loads(_rppg_qp)
-            _bpm_js    = int(_rppg_data.get("bpm", 0))
-            _qual      = int(_rppg_data.get("quality", 0))
-            _frames    = int(_rppg_data.get("frames", 0))
-            _stress_js = _rppg_data.get("stress")
-            _sig_js    = _rppg_data.get("signal", [])
 
-            if _bpm_js > 0:
-                # Apply age/gender refinement to the JS BPM
-                _bpm_final = stress_adjusted_bpm(
-                    _bpm_js,
-                    _stress_js,
-                    user.get("age", 0),
-                    user.get("gender", ""),
-                    st.session_state.bpm_history,
-                )
-                st.session_state.bpm          = _bpm_final
-                st.session_state.stress       = _stress_js
-                st.session_state.last_result  = {
-                    "bpm":         _bpm_final,
-                    "analysis":    analyze_heart_rate(_bpm_final),
-                    "signal_data": _sig_js,
-                    "stress":      _stress_js,
-                    "quality":     _qual,
-                    "frames":      _frames,
-                }
-                st.session_state.test_complete = True
-                st.session_state.running       = False
-                st.session_state.data_buffer.extend(_sig_js[-60:])
-            else:
-                st.warning("⚠️ Not enough signal — try again with better lighting.")
-        except Exception as _qp_err:
-            pass  # malformed param, ignore
-        # Clear the query param so it doesn't persist across reruns
-        st.query_params.clear()
 
     st.markdown('<div class="section-header">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Real-time rPPG · Continuous 30fps video · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
@@ -2337,15 +2296,66 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             # This button is a fallback to reset state if needed
             st.session_state.running = False
 
-    # ── Camera: JS rPPG component (continuous 30fps, real signal) ───────────────
+    # ── Camera: JS rPPG component via declare_component (supports return value) ──
+    import tempfile, os as _os
+
+    @st.cache_resource
+    def _get_rppg_component():
+        """Register the rPPG component once — returns a callable that renders it
+        and gets back the result dict from JS via setComponentValue."""
+        _tmpdir = tempfile.mkdtemp(prefix="cs_rppg_")
+        return components.declare_component("rppg_monitor", path=_tmpdir)
+
+    _rppg_comp = _get_rppg_component()
+
     with col_cam:
         if st.session_state.running:
-            # Render the self-contained JS rPPG page
-            # It captures video, runs CHROM+FFT in JS, and when stopped
-            # redirects to ?rppg_result=<json> which Python reads on next rerun
             _theme = st.session_state.get("theme", "dark")
-            components.html(_build_rppg_html(_theme), height=480, scrolling=False)
-            st.caption("📡 Keep face still in good light · Click **Stop & Save** when reading stabilises")
+            _html_content = _build_rppg_html(_theme)
+
+            # Write the HTML as index.html in the component dir
+            # (declare_component serves files from path=)
+            import tempfile, os as _os
+            _tmp_dirs = [d for d in _os.listdir(tempfile.gettempdir())
+                        if d.startswith("cs_rppg_")]
+            if _tmp_dirs:
+                _idx_path = _os.path.join(tempfile.gettempdir(),
+                                          _tmp_dirs[0], "index.html")
+                with open(_idx_path, "w") as _f:
+                    _f.write(_html_content)
+
+            _js_result = _rppg_comp(key="rppg_cam", default=None, height=490)
+
+            # Result arrived from JS via setComponentValue
+            if _js_result and isinstance(_js_result, dict):
+                _bpm_js    = int(_js_result.get("bpm", 0))
+                _qual      = int(_js_result.get("quality", 0))
+                _frames    = int(_js_result.get("frames", 0))
+                _stress_js = _js_result.get("stress")
+                _sig_js    = _js_result.get("signal", [])
+
+                if _bpm_js > 0 and not st.session_state.test_complete:
+                    _bpm_final = stress_adjusted_bpm(
+                        _bpm_js, _stress_js,
+                        user.get("age", 0), user.get("gender", ""),
+                        st.session_state.bpm_history,
+                    )
+                    st.session_state.bpm          = _bpm_final
+                    st.session_state.stress       = _stress_js
+                    st.session_state.last_result  = {
+                        "bpm":         _bpm_final,
+                        "analysis":    analyze_heart_rate(_bpm_final),
+                        "signal_data": _sig_js,
+                        "stress":      _stress_js,
+                        "quality":     _qual,
+                        "frames":      _frames,
+                    }
+                    st.session_state.test_complete = True
+                    st.session_state.running       = False
+                    st.session_state.data_buffer.extend(_sig_js[-60:])
+                    st.rerun()
+
+            st.caption("📡 Keep face still in good light · Click **⏹ Stop & Save** when BPM stabilises")
 
 
 
