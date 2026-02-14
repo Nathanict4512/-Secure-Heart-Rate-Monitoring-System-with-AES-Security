@@ -1152,7 +1152,7 @@ def render_landing():
       <p class="hero-sub">EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
       <h1 class="hero-title">MedChainSecure</h1>
       <p class="hero-desc">
-        Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management
+        Hybrid Encryption &amp; Blockchain Techniques for Secure IoMT Data Management
         Research-grade cardiac monitoring, fully secured.
       </p>
       <div class="hero-btns">
@@ -4713,7 +4713,7 @@ else:
 st.markdown("""
 <div class="cs-footer">
   🔗 MedChainSecure · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
-  Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management ·
+  Hybrid Encryption &amp; Blockchain Techniques for Secure IoMT Data Management ·
   EBSU/PG/PhD/2021/10930 · Yunisa Sunday<br>
   ⚠️ Research &amp; educational purposes only — not a certified medical device
 </div>
@@ -4741,7 +4741,7 @@ components.html("""
   var m = JSON.stringify({
     name:'MedChainSecure',
     short_name:'MedChain',
-    description:'Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management',
+    description:'Hybrid Encryption & Blockchain Techniques for Secure IoMT Data Management',
     start_url:'/',
     display:'standalone',
     background_color:'#0A0E1A',
