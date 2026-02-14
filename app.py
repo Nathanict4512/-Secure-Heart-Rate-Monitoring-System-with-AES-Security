@@ -1148,8 +1148,9 @@ def render_landing():
       <p class="hero-sub">Hybrid-Encrypted Heart Rate Monitor</p>
       <h1 class="hero-title">MedChainSecure</h1>
       <p class="hero-desc">
-        Real-time rPPG measurement via webcam with AES-256-GCM + ECC-SECP256R1 end-to-end encryption.
-        Research-grade cardiac monitoring, fully secured.
+Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management <br/>
+EBSU/PG/PhD/2021/10930 · Yunisa Sunday <br/>
+🔒 AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger <br/>
       </p>
       <div class="hero-btns">
         <button class="btn-primary" onclick="triggerLogin()">Get Started →</button>
