@@ -1148,7 +1148,7 @@ def render_landing():
       <p class="hero-sub">Hybrid-Encrypted Heart Rate Monitor</p>
       <h1 class="hero-title">MedChainSecure</h1>
       <p class="hero-desc">
-Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management 
+Hybrid Encryption & Blockchain techniques for Secure IoMT Data Management 
 EBSU/PG/PhD/2021/10930 · Yunisa Sunday 
 🔒 AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger 
       </p>
