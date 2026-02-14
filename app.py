@@ -1476,362 +1476,347 @@ section[data-testid="stSidebar"] .stButton>button[kind="primary"]{{
 
 def _build_rppg_html(theme: str = "dark") -> str:
     """
-    Self-contained JS rPPG component.
-    - Opens webcam at 30fps via getUserMedia
-    - Detects skin region with HSV masking on a canvas
-    - Extracts CHROM signal (Xs = R-G, Ys = 0.5R+0.5G-B) every frame
-    - FFT in pure JS over a 300-sample rolling window
-    - Live BPM + stress score updated every second
-    - When user clicks Stop → encodes result as JSON → sets ?rppg_result=... → page reloads
+    Self-contained rPPG component that:
+    1. Opens webcam at 30fps via getUserMedia
+    2. Detects skin region on canvas (no ML model)
+    3. Extracts CHROM signal every frame
+    4. Runs FFT in pure JS → live BPM
+    5. On Stop: submits result via a hidden HTML form targeting _top
+       (same-origin form submit IS allowed from Streamlit iframes)
+       Python reads st.query_params["rppg_result"] on next rerun.
     """
     bg    = "#0A0E1A" if theme == "dark" else "#F0F4FA"
-    card  = "#111827" if theme == "dark" else "#FFFFFF"
+    card  = "#131C30" if theme == "dark" else "#FFFFFF"
     text  = "#E2E8F0" if theme == "dark" else "#1F2937"
     text2 = "#8A97B8" if theme == "dark" else "#6B7280"
+    bdr   = "#253358" if theme == "dark" else "#E5E7EB"
     accent = "#00E5A0"
-    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+
+    return """<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
-html,body{{margin:0;padding:0;background:{bg};height:100%;font-family:Georgia,serif;color:{text};overflow:hidden}}
-#wrap{{display:flex;flex-direction:column;align-items:center;padding:12px;gap:10px;height:100vh;box-sizing:border-box}}
-#vrow{{display:flex;gap:10px;width:100%;justify-content:center}}
-video{{border-radius:12px;width:300px;height:220px;object-fit:cover;background:#000;flex-shrink:0}}
-canvas{{border-radius:12px;width:300px;height:220px;object-fit:cover;flex-shrink:0}}
-#overlay{{position:absolute;top:0;left:0;pointer-events:none;border-radius:12px}}
-.vwrap{{position:relative;width:300px;height:220px}}
-#stats{{display:flex;gap:10px;width:100%;justify-content:center}}
-.scard{{background:{card};border-radius:12px;padding:10px 16px;flex:1;max-width:140px;text-align:center;
-  border:1px solid {'#253358' if theme=='dark' else '#E5E7EB'}}}
-.sv{{font-size:1.9rem;font-weight:700;color:{accent};line-height:1}}
-.sl{{font-size:.62rem;color:{text2};text-transform:uppercase;letter-spacing:.07em;margin-top:2px}}
-#sigbar{{width:96%;height:52px;background:{card};border-radius:8px;
-  border:1px solid {'#253358' if theme=='dark' else '#E5E7EB'}}}
-#btns{{display:flex;gap:8px}}
-button{{border:none;border-radius:8px;padding:8px 22px;font-size:.85rem;
-  font-family:Georgia,serif;cursor:pointer;font-weight:600}}
-#bstart{{background:{accent};color:#000}}#bstart:disabled{{opacity:.4;cursor:default}}
-#bstop{{background:#E84855;color:#fff}}#bstop:disabled{{opacity:.4;cursor:default}}
-#status{{font-size:.72rem;color:{text2};text-align:center}}
-#sbar_canvas{{width:100%;height:52px}}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:""" + bg + """;height:100%;font-family:Georgia,serif;
+  color:""" + text + """;overflow:hidden}
+#app{display:flex;flex-direction:column;align-items:center;
+  padding:10px;gap:8px;height:100vh}
+#vidwrap{position:relative;width:100%;max-width:460px;height:240px;flex-shrink:0}
+video,#ov{position:absolute;top:0;left:0;width:100%;height:100%;
+  border-radius:12px;object-fit:cover}
+video{background:#000}#ov{pointer-events:none}
+#stats{display:flex;gap:6px;width:100%;max-width:460px}
+.sc{background:""" + card + """;border:1px solid """ + bdr + """;border-radius:10px;
+  padding:8px 10px;flex:1;text-align:center}
+.sv{font-size:1.7rem;font-weight:700;color:""" + accent + """;line-height:1}
+.sl{font-size:.58rem;color:""" + text2 + """;text-transform:uppercase;
+  letter-spacing:.06em;margin-top:2px}
+#sig{width:100%;max-width:460px;height:44px;background:""" + card + """;
+  border:1px solid """ + bdr + """;border-radius:8px}
+#btns{display:flex;gap:8px}
+button{border:none;border-radius:8px;padding:8px 20px;font-size:.84rem;
+  font-family:Georgia,serif;cursor:pointer;font-weight:600;transition:opacity .2s}
+#bs{background:""" + accent + """;color:#000}
+#bs:disabled,#bx:disabled{opacity:.35;cursor:default}
+#bx{background:#E84855;color:#fff}
+#msg{font-size:.7rem;color:""" + text2 + """;text-align:center;min-height:1em}
+#quality_bar{width:100%;max-width:460px;height:4px;background:#253358;border-radius:2px}
+#quality_fill{height:100%;width:0%;background:""" + accent + """;border-radius:2px;
+  transition:width .5s}
 </style></head><body>
-<div id="wrap">
-  <div id="vrow">
-    <div class="vwrap">
-      <video id="vid" autoplay playsinline muted></video>
-      <canvas id="overlay" width="300" height="220"></canvas>
-    </div>
-    <canvas id="cv" width="300" height="220"></canvas>
+<div id="app">
+  <div id="vidwrap">
+    <video id="vid" autoplay playsinline muted></video>
+    <canvas id="ov" width="640" height="480"></canvas>
   </div>
   <div id="stats">
-    <div class="scard"><div class="sv" id="bpm_disp">--</div><div class="sl">BPM</div></div>
-    <div class="scard"><div class="sv" id="conf_disp" style="font-size:1.1rem">--</div><div class="sl">Quality</div></div>
-    <div class="scard"><div class="sv" id="stress_disp" style="font-size:1.1rem">--</div><div class="sl">Stress</div></div>
-    <div class="scard"><div class="sv" id="frames_disp">0</div><div class="sl">Frames</div></div>
+    <div class="sc"><div class="sv" id="d_bpm">--</div><div class="sl">BPM</div></div>
+    <div class="sc"><div class="sv" id="d_qual" style="font-size:1rem">--</div>
+      <div class="sl">Signal Quality</div></div>
+    <div class="sc"><div class="sv" id="d_stress" style="font-size:1rem">--</div>
+      <div class="sl">Stress</div></div>
+    <div class="sc"><div class="sv" id="d_fr">0</div><div class="sl">Frames</div></div>
   </div>
-  <div id="sigbar"><canvas id="sbar_canvas"></canvas></div>
+  <div id="quality_bar"><div id="quality_fill"></div></div>
+  <canvas id="sig"></canvas>
   <div id="btns">
-    <button id="bstart" onclick="startCam()">▶ Start</button>
-    <button id="bstop"  onclick="stopMeasure()" disabled>⏹ Stop &amp; Save</button>
+    <button id="bs" onclick="startCam()">▶ Start Camera</button>
+    <button id="bx" onclick="stopAndSave()" disabled>⏹ Stop &amp; Save</button>
   </div>
-  <div id="status">Click Start to begin — face the camera in good light</div>
+  <div id="msg">Click Start Camera — allow browser camera permission</div>
 </div>
 
+<!-- Hidden form that submits result to parent Streamlit page -->
+<form id="rf" method="GET" action="/" target="_top" style="display:none">
+  <input type="hidden" id="ri" name="rppg_result" value="">
+</form>
+
 <script>
-// ── Config ────────────────────────────────────────────────────────────────────
-const FPS_TARGET  = 30;
-const WIN_SIZE    = 300;   // 10s at 30fps
-const MIN_FRAMES  = 90;    // need 3s before showing BPM
+// ─── Config ───────────────────────────────────────────────────────────────────
+var WIN=300, MIN_FR=60, FPS=30;
 
-// ── State ─────────────────────────────────────────────────────────────────────
-let stream = null, raf = null, tick_id = null;
-let chromX = [], chromY = [], greenBuf = [];
-let timestamps = [];
-let bpmHistory = [], stressHistory = [];
-let curBpm = 0, curStress = 0, curQuality = 0;
-let frames = 0, running = false;
+// ─── State ───────────────────────────────────────────────────────────────────
+var stream,raf,running=false,frames=0;
+var cX=[],cY=[],gBuf=[],tBuf=[];
+var bpmHist=[],stHist=[],curBpm=0,curQual=0,curStress=null;
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
-const vid   = document.getElementById('vid');
-const cv    = document.getElementById('cv');
-const ctx   = cv.getContext('2d', {{willReadFrequently: true}});
-const ov    = document.getElementById('overlay');
-const octx  = ov.getContext('2d');
-const sbar  = document.getElementById('sbar_canvas');
-const sctx  = sbar.getContext('2d');
+// ─── DOM ─────────────────────────────────────────────────────────────────────
+var vid=document.getElementById('vid');
+var ov=document.getElementById('ov');
+var octx=ov.getContext('2d');
+var sig=document.getElementById('sig');
+var sctx=sig.getContext('2d');
 
-// ── FFT (Cooley-Tukey, power-of-2) ───────────────────────────────────────────
-function fft(re, im) {{
-  const N = re.length;
-  if (N <= 1) return;
-  const half = N >> 1;
-  const reE = re.filter((_,i)=>i%2===0), imE = im.filter((_,i)=>i%2===0);
-  const reO = re.filter((_,i)=>i%2===1), imO = im.filter((_,i)=>i%2===1);
-  fft(reE,imE); fft(reO,imO);
-  for (let k=0;k<half;k++) {{
-    const ang = -2*Math.PI*k/N;
-    const cos_ = Math.cos(ang), sin_ = Math.sin(ang);
-    const tr = cos_*reO[k] - sin_*imO[k];
-    const ti = sin_*reO[k] + cos_*imO[k];
-    re[k]      = reE[k]+tr; im[k]      = imE[k]+ti;
-    re[k+half] = reE[k]-tr; im[k+half] = imE[k]-ti;
-  }}
-}}
+// ─── FFT (pure JS, Cooley-Tukey) ─────────────────────────────────────────────
+function fft(re,im){
+  var N=re.length;if(N<=1)return;
+  var h=N>>1,reE=[],imE=[],reO=[],imO=[];
+  for(var i=0;i<N;i++){if(i%2===0){reE.push(re[i]);imE.push(im[i]);}
+    else{reO.push(re[i]);imO.push(im[i]);}}
+  fft(reE,imE);fft(reO,imO);
+  for(var k=0;k<h;k++){
+    var a=-2*Math.PI*k/N,c=Math.cos(a),s=Math.sin(a);
+    var tr=c*reO[k]-s*imO[k],ti=s*reO[k]+c*imO[k];
+    re[k]=reE[k]+tr;im[k]=imE[k]+ti;
+    re[k+h]=reE[k]-tr;im[k+h]=imE[k]-ti;
+  }
+}
+function pow2(n){var p=1;while(p<n)p<<=1;return p;}
 
-function nextPow2(n) {{ let p=1; while(p<n) p<<=1; return p; }}
-
-function estimateBPM(signal, fps) {{
-  if (signal.length < 60) return {{bpm:0, quality:0}};
-  // Hanning window
-  const N  = nextPow2(signal.length);
-  const re = new Array(N).fill(0);
-  const im = new Array(N).fill(0);
-  const mean = signal.reduce((a,b)=>a+b,0)/signal.length;
-  for (let i=0;i<signal.length;i++) {{
-    const w = 0.5*(1-Math.cos(2*Math.PI*i/(signal.length-1)));
-    re[i] = (signal[i]-mean)*w;
-  }}
+function getBpm(sig,fps){
+  if(sig.length<MIN_FR)return{bpm:0,q:0};
+  var N=pow2(sig.length),re=new Array(N).fill(0),im=new Array(N).fill(0);
+  var mn=sig.reduce(function(a,b){return a+b;},0)/sig.length;
+  for(var i=0;i<sig.length;i++){
+    var w=0.5*(1-Math.cos(2*Math.PI*i/(sig.length-1)));
+    re[i]=(sig[i]-mn)*w;
+  }
   fft(re,im);
-  const mags = re.map((r,i)=>Math.sqrt(r*r+im[i]*im[i]));
-  const freqs = mags.map((_,i)=>i*fps/N);
-  // Band: 0.67 Hz (40 BPM) – 3.5 Hz (210 BPM)
-  let best=-1, bestFreq=0, totalPower=0, bandPower=0;
-  for (let i=1;i<N/2;i++) {{
-    const f = freqs[i];
-    totalPower += mags[i];
-    if (f>=0.67 && f<=3.5) {{
-      bandPower += mags[i];
-      if (mags[i]>best) {{ best=mags[i]; bestFreq=f; }}
-    }}
+  var mags=re.map(function(r,i){return Math.sqrt(r*r+im[i]*im[i]);});
+  var best=-1,bf=0,tot=0,band=0;
+  for(var i=1;i<N/2;i++){
+    var f=i*fps/N;tot+=mags[i];
+    if(f>=0.67&&f<=3.5){band+=mags[i];if(mags[i]>best){best=mags[i];bf=f;}}
+  }
+  var q=tot>0?Math.min(100,Math.round(band/tot*200)):0;
+  return{bpm:Math.round(bf*60),q:q};
+}
+
+// ─── Skin detection ───────────────────────────────────────────────────────────
+function skinROI(data,W,H){
+  var x1=W,y1=H,x2=0,y2=0,cnt=0;
+  for(var y=0;y<H;y+=3){for(var x=0;x<W;x+=3){
+    var i=(y*W+x)*4,r=data[i],g=data[i+1],b=data[i+2];
+    var mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+    if(mx===0||mx<60)continue;
+    var s=d/mx;
+    var h=mx===r?60*(g-b)/d:mx===g?120+60*(b-r)/d:240+60*(r-g)/d;
+    if(h<0)h+=360;
+    if(h<=50&&s>=0.2&&s<=0.85&&mx<=240){
+      if(x<x1)x1=x;if(y<y1)y1=y;if(x>x2)x2=x;if(y>y2)y2=y;cnt++;
+    }
   }}
-  const quality = totalPower>0 ? Math.min(100,Math.round(bandPower/totalPower*200)) : 0;
-  return {{ bpm: Math.round(bestFreq*60), quality }};
-}}
+  if(cnt<40)return null;
+  var p=8;
+  return{x:Math.max(0,x1-p),y:Math.max(0,y1-p),
+    w:Math.min(W-x1+p,(x2-x1)+p*2),h:Math.min(H-y1+p,(y2-y1)+p*2)};
+}
 
-// ── CHROM signal extraction ───────────────────────────────────────────────────
-function extractChrom(imageData, roiX, roiY, roiW, roiH) {{
-  const d = imageData.data;
-  const W = imageData.width;
-  let rSum=0,gSum=0,bSum=0,cnt=0;
-  for (let y=roiY;y<roiY+roiH;y++) {{
-    for (let x=roiX;x<roiX+roiW;x++) {{
-      const idx=(y*W+x)*4;
-      rSum+=d[idx]; gSum+=d[idx+1]; bSum+=d[idx+2]; cnt++;
-    }}
+function getChrom(data,W,face){
+  var fx=face.x,fy=face.y,fw=face.w,fh=face.h;
+  var ry=fy+Math.floor(fh*0.05),rh=Math.floor(fh*0.22);
+  var rx=fx+Math.floor(fw*0.2),rw=Math.floor(fw*0.6);
+  var r=0,g=0,b=0,n=0;
+  for(var y=ry;y<ry+rh&&y<W;y++){for(var x=rx;x<rx+rw&&x<W;x++){
+    var i=(y*W+x)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++;
   }}
-  if (cnt===0) return null;
-  const r=rSum/cnt, g=gSum/cnt, b=bSum/cnt;
-  const Xs = r - g;
-  const Ys = 0.5*r + 0.5*g - b;
-  return {{Xs, Ys, r, g, b}};
-}}
+  if(!n)return null;
+  r/=n;g/=n;b/=n;
+  return{Xs:r-g,Ys:0.5*r+0.5*g-b,r:r,g:g,b:b,
+    roi:{x:rx,y:ry,w:rw,h:rh}};
+}
 
-// ── Simple skin-tone face finder via canvas (no model) ────────────────────────
-// Finds the largest skin-coloured blob by scanning grid
-function findFaceROI(imageData, W, H) {{
-  const d = imageData.data;
-  let minX=W,minY=H,maxX=0,maxY=0,found=0;
-  const step = 4;  // sample every 4px for speed
-  for (let y=0;y<H;y+=step) {{
-    for (let x=0;x<W;x+=step) {{
-      const i=(y*W+x)*4;
-      const r=d[i],g=d[i+1],b=d[i+2];
-      // HSV skin tone check
-      const max=Math.max(r,g,b), min=Math.min(r,g,b);
-      const delta=max-min;
-      if (max===0) continue;
-      const s=delta/max;
-      const h=max===r?60*(g-b)/delta:max===g?120+60*(b-r)/delta:240+60*(r-g)/delta;
-      const hue=(h<0?h+360:h);
-      // Skin: hue 0-50, saturation 0.2-0.85, brightness 80-240
-      if (hue>=0&&hue<=50&&s>=0.2&&s<=0.85&&max>=80&&max<=240) {{
-        if(x<minX)minX=x;if(y<minY)minY=y;
-        if(x>maxX)maxX=x;if(y>maxY)maxY=y;
-        found++;
-      }}
-    }}
-  }}
-  if (found < 50) return null;
-  // Expand bbox slightly
-  const pad=10;
-  return {{
-    x:Math.max(0,minX-pad), y:Math.max(0,minY-pad),
-    w:Math.min(W,maxX-minX+pad*2), h:Math.min(H,maxY-minY+pad*2)
-  }};
-}}
+function calcStress(r,g,b){
+  var red=Math.min(1,Math.max(0,(r/(g+1)-0.95)/0.4));
+  var pal=Math.min(1,Math.max(0,(120-(r+g+b)/3)/60));
+  var cov=gBuf.length>10?(function(){
+    var s=gBuf.slice(-20),m=s.reduce(function(a,b){return a+b;},0)/s.length;
+    var v=s.reduce(function(a,x){return a+(x-m)*(x-m);},0)/s.length;
+    return Math.min(1,Math.sqrt(v)/(m+1)*10);
+  })():0;
+  var sc=Math.min(1,red*0.4+pal*0.15+cov*0.45);
+  var lbs=["😌 Relaxed","😐 Mild Tension","😟 Moderate Stress","😰 High Stress","😱 Acute Stress"];
+  var cls=["#00E5A0","#74C0FC","#FFD166","#FF6B6B","#E84855"];
+  var idx=sc<0.25?0:sc<0.45?1:sc<0.65?2:sc<0.82?3:4;
+  return{score:sc,label:lbs[idx],color:cls[idx],icon:["😌","😐","😟","😰","😱"][idx]};
+}
 
-// ── Stress from pixel statistics ──────────────────────────────────────────────
-function calcStress(r,g,b,gHistory) {{
-  const redness = Math.min(1, Math.max(0,(r/(g+1)-0.95)/0.4));
-  const pallor  = Math.min(1, Math.max(0,(120-(r+g+b)/3)/60));
-  const cov     = gHistory.length>5 ?
-    (Math.sqrt(gHistory.slice(-30).reduce((a,v,_,arr)=>{{
-      const m=arr.reduce((x,y)=>x+y,0)/arr.length;
-      return a+(v-m)*(v-m);
-    }},0)/Math.max(1,gHistory.slice(-30).length)) / (gHistory.slice(-30).reduce((a,b)=>a+b,0)/30+1) * 10
-    ) : 0;
-  const score = Math.min(1, redness*0.4 + pallor*0.15 + Math.min(1,cov)*0.45);
-  const labels = ["😌 Relaxed","😐 Mild Tension","😟 Moderate Stress","😰 High Stress","😱 Acute"];
-  const idx    = score<0.25?0:score<0.45?1:score<0.65?2:score<0.82?3:4;
-  return {{ score, label:labels[idx] }};
-}}
-
-// ── Draw signal bar ───────────────────────────────────────────────────────────
-function drawSigBar(buf) {{
-  const W=sbar.width=sbar.offsetWidth, H=52;
+function drawSig(buf){
+  var W=sig.width=sig.offsetWidth||460,H=44;
   sctx.clearRect(0,0,W,H);
-  if (buf.length<2) return;
-  const mn=Math.min(...buf), mx=Math.max(...buf);
-  const range=mx-mn||1;
-  sctx.beginPath();
-  sctx.strokeStyle='#E84855'; sctx.lineWidth=1.5;
-  buf.forEach((v,i)=>{{
-    const x=i/(buf.length-1)*W;
-    const y=H-(v-mn)/range*(H-4)-2;
+  if(buf.length<2)return;
+  var mn=Math.min.apply(null,buf),mx=Math.max.apply(null,buf),rng=mx-mn||1;
+  sctx.beginPath();sctx.strokeStyle='#E84855';sctx.lineWidth=1.5;
+  buf.forEach(function(v,i){
+    var x=i/(buf.length-1)*W,y=H-(v-mn)/rng*(H-4)-2;
     i===0?sctx.moveTo(x,y):sctx.lineTo(x,y);
-  }});
-  sctx.stroke();
-}}
+  });sctx.stroke();
+}
 
-// ── Main capture loop ─────────────────────────────────────────────────────────
-let lastFrameTime = 0;
-function captureFrame(ts) {{
-  if (!running) return;
-  raf = requestAnimationFrame(captureFrame);
-  const elapsed = ts - lastFrameTime;
-  if (elapsed < 1000/FPS_TARGET) return;
-  lastFrameTime = ts;
+// ─── Main loop ────────────────────────────────────────────────────────────────
+var lastT=0;
+var tmpCv=document.createElement('canvas');
+var tmpCtx=tmpCv.getContext('2d',{willReadFrequently:true});
 
-  ctx.drawImage(vid, 0, 0, 300, 220);
-  const imgData = ctx.getImageData(0, 0, 300, 220);
-  const face    = findFaceROI(imgData, 300, 220);
+function loop(ts){
+  if(!running)return;
+  raf=requestAnimationFrame(loop);
+  if(ts-lastT<1000/FPS)return;
+  lastT=ts;
 
-  // Draw overlay
-  octx.clearRect(0,0,300,220);
-  if (face) {{
-    // Face box
-    octx.strokeStyle='#00E5A0'; octx.lineWidth=2;
-    octx.strokeRect(face.x,face.y,face.w,face.h);
-    // Forehead ROI
-    const fhX=face.x+face.w*0.2, fhY=face.y+face.h*0.05;
-    const fhW=face.w*0.6,        fhH=face.h*0.22;
-    octx.strokeStyle='#E84855'; octx.lineWidth=1;
-    octx.strokeRect(fhX,fhY,fhW,fhH);
-    octx.fillStyle='rgba(232,72,85,0.1)';
-    octx.fillRect(fhX,fhY,fhW,fhH);
-    octx.fillStyle='#E84855'; octx.font='10px monospace';
-    octx.fillText('ROI',fhX,fhY-3);
+  var W=vid.videoWidth||320,H=vid.videoHeight||240;
+  ov.width=W;ov.height=H;
+  tmpCv.width=W;tmpCv.height=H;
+  tmpCtx.drawImage(vid,0,0,W,H);
+  var imgD=tmpCtx.getImageData(0,0,W,H);
+  var face=skinROI(imgD.data,W,H);
 
-    // Extract CHROM from forehead
-    const ch = extractChrom(imgData, Math.round(fhX),Math.round(fhY),
-                                     Math.round(fhW),Math.round(fhH));
-    if (ch) {{
-      chromX.push(ch.Xs); chromY.push(ch.Ys);
-      greenBuf.push(ch.g);
-      timestamps.push(Date.now());
+  octx.clearRect(0,0,W,H);
+  // Mirror flip so user sees themselves correctly
+  octx.save();octx.scale(-1,1);octx.translate(-W,0);
+  octx.drawImage(vid,0,0,W,H);
+  octx.restore();
+
+  if(face){
+    var ch=getChrom(imgD.data,W,face);
+    if(ch){
+      cX.push(ch.Xs);cY.push(ch.Ys);
+      gBuf.push(ch.g);tBuf.push(Date.now());
+      if(cX.length>WIN){cX.shift();cY.shift();gBuf.shift();tBuf.shift();}
       frames++;
-      // Trim to window
-      if (chromX.length>WIN_SIZE) {{ chromX.shift();chromY.shift();
-        greenBuf.shift();timestamps.shift(); }}
-      // CHROM combined signal
-      const alpha = chromX.length>1 ?
-        Math.sqrt(chromX.reduce((a,v)=>a+v*v,0)/chromX.length) /
-        (Math.sqrt(chromY.reduce((a,v)=>a+v*v,0)/chromY.length)||1) : 1;
-      const chrom = chromX.map((x,i)=>x - alpha*chromY[i]);
 
-      if (chromX.length>=MIN_FRAMES) {{
-        const fps = chromX.length / ((timestamps[timestamps.length-1]-timestamps[0])/1000||1);
-        const res = estimateBPM(chrom, fps);
-        if (res.bpm>=40&&res.bpm<=200) {{
-          bpmHistory.push(res.bpm);
-          if(bpmHistory.length>8) bpmHistory.shift();
-          curBpm     = Math.round(bpmHistory.reduce((a,b)=>a+b,0)/bpmHistory.length);
-          curQuality = res.quality;
-        }}
-        const st = calcStress(ch.r,ch.g,ch.b,greenBuf);
-        stressHistory.push(st.score);
-        if(stressHistory.length>10) stressHistory.shift();
-        curStress = st;
-      }}
-      drawSigBar(chrom.slice(-150));
-    }}
+      // CHROM combined
+      var mX=cX.reduce(function(a,b){return a+b;},0)/cX.length;
+      var mY=cY.reduce(function(a,b){return a+b;},0)/cY.length;
+      var sdX=Math.sqrt(cX.reduce(function(a,v){return a+(v-mX)*(v-mX);},0)/cX.length)||1;
+      var sdY=Math.sqrt(cY.reduce(function(a,v){return a+(v-mY)*(v-mY);},0)/cY.length)||1;
+      var alpha=sdX/sdY;
+      var chrom=cX.map(function(x,i){return x-alpha*cY[i];});
 
-    // BPM label on frame
-    if (curBpm>0) {{
-      octx.fillStyle='#00E5A0'; octx.font='bold 18px monospace';
-      octx.fillText(curBpm+' BPM', face.x, face.y-6);
-    }}
-    if (curStress) {{
-      octx.fillStyle='#FFD166'; octx.font='11px monospace';
-      octx.fillText(curStress.label, 6, 16);
-    }}
-    document.getElementById('frames_disp').textContent=frames;
-  }} else {{
-    octx.fillStyle='#E84855'; octx.font='12px Georgia';
-    octx.fillText('No face — move closer, improve lighting',20,110);
-  }}
+      if(cX.length>=MIN_FR){
+        var fps2=cX.length/((tBuf[tBuf.length-1]-tBuf[0])/1000||1);
+        var res=getBpm(chrom,fps2);
+        if(res.bpm>=40&&res.bpm<=180){
+          bpmHist.push(res.bpm);if(bpmHist.length>6)bpmHist.shift();
+          curBpm=Math.round(bpmHist.reduce(function(a,b){return a+b;},0)/bpmHist.length);
+          curQual=res.q;
+        }
+        var st=calcStress(ch.r,ch.g,ch.b);
+        stHist.push(st.score);if(stHist.length>10)stHist.shift();
+        curStress=st;
+      }
+      drawSig(chrom.slice(-120));
+    }
 
-  // Update displays
-  document.getElementById('bpm_disp').textContent    = curBpm||'--';
-  document.getElementById('conf_disp').textContent   = curQuality?(curQuality+'%'):'--';
-  document.getElementById('stress_disp').textContent = curStress?(curStress.label.split(' ')[0]):'--';
-}}
+    // Overlays
+    octx.save();octx.scale(-1,1);octx.translate(-W,0);
+    octx.strokeStyle='#00E5A0';octx.lineWidth=2;
+    octx.strokeRect(face.x,face.y,face.w,face.h);
+    var ch2=getChrom(imgD.data,W,face);
+    if(ch2){
+      var roi=ch2.roi;
+      octx.strokeStyle='rgba(232,72,85,0.8)';octx.lineWidth=1;
+      octx.strokeRect(roi.x,roi.y,roi.w,roi.h);
+      octx.fillStyle='rgba(232,72,85,0.15)';
+      octx.fillRect(roi.x,roi.y,roi.w,roi.h);
+    }
+    octx.restore();
+    if(curBpm>0){
+      octx.fillStyle='#00E5A0';octx.font='bold 16px monospace';
+      octx.fillText(curBpm+' BPM',8,22);
+    }
+    if(curStress){
+      octx.fillStyle='#FFD166';octx.font='12px Georgia';
+      octx.fillText(curStress.label,8,40);
+    }
+  } else {
+    octx.fillStyle='rgba(232,72,85,0.85)';octx.font='13px Georgia';
+    octx.fillText('No face — improve lighting or move closer',10,H/2);
+  }
 
-// ── Start camera ──────────────────────────────────────────────────────────────
-async function startCam() {{
-  try {{
-    stream = await navigator.mediaDevices.getUserMedia({{
-      video:{{width:320,height:240,frameRate:{{ideal:30}}}}, audio:false
-    }});
-    vid.srcObject = stream;
+  document.getElementById('d_bpm').textContent=curBpm||'--';
+  document.getElementById('d_fr').textContent=frames;
+  document.getElementById('d_qual').textContent=curQual?(curQual+'%'):'--';
+  document.getElementById('d_stress').textContent=curStress?curStress.icon:'--';
+  document.getElementById('quality_fill').style.width=(curQual||0)+'%';
+}
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+async function startCam(){
+  try{
+    document.getElementById('msg').textContent='⏳ Requesting camera…';
+    stream=await navigator.mediaDevices.getUserMedia(
+      {video:{width:{ideal:640},height:{ideal:480},frameRate:{ideal:30}},audio:false});
+    vid.srcObject=stream;
+    await new Promise(function(r){vid.onloadedmetadata=r;});
     await vid.play();
-    running = true;
-    document.getElementById('bstart').disabled=true;
-    document.getElementById('bstop').disabled=false;
-    document.getElementById('status').textContent='📡 Measuring… keep still, face well-lit';
-    raf = requestAnimationFrame(captureFrame);
-  }} catch(e) {{
-    document.getElementById('status').textContent='❌ Camera error: '+e.message;
-  }}
-}}
+    running=true;
+    document.getElementById('bs').disabled=true;
+    document.getElementById('bx').disabled=false;
+    document.getElementById('msg').textContent='📡 Measuring — sit still, face well-lit. BPM appears after ~3 seconds.';
+    raf=requestAnimationFrame(loop);
+  }catch(e){
+    document.getElementById('msg').textContent='❌ Camera error: '+e.message;
+  }
+}
 
-// ── Stop & send result to Python ──────────────────────────────────────────────
-function stopMeasure() {{
+// ─── Stop & submit result via form targeting _top ─────────────────────────────
+function stopAndSave(){
   running=false;
-  if(raf) cancelAnimationFrame(raf);
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  document.getElementById('bstop').disabled=true;
-  document.getElementById('status').textContent='⏳ Processing result…';
+  if(raf)cancelAnimationFrame(raf);
+  if(stream)stream.getTracks().forEach(function(t){t.stop();});
+  document.getElementById('bx').disabled=true;
+  document.getElementById('msg').textContent='⏳ Processing…';
 
-  const avgStressScore = stressHistory.length ?
-    stressHistory.reduce((a,b)=>a+b,0)/stressHistory.length : 0;
-  const stressLabel = avgStressScore<0.25?"Relaxed":avgStressScore<0.45?"Mild Tension":
-    avgStressScore<0.65?"Moderate Stress":avgStressScore<0.82?"High Stress":"Acute Stress";
-  const stressIcon  = avgStressScore<0.25?"😌":avgStressScore<0.45?"😐":
-    avgStressScore<0.65?"😟":avgStressScore<0.82?"😰":"😱";
-  const stressColor = avgStressScore<0.25?"#00E5A0":avgStressScore<0.45?"#74C0FC":
-    avgStressScore<0.65?"#FFD166":avgStressScore<0.82?"#FF6B6B":"#E84855";
+  var avgSt=stHist.length?stHist.reduce(function(a,b){return a+b;},0)/stHist.length:0;
+  var stLabels=["Relaxed","Mild Tension","Moderate Stress","High Stress","Acute Stress"];
+  var stIcons=["😌","😐","😟","😰","😱"];
+  var stColors=["#00E5A0","#74C0FC","#FFD166","#FF6B6B","#E84855"];
+  var si=avgSt<0.25?0:avgSt<0.45?1:avgSt<0.65?2:avgSt<0.82?3:4;
 
-  const result = {{
-    bpm:         curBpm||0,
-    quality:     curQuality||0,
-    frames:      frames,
-    stress: {{
-      score: Math.round(avgStressScore*1000)/1000,
-      label: stressLabel,
-      icon:  stressIcon,
-      color: stressColor,
-      components: {{
-        "Signal Quality": Math.round(curQuality||0)/100,
-        "Stress Score":   Math.round(avgStressScore*100)/100,
-      }}
-    }},
-    signal: chromX.slice(-150).map((x,i)=>+(x-(1.0)*(chromY[i]||0)).toFixed(4)),
-  }};
+  var mX=cX.length?cX.reduce(function(a,b){return a+b;},0)/cX.length:0;
+  var mY=cY.length?cY.reduce(function(a,b){return a+b;},0)/cY.length:0;
+  var sdX=Math.sqrt(cX.reduce(function(a,v){return a+(v-mX)*(v-mX);},0)/(cX.length||1))||1;
+  var sdY=Math.sqrt(cY.reduce(function(a,v){return a+(v-mY)*(v-mY);},0)/(cY.length||1))||1;
+  var alpha=sdX/sdY;
+  var chrom=cX.slice(-120).map(function(x,i){return+(x-alpha*cY[i]).toFixed(4);});
 
-  // Encode into URL query param so Python reads it on next rerun
-  const encoded = encodeURIComponent(JSON.stringify(result));
-  window.top.location.href = window.top.location.pathname + '?rppg_result=' + encoded;
-}}
+  var result=JSON.stringify({
+    bpm:curBpm||0,
+    quality:curQual||0,
+    frames:frames,
+    stress:{
+      score:Math.round(avgSt*1000)/1000,
+      label:stLabels[si],
+      icon:stIcons[si],
+      color:stColors[si],
+      components:{"Signal Quality":(curQual||0)/100,"Stress Index":Math.round(avgSt*100)/100}
+    },
+    signal:chrom
+  });
+
+  // Submit via form targeting _top (allowed from same-origin iframes)
+  var form=document.getElementById('rf');
+  var input=document.getElementById('ri');
+  input.value=result;
+  // Set action to current parent URL
+  try{
+    form.action=window.location.href.split('?')[0];
+  }catch(e){
+    form.action='/';
+  }
+  form.submit();
+}
 </script></body></html>"""
+
 
 if st.session_state.page == "monitor":
 
@@ -2378,6 +2363,20 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                       "bpm-warning": "var(--yellow)",
                       "bpm-danger":  "var(--accent)"}.get(cls, "var(--text)")
 
+        # Show quality % from JS result if available
+        _qual_pct = 0
+        if result and result.get("quality"):
+            _qual_pct = int(result["quality"])
+        elif st.session_state.running:
+            _qual_pct = 0
+
+        _qual_color = ("#00E5A0" if _qual_pct >= 60
+                       else "#FFD166" if _qual_pct >= 30
+                       else "var(--text3)")
+        _status_note = (f"Signal quality: {_qual_pct}%" if _qual_pct > 0
+                        else ("📡 Measuring in JS panel →" if st.session_state.running
+                              else "Press ▶ Start to begin"))
+
         st.markdown(
             f'<div class="cs-card" style="text-align:center;padding:1.5rem 1rem">'
             f'<div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;'
@@ -2386,10 +2385,10 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             f'color:{bpm_color};line-height:1;font-weight:400">{bpm_disp}</div>'
             f'<div style="font-size:.8rem;color:var(--text2);margin-top:.2rem">BPM</div>'
             f'<div style="margin-top:1rem;height:5px;background:var(--border);border-radius:3px">'
-            f'<div style="height:100%;width:{pct_done}%;background:linear-gradient(90deg,'
-            f'var(--accent),var(--cyan));border-radius:3px"></div></div>'
-            f'<div style="font-size:.68rem;color:var(--text3);margin-top:4px">'
-            f'{n_samples}/20 samples</div></div>',
+            f'<div style="height:100%;width:{_qual_pct}%;background:linear-gradient(90deg,'
+            f'{_qual_color},{_qual_color});border-radius:3px"></div></div>'
+            f'<div style="font-size:.68rem;color:{_qual_color};margin-top:4px">'
+            f'{_status_note}</div></div>',
             unsafe_allow_html=True
         )
 
@@ -2509,18 +2508,28 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                     unsafe_allow_html=True,
                 )
         else:
-            # Waiting state
+            # Waiting state — different message depending on running
+            if st.session_state.running:
+                _wait_icon = "📡"
+                _wait_msg  = "Camera active in left panel"
+                _wait_sub  = "BPM will appear here after ~3 seconds of signal"
+                _wait_tip  = "💡 Click Stop &amp; Save in the camera panel when ready"
+            else:
+                _wait_icon = "📊"
+                _wait_msg  = "Result not available yet"
+                _wait_sub  = "Press ▶ Start then use the camera panel"
+                _wait_tip  = "💡 Sit still, face well-lit, 30–60 cm from camera"
             st.markdown(
-                '<div class="cs-card" style="text-align:center;padding:2rem .5rem;margin-top:.6rem">'
-                '<div style="font-size:2.5rem;margin-bottom:.5rem">📊</div>'
-                '<div style="color:var(--text2);font-size:.88rem;font-weight:500">'
-                'Result not available yet</div>'
-                '<div style="color:var(--text3);font-size:.75rem;margin-top:.4rem">'
-                'Press ▶ Start and take photos to measure</div>'
-                '<div style="color:var(--text3);font-size:.72rem;margin-top:.8rem;'
-                'padding:.5rem;background:var(--bg2);border-radius:8px">'
-                '💡 Tip: sit still, face well-lit, 30–60 cm from camera</div>'
-                '</div>',
+                f'<div class="cs-card" style="text-align:center;padding:2rem .5rem;margin-top:.6rem">'
+                f'<div style="font-size:2.5rem;margin-bottom:.5rem">{_wait_icon}</div>'
+                f'<div style="color:var(--text2);font-size:.88rem;font-weight:500">'
+                f'{_wait_msg}</div>'
+                f'<div style="color:var(--text3);font-size:.75rem;margin-top:.4rem">'
+                f'{_wait_sub}</div>'
+                f'<div style="color:var(--text3);font-size:.72rem;margin-top:.8rem;'
+                f'padding:.5rem;background:var(--bg2);border-radius:8px">'
+                f'{_wait_tip}</div>'
+                f'</div>',
                 unsafe_allow_html=True
             )
 
