@@ -1148,9 +1148,9 @@ def render_landing():
       <p class="hero-sub">Hybrid-Encrypted Heart Rate Monitor</p>
       <h1 class="hero-title">MedChainSecure</h1>
       <p class="hero-desc">
-Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management <br/>
-EBSU/PG/PhD/2021/10930 · Yunisa Sunday <br/>
-🔒 AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger <br/>
+Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management 
+EBSU/PG/PhD/2021/10930 · Yunisa Sunday 
+🔒 AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger 
       </p>
       <div class="hero-btns">
         <button class="btn-primary" onclick="triggerLogin()">Get Started →</button>
