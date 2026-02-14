@@ -1473,6 +1473,366 @@ section[data-testid="stSidebar"] .stButton>button[kind="primary"]{{
 # PAGE: HEART MONITOR
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+def _build_rppg_html(theme: str = "dark") -> str:
+    """
+    Self-contained JS rPPG component.
+    - Opens webcam at 30fps via getUserMedia
+    - Detects skin region with HSV masking on a canvas
+    - Extracts CHROM signal (Xs = R-G, Ys = 0.5R+0.5G-B) every frame
+    - FFT in pure JS over a 300-sample rolling window
+    - Live BPM + stress score updated every second
+    - When user clicks Stop → encodes result as JSON → sets ?rppg_result=... → page reloads
+    """
+    bg    = "#0A0E1A" if theme == "dark" else "#F0F4FA"
+    card  = "#111827" if theme == "dark" else "#FFFFFF"
+    text  = "#E2E8F0" if theme == "dark" else "#1F2937"
+    text2 = "#8A97B8" if theme == "dark" else "#6B7280"
+    accent = "#00E5A0"
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+html,body{{margin:0;padding:0;background:{bg};height:100%;font-family:Georgia,serif;color:{text};overflow:hidden}}
+#wrap{{display:flex;flex-direction:column;align-items:center;padding:12px;gap:10px;height:100vh;box-sizing:border-box}}
+#vrow{{display:flex;gap:10px;width:100%;justify-content:center}}
+video{{border-radius:12px;width:300px;height:220px;object-fit:cover;background:#000;flex-shrink:0}}
+canvas{{border-radius:12px;width:300px;height:220px;object-fit:cover;flex-shrink:0}}
+#overlay{{position:absolute;top:0;left:0;pointer-events:none;border-radius:12px}}
+.vwrap{{position:relative;width:300px;height:220px}}
+#stats{{display:flex;gap:10px;width:100%;justify-content:center}}
+.scard{{background:{card};border-radius:12px;padding:10px 16px;flex:1;max-width:140px;text-align:center;
+  border:1px solid {'#253358' if theme=='dark' else '#E5E7EB'}}}
+.sv{{font-size:1.9rem;font-weight:700;color:{accent};line-height:1}}
+.sl{{font-size:.62rem;color:{text2};text-transform:uppercase;letter-spacing:.07em;margin-top:2px}}
+#sigbar{{width:96%;height:52px;background:{card};border-radius:8px;
+  border:1px solid {'#253358' if theme=='dark' else '#E5E7EB'}}}
+#btns{{display:flex;gap:8px}}
+button{{border:none;border-radius:8px;padding:8px 22px;font-size:.85rem;
+  font-family:Georgia,serif;cursor:pointer;font-weight:600}}
+#bstart{{background:{accent};color:#000}}#bstart:disabled{{opacity:.4;cursor:default}}
+#bstop{{background:#E84855;color:#fff}}#bstop:disabled{{opacity:.4;cursor:default}}
+#status{{font-size:.72rem;color:{text2};text-align:center}}
+#sbar_canvas{{width:100%;height:52px}}
+</style></head><body>
+<div id="wrap">
+  <div id="vrow">
+    <div class="vwrap">
+      <video id="vid" autoplay playsinline muted></video>
+      <canvas id="overlay" width="300" height="220"></canvas>
+    </div>
+    <canvas id="cv" width="300" height="220"></canvas>
+  </div>
+  <div id="stats">
+    <div class="scard"><div class="sv" id="bpm_disp">--</div><div class="sl">BPM</div></div>
+    <div class="scard"><div class="sv" id="conf_disp" style="font-size:1.1rem">--</div><div class="sl">Quality</div></div>
+    <div class="scard"><div class="sv" id="stress_disp" style="font-size:1.1rem">--</div><div class="sl">Stress</div></div>
+    <div class="scard"><div class="sv" id="frames_disp">0</div><div class="sl">Frames</div></div>
+  </div>
+  <div id="sigbar"><canvas id="sbar_canvas"></canvas></div>
+  <div id="btns">
+    <button id="bstart" onclick="startCam()">▶ Start</button>
+    <button id="bstop"  onclick="stopMeasure()" disabled>⏹ Stop &amp; Save</button>
+  </div>
+  <div id="status">Click Start to begin — face the camera in good light</div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const FPS_TARGET  = 30;
+const WIN_SIZE    = 300;   // 10s at 30fps
+const MIN_FRAMES  = 90;    // need 3s before showing BPM
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let stream = null, raf = null, tick_id = null;
+let chromX = [], chromY = [], greenBuf = [];
+let timestamps = [];
+let bpmHistory = [], stressHistory = [];
+let curBpm = 0, curStress = 0, curQuality = 0;
+let frames = 0, running = false;
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const vid   = document.getElementById('vid');
+const cv    = document.getElementById('cv');
+const ctx   = cv.getContext('2d', {{willReadFrequently: true}});
+const ov    = document.getElementById('overlay');
+const octx  = ov.getContext('2d');
+const sbar  = document.getElementById('sbar_canvas');
+const sctx  = sbar.getContext('2d');
+
+// ── FFT (Cooley-Tukey, power-of-2) ───────────────────────────────────────────
+function fft(re, im) {{
+  const N = re.length;
+  if (N <= 1) return;
+  const half = N >> 1;
+  const reE = re.filter((_,i)=>i%2===0), imE = im.filter((_,i)=>i%2===0);
+  const reO = re.filter((_,i)=>i%2===1), imO = im.filter((_,i)=>i%2===1);
+  fft(reE,imE); fft(reO,imO);
+  for (let k=0;k<half;k++) {{
+    const ang = -2*Math.PI*k/N;
+    const cos_ = Math.cos(ang), sin_ = Math.sin(ang);
+    const tr = cos_*reO[k] - sin_*imO[k];
+    const ti = sin_*reO[k] + cos_*imO[k];
+    re[k]      = reE[k]+tr; im[k]      = imE[k]+ti;
+    re[k+half] = reE[k]-tr; im[k+half] = imE[k]-ti;
+  }}
+}}
+
+function nextPow2(n) {{ let p=1; while(p<n) p<<=1; return p; }}
+
+function estimateBPM(signal, fps) {{
+  if (signal.length < 60) return {{bpm:0, quality:0}};
+  // Hanning window
+  const N  = nextPow2(signal.length);
+  const re = new Array(N).fill(0);
+  const im = new Array(N).fill(0);
+  const mean = signal.reduce((a,b)=>a+b,0)/signal.length;
+  for (let i=0;i<signal.length;i++) {{
+    const w = 0.5*(1-Math.cos(2*Math.PI*i/(signal.length-1)));
+    re[i] = (signal[i]-mean)*w;
+  }}
+  fft(re,im);
+  const mags = re.map((r,i)=>Math.sqrt(r*r+im[i]*im[i]));
+  const freqs = mags.map((_,i)=>i*fps/N);
+  // Band: 0.67 Hz (40 BPM) – 3.5 Hz (210 BPM)
+  let best=-1, bestFreq=0, totalPower=0, bandPower=0;
+  for (let i=1;i<N/2;i++) {{
+    const f = freqs[i];
+    totalPower += mags[i];
+    if (f>=0.67 && f<=3.5) {{
+      bandPower += mags[i];
+      if (mags[i]>best) {{ best=mags[i]; bestFreq=f; }}
+    }}
+  }}
+  const quality = totalPower>0 ? Math.min(100,Math.round(bandPower/totalPower*200)) : 0;
+  return {{ bpm: Math.round(bestFreq*60), quality }};
+}}
+
+// ── CHROM signal extraction ───────────────────────────────────────────────────
+function extractChrom(imageData, roiX, roiY, roiW, roiH) {{
+  const d = imageData.data;
+  const W = imageData.width;
+  let rSum=0,gSum=0,bSum=0,cnt=0;
+  for (let y=roiY;y<roiY+roiH;y++) {{
+    for (let x=roiX;x<roiX+roiW;x++) {{
+      const idx=(y*W+x)*4;
+      rSum+=d[idx]; gSum+=d[idx+1]; bSum+=d[idx+2]; cnt++;
+    }}
+  }}
+  if (cnt===0) return null;
+  const r=rSum/cnt, g=gSum/cnt, b=bSum/cnt;
+  const Xs = r - g;
+  const Ys = 0.5*r + 0.5*g - b;
+  return {{Xs, Ys, r, g, b}};
+}}
+
+// ── Simple skin-tone face finder via canvas (no model) ────────────────────────
+// Finds the largest skin-coloured blob by scanning grid
+function findFaceROI(imageData, W, H) {{
+  const d = imageData.data;
+  let minX=W,minY=H,maxX=0,maxY=0,found=0;
+  const step = 4;  // sample every 4px for speed
+  for (let y=0;y<H;y+=step) {{
+    for (let x=0;x<W;x+=step) {{
+      const i=(y*W+x)*4;
+      const r=d[i],g=d[i+1],b=d[i+2];
+      // HSV skin tone check
+      const max=Math.max(r,g,b), min=Math.min(r,g,b);
+      const delta=max-min;
+      if (max===0) continue;
+      const s=delta/max;
+      const h=max===r?60*(g-b)/delta:max===g?120+60*(b-r)/delta:240+60*(r-g)/delta;
+      const hue=(h<0?h+360:h);
+      // Skin: hue 0-50, saturation 0.2-0.85, brightness 80-240
+      if (hue>=0&&hue<=50&&s>=0.2&&s<=0.85&&max>=80&&max<=240) {{
+        if(x<minX)minX=x;if(y<minY)minY=y;
+        if(x>maxX)maxX=x;if(y>maxY)maxY=y;
+        found++;
+      }}
+    }}
+  }}
+  if (found < 50) return null;
+  // Expand bbox slightly
+  const pad=10;
+  return {{
+    x:Math.max(0,minX-pad), y:Math.max(0,minY-pad),
+    w:Math.min(W,maxX-minX+pad*2), h:Math.min(H,maxY-minY+pad*2)
+  }};
+}}
+
+// ── Stress from pixel statistics ──────────────────────────────────────────────
+function calcStress(r,g,b,gHistory) {{
+  const redness = Math.min(1, Math.max(0,(r/(g+1)-0.95)/0.4));
+  const pallor  = Math.min(1, Math.max(0,(120-(r+g+b)/3)/60));
+  const cov     = gHistory.length>5 ?
+    (Math.sqrt(gHistory.slice(-30).reduce((a,v,_,arr)=>{{
+      const m=arr.reduce((x,y)=>x+y,0)/arr.length;
+      return a+(v-m)*(v-m);
+    }},0)/Math.max(1,gHistory.slice(-30).length)) / (gHistory.slice(-30).reduce((a,b)=>a+b,0)/30+1) * 10
+    ) : 0;
+  const score = Math.min(1, redness*0.4 + pallor*0.15 + Math.min(1,cov)*0.45);
+  const labels = ["😌 Relaxed","😐 Mild Tension","😟 Moderate Stress","😰 High Stress","😱 Acute"];
+  const idx    = score<0.25?0:score<0.45?1:score<0.65?2:score<0.82?3:4;
+  return {{ score, label:labels[idx] }};
+}}
+
+// ── Draw signal bar ───────────────────────────────────────────────────────────
+function drawSigBar(buf) {{
+  const W=sbar.width=sbar.offsetWidth, H=52;
+  sctx.clearRect(0,0,W,H);
+  if (buf.length<2) return;
+  const mn=Math.min(...buf), mx=Math.max(...buf);
+  const range=mx-mn||1;
+  sctx.beginPath();
+  sctx.strokeStyle='#E84855'; sctx.lineWidth=1.5;
+  buf.forEach((v,i)=>{{
+    const x=i/(buf.length-1)*W;
+    const y=H-(v-mn)/range*(H-4)-2;
+    i===0?sctx.moveTo(x,y):sctx.lineTo(x,y);
+  }});
+  sctx.stroke();
+}}
+
+// ── Main capture loop ─────────────────────────────────────────────────────────
+let lastFrameTime = 0;
+function captureFrame(ts) {{
+  if (!running) return;
+  raf = requestAnimationFrame(captureFrame);
+  const elapsed = ts - lastFrameTime;
+  if (elapsed < 1000/FPS_TARGET) return;
+  lastFrameTime = ts;
+
+  ctx.drawImage(vid, 0, 0, 300, 220);
+  const imgData = ctx.getImageData(0, 0, 300, 220);
+  const face    = findFaceROI(imgData, 300, 220);
+
+  // Draw overlay
+  octx.clearRect(0,0,300,220);
+  if (face) {{
+    // Face box
+    octx.strokeStyle='#00E5A0'; octx.lineWidth=2;
+    octx.strokeRect(face.x,face.y,face.w,face.h);
+    // Forehead ROI
+    const fhX=face.x+face.w*0.2, fhY=face.y+face.h*0.05;
+    const fhW=face.w*0.6,        fhH=face.h*0.22;
+    octx.strokeStyle='#E84855'; octx.lineWidth=1;
+    octx.strokeRect(fhX,fhY,fhW,fhH);
+    octx.fillStyle='rgba(232,72,85,0.1)';
+    octx.fillRect(fhX,fhY,fhW,fhH);
+    octx.fillStyle='#E84855'; octx.font='10px monospace';
+    octx.fillText('ROI',fhX,fhY-3);
+
+    // Extract CHROM from forehead
+    const ch = extractChrom(imgData, Math.round(fhX),Math.round(fhY),
+                                     Math.round(fhW),Math.round(fhH));
+    if (ch) {{
+      chromX.push(ch.Xs); chromY.push(ch.Ys);
+      greenBuf.push(ch.g);
+      timestamps.push(Date.now());
+      frames++;
+      // Trim to window
+      if (chromX.length>WIN_SIZE) {{ chromX.shift();chromY.shift();
+        greenBuf.shift();timestamps.shift(); }}
+      // CHROM combined signal
+      const alpha = chromX.length>1 ?
+        Math.sqrt(chromX.reduce((a,v)=>a+v*v,0)/chromX.length) /
+        (Math.sqrt(chromY.reduce((a,v)=>a+v*v,0)/chromY.length)||1) : 1;
+      const chrom = chromX.map((x,i)=>x - alpha*chromY[i]);
+
+      if (chromX.length>=MIN_FRAMES) {{
+        const fps = chromX.length / ((timestamps[timestamps.length-1]-timestamps[0])/1000||1);
+        const res = estimateBPM(chrom, fps);
+        if (res.bpm>=40&&res.bpm<=200) {{
+          bpmHistory.push(res.bpm);
+          if(bpmHistory.length>8) bpmHistory.shift();
+          curBpm     = Math.round(bpmHistory.reduce((a,b)=>a+b,0)/bpmHistory.length);
+          curQuality = res.quality;
+        }}
+        const st = calcStress(ch.r,ch.g,ch.b,greenBuf);
+        stressHistory.push(st.score);
+        if(stressHistory.length>10) stressHistory.shift();
+        curStress = st;
+      }}
+      drawSigBar(chrom.slice(-150));
+    }}
+
+    // BPM label on frame
+    if (curBpm>0) {{
+      octx.fillStyle='#00E5A0'; octx.font='bold 18px monospace';
+      octx.fillText(curBpm+' BPM', face.x, face.y-6);
+    }}
+    if (curStress) {{
+      octx.fillStyle='#FFD166'; octx.font='11px monospace';
+      octx.fillText(curStress.label, 6, 16);
+    }}
+    document.getElementById('frames_disp').textContent=frames;
+  }} else {{
+    octx.fillStyle='#E84855'; octx.font='12px Georgia';
+    octx.fillText('No face — move closer, improve lighting',20,110);
+  }}
+
+  // Update displays
+  document.getElementById('bpm_disp').textContent    = curBpm||'--';
+  document.getElementById('conf_disp').textContent   = curQuality?(curQuality+'%'):'--';
+  document.getElementById('stress_disp').textContent = curStress?(curStress.label.split(' ')[0]):'--';
+}}
+
+// ── Start camera ──────────────────────────────────────────────────────────────
+async function startCam() {{
+  try {{
+    stream = await navigator.mediaDevices.getUserMedia({{
+      video:{{width:320,height:240,frameRate:{{ideal:30}}}}, audio:false
+    }});
+    vid.srcObject = stream;
+    await vid.play();
+    running = true;
+    document.getElementById('bstart').disabled=true;
+    document.getElementById('bstop').disabled=false;
+    document.getElementById('status').textContent='📡 Measuring… keep still, face well-lit';
+    raf = requestAnimationFrame(captureFrame);
+  }} catch(e) {{
+    document.getElementById('status').textContent='❌ Camera error: '+e.message;
+  }}
+}}
+
+// ── Stop & send result to Python ──────────────────────────────────────────────
+function stopMeasure() {{
+  running=false;
+  if(raf) cancelAnimationFrame(raf);
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  document.getElementById('bstop').disabled=true;
+  document.getElementById('status').textContent='⏳ Processing result…';
+
+  const avgStressScore = stressHistory.length ?
+    stressHistory.reduce((a,b)=>a+b,0)/stressHistory.length : 0;
+  const stressLabel = avgStressScore<0.25?"Relaxed":avgStressScore<0.45?"Mild Tension":
+    avgStressScore<0.65?"Moderate Stress":avgStressScore<0.82?"High Stress":"Acute Stress";
+  const stressIcon  = avgStressScore<0.25?"😌":avgStressScore<0.45?"😐":
+    avgStressScore<0.65?"😟":avgStressScore<0.82?"😰":"😱";
+  const stressColor = avgStressScore<0.25?"#00E5A0":avgStressScore<0.45?"#74C0FC":
+    avgStressScore<0.65?"#FFD166":avgStressScore<0.82?"#FF6B6B":"#E84855";
+
+  const result = {{
+    bpm:         curBpm||0,
+    quality:     curQuality||0,
+    frames:      frames,
+    stress: {{
+      score: Math.round(avgStressScore*1000)/1000,
+      label: stressLabel,
+      icon:  stressIcon,
+      color: stressColor,
+      components: {{
+        "Signal Quality": Math.round(curQuality||0)/100,
+        "Stress Score":   Math.round(avgStressScore*100)/100,
+      }}
+    }},
+    signal: chromX.slice(-150).map((x,i)=>+(x-(1.0)*(chromY[i]||0)).toFixed(4)),
+  }};
+
+  // Encode into URL query param so Python reads it on next rerun
+  const encoded = encodeURIComponent(JSON.stringify(result));
+  window.top.location.href = window.top.location.pathname + '?rppg_result=' + encoded;
+}}
+</script></body></html>"""
+
 if st.session_state.page == "monitor":
 
     # ╔══════════════════════════════════════════════════════════════════════╗
@@ -1605,8 +1965,49 @@ html,body{{margin:0;background:#eef2f7;min-height:100vh;
         st.stop()  # ← nothing else renders while popup is active
 
     # ── Normal monitor page renders below ─────────────────────────────────────
+
+    # ── Read result posted back by JS component via URL query param ───────────
+    _rppg_qp = st.query_params.get("rppg_result", None)
+    if _rppg_qp:
+        try:
+            _rppg_data = json.loads(_rppg_qp)
+            _bpm_js    = int(_rppg_data.get("bpm", 0))
+            _qual      = int(_rppg_data.get("quality", 0))
+            _frames    = int(_rppg_data.get("frames", 0))
+            _stress_js = _rppg_data.get("stress")
+            _sig_js    = _rppg_data.get("signal", [])
+
+            if _bpm_js > 0:
+                # Apply age/gender refinement to the JS BPM
+                _bpm_final = stress_adjusted_bpm(
+                    _bpm_js,
+                    _stress_js,
+                    user.get("age", 0),
+                    user.get("gender", ""),
+                    st.session_state.bpm_history,
+                )
+                st.session_state.bpm          = _bpm_final
+                st.session_state.stress       = _stress_js
+                st.session_state.last_result  = {
+                    "bpm":         _bpm_final,
+                    "analysis":    analyze_heart_rate(_bpm_final),
+                    "signal_data": _sig_js,
+                    "stress":      _stress_js,
+                    "quality":     _qual,
+                    "frames":      _frames,
+                }
+                st.session_state.test_complete = True
+                st.session_state.running       = False
+                st.session_state.data_buffer.extend(_sig_js[-60:])
+            else:
+                st.warning("⚠️ Not enough signal — try again with better lighting.")
+        except Exception as _qp_err:
+            pass  # malformed param, ignore
+        # Clear the query param so it doesn't persist across reruns
+        st.query_params.clear()
+
     st.markdown('<div class="section-header">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Real-time rPPG measurement via webcam · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Real-time rPPG · Continuous 30fps video · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
 
     # HOW IT WORKS panel
     with st.expander("ℹ️ How Does Webcam Heart Rate Detection Work? (Click to read)", expanded=False):
@@ -1935,194 +2336,34 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                                   disabled=not can_save)
 
         if start_btn:
-            st.session_state.running          = True
-            st.session_state.test_complete    = False
-            st.session_state.bpm              = 0
-            st.session_state.last_result      = None
-            st.session_state.data_buffer      = deque(maxlen=60)
-            st.session_state.times            = deque(maxlen=60)
-            st.session_state.bpm_history      = []
-            st.session_state.cam_frame_idx    = 0
-            st.session_state._last_frame_hash = None
-            st.session_state.stress           = None
-            st.session_state.stress_scores    = []
+            st.session_state.running       = True
+            st.session_state.test_complete = False
+            st.session_state.bpm           = 0
+            st.session_state.last_result   = None
+            st.session_state.data_buffer   = deque(maxlen=60)
+            st.session_state.times         = deque(maxlen=60)
+            st.session_state.bpm_history   = []
+            st.session_state.stress        = None
+            st.session_state.stress_scores = []
             log_action(user['id'], "TEST_START", "Heart rate test initiated")
 
         if stop_btn:
+            # JS component handles its own stop & sends result via query param
+            # This button is a fallback to reset state if needed
             st.session_state.running = False
-            if st.session_state.bpm > 0:
-                st.session_state.test_complete = True
 
-    # ── Camera capture ─────────────────────────────────────────────────────────
-    # Key insight: st.camera_input with a fixed key returns the SAME image every
-    # rerun until the user clicks shutter again. We use a counter key so the widget
-    # resets after each accepted frame, forcing the user to take a fresh photo each time.
-    # This gives genuinely different frames → real rPPG signal variation → valid BPM.
-    if "cam_frame_idx" not in st.session_state:
-        st.session_state.cam_frame_idx = 0
-
+    # ── Camera: JS rPPG component (continuous 30fps, real signal) ───────────────
     with col_cam:
         if st.session_state.running:
-            n_done = len(st.session_state.data_buffer)
-            cam_key = f"rppg_{st.session_state.cam_frame_idx}"
+            # Render the self-contained JS rPPG page
+            # It captures video, runs CHROM+FFT in JS, and when stopped
+            # redirects to ?rppg_result=<json> which Python reads on next rerun
+            _theme = st.session_state.get("theme", "dark")
+            components.html(_build_rppg_html(_theme), height=480, scrolling=False)
+            st.caption("📡 Keep face still in good light · Click **Stop & Save** when reading stabilises")
 
-            cam_img = st.camera_input(
-                f"📸 Snap photo {n_done + 1} / 20  (click the circle shutter button)",
-                key=cam_key,
-            )
 
-            if cam_img is not None:
-                # Hash to guard against duplicate frames
-                import hashlib as _hl
-                img_bytes = cam_img.getvalue()
-                img_hash  = _hl.md5(img_bytes).hexdigest()
 
-                if img_hash != st.session_state.get("_last_frame_hash"):
-                    # Genuinely new photo — process it
-                    st.session_state._last_frame_hash = img_hash
-                    rgb_frame, bpm_val, sig_filt, _, _ = process_frame_bytes(img_bytes)
-
-                    if rgb_frame is not None:
-                        st.image(rgb_frame, channels="RGB", use_container_width=True,
-                                 caption=f"✓ Frame {len(st.session_state.data_buffer)} — face detected")
-                    else:
-                        st.warning("⚠️ No face detected — move closer and ensure bright lighting")
-
-                    # Advance counter so next camera_input call has a new key → widget resets
-                    st.session_state.cam_frame_idx += 1
-
-                    n = len(st.session_state.data_buffer)
-
-                    # ── Compute BPM from accumulated green-channel signal ──────
-                    if n >= 5:
-                        buf    = list(st.session_state.data_buffer)
-                        t_list = list(st.session_state.times)
-
-                        # Assume ~1 photo per second (realistic for manual snapping)
-                        # Use actual timestamps if spread > 2 s, else assume 1 fps
-                        time_span = t_list[-1] - t_list[0] if len(t_list) > 1 else n
-                        fps_actual = n / max(time_span, n * 0.5)   # clamp min 0.5 fps
-
-                        bpm_computed = 0
-                        sig_out      = buf
-
-                        # Method 1: FFT (works when fps * n gives enough freq resolution)
-                        try:
-                            arr  = signal.detrend(np.array(buf))
-                            nyq  = fps_actual / 2
-                            lo   = max(0.01, 0.67 / nyq)
-                            hi   = min(0.99, 4.0  / nyq)
-                            if lo < hi:
-                                b2, a2 = signal.butter(4, [lo, hi], btype="band")
-                                flt    = signal.filtfilt(b2, a2, arr)
-                                fq     = np.fft.rfftfreq(len(flt), 1 / fps_actual)
-                                mg     = np.abs(np.fft.rfft(flt * np.hanning(len(flt))))
-                                mask   = (fq >= 0.67) & (fq <= 4.0)
-                                if mask.any():
-                                    peak_hz = fq[mask][np.argmax(mg[mask])]
-                                    est     = int(peak_hz * 60)
-                                    if 40 <= est <= 180:
-                                        bpm_computed = est
-                                        sig_out = flt.tolist()
-                        except Exception:
-                            pass
-
-                        # Method 2: Peak counting fallback — count zero-crossings
-                        if bpm_computed == 0 and n >= 8:
-                            try:
-                                arr_n = signal.detrend(np.array(buf))
-                                mean  = np.mean(arr_n)
-                                # Count upward crossings of mean
-                                crossings = np.where(
-                                    (arr_n[:-1] < mean) & (arr_n[1:] >= mean)
-                                )[0]
-                                if len(crossings) >= 2:
-                                    avg_interval = (t_list[crossings[-1]] - t_list[crossings[0]]) /                                                    max(len(crossings) - 1, 1)
-                                    if avg_interval > 0:
-                                        est = int(60 / avg_interval)
-                                        if 40 <= est <= 180:
-                                            bpm_computed = est
-                            except Exception:
-                                pass
-
-                        # Method 3: Physiological prior from age+gender norms
-                        # Used only when FFT & peak-counting both fail (low frame count).
-                        # The prior is personalised but never shown to the user —
-                        # the displayed BPM comes from signal processing in Methods 1 & 2.
-                        if bpm_computed == 0 and n >= 5:
-                            try:
-                                arr_n        = np.array(buf)
-                                variance_pct = np.std(arr_n) / (np.mean(arr_n) + 1e-6) * 100
-                                _age  = user.get("age", 0)
-                                _gen  = user.get("gender", "")
-                                _, mid_prior, _ = _age_gender_prior(_age, _gen) if _age else (60, 72, 100)
-                                if st.session_state.bpm_history:
-                                    # Blend history + physiological prior
-                                    hist_mean = int(np.mean(st.session_state.bpm_history[-3:]))
-                                    base_bpm  = int(hist_mean * 0.6 + mid_prior * 0.4)
-                                else:
-                                    base_bpm = mid_prior
-                                # Add small random jitter (±4 bpm) so repeated readings vary
-                                import random as _rnd
-                                jitter   = _rnd.randint(-4, 4)
-                                base_bpm = max(40, min(base_bpm + jitter, 180))
-                                if variance_pct > 0.3:
-                                    bpm_computed = stress_adjusted_bpm(
-                                        base_bpm,
-                                        st.session_state.get("stress"),
-                                        _age, _gen, st.session_state.bpm_history
-                                    )
-                            except Exception:
-                                pass
-
-                        if bpm_computed > 0:
-                            st.session_state.bpm_history.append(bpm_computed)
-                            bpm_val = stress_adjusted_bpm(
-                                bpm_computed,
-                                st.session_state.get("stress"),
-                                user.get("age", 0),
-                                user.get("gender", ""),
-                                st.session_state.bpm_history
-                            )
-                            if bpm_val > 0:
-                                st.session_state.bpm = bpm_val
-                                st.session_state.last_result = {
-                                    "bpm":         bpm_val,
-                                    "analysis":    analyze_heart_rate(bpm_val),
-                                    "signal_data": sig_out,
-                                    "stress":      st.session_state.get("stress"),
-                                }
-
-                        st.session_state.test_complete = True  # enable Save after 5+ frames
-
-                    if n >= 20:
-                        st.session_state.running = False
-                        st.success("✅ 20 photos collected! Press 💾 Save Result.")
-                        st.rerun()
-
-            # Progress bar
-            n   = len(st.session_state.data_buffer)
-            pct = int(n / 20 * 100)
-            st.markdown(
-                f'<div style="height:6px;background:var(--border);border-radius:3px;margin-top:.6rem">' 
-                f'<div style="height:100%;width:{pct}%;background:linear-gradient(90deg,'
-                f'var(--accent),var(--cyan));border-radius:3px;transition:width .3s"></div></div>'
-                f'<div style="font-size:.72rem;color:var(--text3);margin-top:4px">'
-                f'{n} / 20 photos processed</div>',
-                unsafe_allow_html=True,
-            )
-
-        else:
-            st.markdown("""
-            <div style="height:260px;display:flex;flex-direction:column;align-items:center;
-                 justify-content:center;gap:.6rem;background:var(--card2);border-radius:12px;
-                 border:2px dashed var(--border)">
-              <div style="font-size:3rem">📷</div>
-              <div style="color:var(--text2);font-size:.9rem;font-weight:500">Camera inactive</div>
-              <div style="color:var(--text3);font-size:.75rem">Press ▶ Start then snap 20 photos</div>
-            </div>""", unsafe_allow_html=True)
-
-    # ── Stats column: always renders from session_state ───────────────────────
     with col_stats:
         bpm_now   = st.session_state.bpm
         result    = st.session_state.last_result
