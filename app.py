@@ -73,7 +73,7 @@ import math
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="MedChainSecure – Heart Rate Monitor",
+    page_title="MedChainSecure: A Secure IoMT Heart Rate System with Hybrid Encryption & Blockchain",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -980,10 +980,12 @@ def render_nav():
         ]
     elif u:
         nav_items = [
-            ("monitor",     "❤️ Monitor"),
-            ("results",     "📊 My Results"),
-            ("encryption",  "🔒 Encryption Lab"),
-            ("raw_data",    "📦 Data"),
+            ("monitor",       "❤️ Monitor"),
+            ("results",       "📊 My Results"),
+            ("encryption",    "🔒 Encryption Lab"),
+            ("decentral",     "🌐 Decentralisation"),
+            ("decryption",    "🔓 Decryption"),
+            ("raw_data",      "📦 Data"),
         ]
     else:
         nav_items = []
@@ -1010,7 +1012,7 @@ def render_nav():
           <div style="font-family:'DM Serif Display',serif;font-size:1.05rem;
                       color:var(--text);line-height:1">MedChainSecure</div>
           <div style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
-                      text-transform:uppercase;margin-top:1px">Heart Rate Monitor</div>
+                      text-transform:uppercase;margin-top:1px">IoMT Security Platform</div>
         </div>
         <span style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
                      text-transform:uppercase;padding:2px 6px;border:1px solid var(--border);
@@ -1019,7 +1021,7 @@ def render_nav():
       <div style="flex:1"></div>
       <div style="display:flex;align-items:center;gap:.6rem;flex-shrink:0">
         {user_html}
-        {datetime.now().strftime("%d %b %Y")}
+        <span style="color:var(--text2);font-size:.78rem">{datetime.now().strftime("%d %b %Y")}</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1046,7 +1048,9 @@ def render_nav():
         for i, (pid, label) in enumerate(nav_items):
             with cols[i]:
                 active = (st.session_state.page == pid or
-                          (pid == "encryption" and st.session_state.page.startswith("enc_")))
+                          (pid == "encryption" and st.session_state.page.startswith("enc_")) or
+                          (pid == "decentral"  and st.session_state.page == "decentral") or
+                          (pid == "decryption" and st.session_state.page == "decryption"))
                 if active:
                     # Active: styled text, not a button
                     st.markdown(
@@ -1145,12 +1149,11 @@ def render_landing():
       <div style="animation:heartbeat 1.5s ease-in-out infinite;margin-bottom:1rem">
         {LOGO_SVG_LG}
       </div>
-      <p class="hero-sub">Hybrid-Encrypted Heart Rate Monitor</p>
+      <p class="hero-sub">EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
       <h1 class="hero-title">MedChainSecure</h1>
       <p class="hero-desc">
-Hybrid Encryption & Blockchain techniques for Secure IoMT Data Management 
-EBSU/PG/PhD/2021/10930 · Yunisa Sunday 
-🔒 AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger 
+        Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management
+        Research-grade cardiac monitoring, fully secured.
       </p>
       <div class="hero-btns">
         <button class="btn-primary" onclick="triggerLogin()">Get Started →</button>
@@ -1164,7 +1167,7 @@ EBSU/PG/PhD/2021/10930 · Yunisa Sunday
            style="margin-top:.8rem;padding:4px 14px;border:1px solid hsla(195,100%,50%,.25);
                   border-radius:20px;background:hsla(195,100%,50%,.06);font-size:.68rem;
                   color:var(--cyan);letter-spacing:.06em">
-        🔒 AES-256-GCM + ECC-SECP256R1 End-to-End Encrypted
+        🔗 AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger
       </div>
     </div>
 
@@ -1190,9 +1193,9 @@ EBSU/PG/PhD/2021/10930 · Yunisa Sunday
         <div class="feature-card" onclick="triggerLogin()" style="cursor:pointer">
           <div style="font-size:2rem;margin-bottom:.8rem">🛡️</div>
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
-            Hybrid Encryption</h3>
+            Hybrid Encryption + Blockchain</h3>
           <p style="font-size:.83rem;color:var(--text2);line-height:1.6">
-            AES-256-GCM symmetric + ECC-SECP256R1 asymmetric key exchange for end-to-end security.</p>
+            AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger for IoMT data integrity and privacy.</p>
         </div>
         <div class="feature-card" onclick="triggerLogin()" style="cursor:pointer">
           <div style="font-size:2rem;margin-bottom:.8rem">📈</div>
@@ -1239,7 +1242,7 @@ EBSU/PG/PhD/2021/10930 · Yunisa Sunday
           <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
             Encrypt &amp; Store</h3>
           <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-            Results encrypted with AES-256-GCM, ECDH key exchange, stored in secure SQLite DB.</p>
+            AES-256-GCM encrypted records, ECDH key exchange, Blockchain audit ledger, decentralised backup.</p>
         </div>
       </div>
     </div>
@@ -1315,14 +1318,14 @@ if not st.session_state.logged_in:
             MedChainSecure</div>
           <div style="color:var(--text3);font-size:.72rem;letter-spacing:.18em;
                       text-transform:uppercase;margin-top:.4rem">
-            Hybrid-Encrypted Heart Rate Monitor</div>
+            EBSU/PG/PhD/2021/10930 · Yunisa Sunday</div>
           <div style="color:var(--text2);font-family:'DM Mono',monospace;font-size:.67rem;margin-top:.6rem">
             EBSU/PG/PhD/2021/10930 &middot; Yunisa Sunday</div>
           <div style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.7rem;
                       padding:3px 13px;border:1px solid hsla(195,100%,50%,.25);border-radius:20px;
                       background:hsla(195,100%,50%,.06);font-size:.67rem;color:var(--cyan);
                       letter-spacing:.06em">
-            🔒 AES-256-GCM + ECC-SECP256R1
+            🔗 AES-256-GCM + ECC-SECP256R1 + Blockchain
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1391,7 +1394,7 @@ if not st.session_state.logged_in:
                     st.warning("Please fill all required fields")
 
     st.markdown("""
-    <div class="cs-footer">🔒 End-to-end encrypted with AES-256-GCM + ECC-SECP256R1 ·
+    <div class="cs-footer">🔗 MedChainSecure · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
     ⚠️ For research & educational purposes only · Not a certified medical device</div>
     """, unsafe_allow_html=True)
     st.stop()
@@ -1409,7 +1412,7 @@ is_admin = user.get('is_admin', 0)
 with st.sidebar:
     st.markdown("""
     <div style="padding:1rem 0 0.5rem;text-align:center">
-      <span style="font-size:2rem">❤️</span>
+      <span style="font-size:2rem">🔗</span>
       <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:#E8EDF8;margin-top:4px">
         MedChainSecure</div>
     </div>
@@ -1417,9 +1420,12 @@ with st.sidebar:
     st.divider()
 
     user_pages = [
-        ("❤️ Heart Monitor",   "monitor"),
-        ("📊 My Results",       "results"),
-        ("🔒 Encryption Lab",   "enc_step1"),
+        ("❤️ Monitor",              "monitor"),
+        ("📊 My Results",            "results"),
+        ("🔒 Encryption Lab",        "enc_step1"),
+        ("🌐 Decentralisation",      "decentralisation"),
+        ("🔓 Decryption",            "decryption"),
+        ("📦 Data",                  "raw_data"),
     ]
     admin_pages = [
         ("🏠 Admin Dashboard",  "admin_dashboard"),
@@ -1431,7 +1437,8 @@ with st.sidebar:
 
     pages = admin_pages if is_admin else user_pages
     for label, pg in pages:
-        active = st.session_state.page == pg or (pg == "enc_step1" and st.session_state.page.startswith("enc_"))
+        active = (st.session_state.page == pg or
+                  (pg == "enc_step1" and st.session_state.page.startswith("enc_")))
         if st.button(label, use_container_width=True,
                      type="primary" if active else "secondary"):
             st.session_state.page = pg
@@ -1953,7 +1960,7 @@ html,body{{margin:0;background:#eef2f7;min-height:100vh;
 
 
     st.markdown('<div class="section-header">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Real-time rPPG · Continuous 30fps video · Hybrid-encrypted storage</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">IoMT Heart Rate Monitor · 30fps rPPG · AES-256-GCM + ECC + Blockchain Ledger</div>', unsafe_allow_html=True)
 
     # HOW IT WORKS panel
     with st.expander("ℹ️ How Does Webcam Heart Rate Detection Work? (Click to read)", expanded=False):
@@ -3795,7 +3802,7 @@ elif st.session_state.page == "enc_step7":
         st.markdown("---")
         raw_print_html = f"""
 <!DOCTYPE html><html><head>
-<title>MedChainSecure — Raw Medical Data Report</title>
+<title>CardioSecure — Raw Medical Data Report</title>
 <style>
   body{{font-family:'Courier New',monospace;padding:2rem;color:#111;background:#fff}}
   h1{{font-family:Arial,sans-serif;color:#E84855;border-bottom:2px solid #E84855;padding-bottom:.5rem}}
@@ -3805,7 +3812,7 @@ elif st.session_state.page == "enc_step7":
   .warn{{background:#fff8e1;border:1px solid #ffc107;padding:.8rem;border-radius:6px;font-family:Arial;font-size:.82rem}}
   @media print{{.no-print{{display:none}}}}
 </style></head><body>
-<h1>🏥 MedChainSecure — Raw Medical Data Report</h1>
+<h1>🏥 CardioSecure — Raw Medical Data Report</h1>
 <div class="meta">
   Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} &nbsp;|&nbsp;
   Patient: {sample.get("patient","—")} &nbsp;|&nbsp;
@@ -3834,7 +3841,7 @@ elif st.session_state.page == "enc_step7":
         st.download_button(
             "🖨️ Print / Download Raw Data Report",
             raw_print_html.encode(),
-            file_name="cardiosecure_raw_data.html",
+            file_name="medchainsecure_raw_data.html",
             mime="text/html",
             type="primary",
             use_container_width=True,
@@ -3888,7 +3895,7 @@ elif st.session_state.page == "enc_step7":
         st.markdown("---")
         enc_print_html = f"""
 <!DOCTYPE html><html><head>
-<title>MedChainSecure — Encrypted Data Report</title>
+<title>CardioSecure — Encrypted Data Report</title>
 <style>
   body{{font-family:'Courier New',monospace;padding:2rem;color:#111;background:#fff}}
   h1{{font-family:Arial,sans-serif;color:#00897B;border-bottom:2px solid #00897B;padding-bottom:.5rem}}
@@ -3901,7 +3908,7 @@ elif st.session_state.page == "enc_step7":
   .ok{{background:#e8f5e9;color:#2e7d32;font-weight:700}}
   @media print{{.no-print{{display:none}}}}
 </style></head><body>
-<h1>🔐 MedChainSecure — Encrypted Data Report</h1>
+<h1>🔐 CardioSecure — Encrypted Data Report</h1>
 <div class="meta">
   Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} &nbsp;|&nbsp;
   Algorithm: AES-256-GCM + ECC-SECP256R1 &nbsp;|&nbsp;
@@ -4062,7 +4069,7 @@ elif st.session_state.page == "enc_step7":
         # ── Combined print report ────────────────────────────────────────────
         both_print_html = f"""
 <!DOCTYPE html><html><head>
-<title>MedChainSecure — Full Encryption Report</title>
+<title>CardioSecure — Full Encryption Report</title>
 <style>
   body{{font-family:Arial,sans-serif;padding:2rem;color:#111;background:#fff;max-width:1100px;margin:0 auto}}
   h1{{color:#E84855;border-bottom:3px solid #E84855;padding-bottom:.5rem}}
@@ -4082,7 +4089,7 @@ elif st.session_state.page == "enc_step7":
   @media print{{.no-print{{display:none}}}}
 </style></head><body>
 
-<h1>🏥 MedChainSecure — Full Hybrid Encryption Report</h1>
+<h1>🏥 CardioSecure — Full Hybrid Encryption Report</h1>
 <div class="meta">
   <b>Generated:</b> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}<br>
   <b>Patient:</b> {sample.get("patient","—")} &nbsp;|&nbsp;
@@ -4340,10 +4347,10 @@ elif st.session_state.page == "raw_data":
               <div style="font-weight:600;margin-bottom:0.3rem">Print Raw Data</div>
               <div style="font-size:0.78rem;color:var(--text2)">Patient-readable plaintext report</div>
             </div>""", unsafe_allow_html=True)
-            raw_html = f"""<html><head><title>MedChainSecure Report</title>
+            raw_html = f"""<html><head><title>CardioSecure Report</title>
 <style>body{{font-family:monospace;padding:2rem;color:#000}}
 h1{{color:#E84855}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px}}</style></head>
-<body><h1>❤️ MedChainSecure – Patient Report</h1>
+<body><h1>❤️ CardioSecure – Patient Report</h1>
 <p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</p>
 <hr><pre>{raw_str}</pre></body></html>"""
             st.download_button("⬇ Download Raw Report",
@@ -4356,10 +4363,10 @@ h1{{color:#E84855}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px}}</sty
               <div style="font-weight:600;margin-bottom:0.3rem">Print Encrypted</div>
               <div style="font-size:0.78rem;color:var(--text2)">Technical encrypted audit record</div>
             </div>""", unsafe_allow_html=True)
-            enc_html = f"""<html><head><title>MedChainSecure Encrypted Record</title>
+            enc_html = f"""<html><head><title>CardioSecure Encrypted Record</title>
 <style>body{{font-family:monospace;padding:2rem;color:#000}}
 h1{{color:#00B09B}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px;word-break:break-all}}</style></head>
-<body><h1>🔐 MedChainSecure – Encrypted Record</h1>
+<body><h1>🔐 CardioSecure – Encrypted Record</h1>
 <p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</p>
 <p>Record ID: #{record.get('test_id','')}</p>
 <hr><h3>Encrypted Data (AES-256-GCM):</h3>
@@ -4376,12 +4383,12 @@ h1{{color:#00B09B}}pre{{background:#f5f5f5;padding:1rem;border-radius:4px;word-b
               <div style="font-weight:600;margin-bottom:0.3rem">Print Both</div>
               <div style="font-size:0.78rem;color:var(--text2)">Combined full report (raw + encrypted)</div>
             </div>""", unsafe_allow_html=True)
-            both_html = f"""<html><head><title>MedChainSecure Full Report</title>
+            both_html = f"""<html><head><title>CardioSecure Full Report</title>
 <style>body{{font-family:monospace;padding:2rem;color:#000;max-width:900px;margin:0 auto}}
 h1{{color:#E84855}}h2{{color:#333;border-bottom:2px solid #E84855;padding-bottom:0.3rem}}
 pre{{background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap;word-break:break-all}}
 .grid{{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}}</style></head>
-<body><h1>❤️ MedChainSecure – Full Report</h1>
+<body><h1>❤️ CardioSecure – Full Report</h1>
 <p>Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Record ID: #{record.get('test_id','')}</p>
 <hr>
 <div class="grid">
@@ -4397,13 +4404,305 @@ MedChainSecure · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
                                both_html, f"report_full_{record.get('test_id','')}.html", "text/html")
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PAGE: DECENTRALISATION / STORAGE
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAGE: DECENTRALISATION / STORAGE
+# ─────────────────────────────────────────────────────────────────────────────
+
+elif st.session_state.page == "decentral":
+    st.markdown('<div class="section-header">🌐 Decentralisation & Storage</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Distributed ledger architecture · Local + Remote backup topology</div>', unsafe_allow_html=True)
+
+    tab_overview, tab_nodes, tab_blockchain, tab_verify = st.tabs([
+        "📡 Architecture", "🖧 Storage Nodes", "🔗 Blockchain Ledger", "✅ Verify Integrity"
+    ])
+
+    with tab_overview:
+        st.markdown("""
+<div class="cs-card" style="padding:1.4rem">
+<h3 style="color:var(--accent);font-family:Georgia,serif;margin-bottom:1rem">
+🌐 MedChainSecure — Three-Layer Storage Architecture</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem">
+
+<div style="background:var(--bg2);border-radius:12px;padding:1rem;border:1px solid var(--border)">
+<div style="font-size:1.4rem">💾</div>
+<div style="font-weight:700;font-size:.88rem;margin:.3rem 0">Layer 1 · Primary</div>
+<div style="font-size:.75rem;color:var(--text2)">Local SQLite on Streamlit server.
+AES-256-GCM encrypted records. Immediate read/write.
+Ephemeral on Streamlit Cloud — persists locally.</div>
+</div>
+
+<div style="background:var(--bg2);border-radius:12px;padding:1rem;border:1px solid var(--border)">
+<div style="font-size:1.4rem">🌍</div>
+<div style="font-weight:700;font-size:.88rem;margin:.3rem 0">Layer 2 · Remote Backup</div>
+<div style="font-size:.75rem;color:var(--text2)">PHP + SQLite at steadywebhosting.com.
+HMAC-SHA256 authenticated POST on every save.
+Persists permanently across redeployments.</div>
+</div>
+
+<div style="background:var(--bg2);border-radius:12px;padding:1rem;border:1px solid var(--border)">
+<div style="font-size:1.4rem">🔗</div>
+<div style="font-weight:700;font-size:.88rem;margin:.3rem 0">Layer 3 · Audit Ledger</div>
+<div style="font-size:.75rem;color:var(--text2)">Append-only SHA-256 hash-chained log.
+Each block hashes the previous — tamper-evident.
+Stored in audit_log table.</div>
+</div>
+</div>
+
+<div style="margin-top:1rem;font-size:.78rem;color:var(--text2);line-height:1.9">
+<b>Data flow:</b> Measurement → AES-256-GCM encrypt → Local SQLite (L1) →
+HMAC-signed POST → Remote backup (L2) → Audit entry appended (L3)<br>
+<b>Security:</b> No plaintext ever leaves the device unencrypted.
+The remote server receives only ciphertext + authentication tag + encrypted key.
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+    with tab_nodes:
+        st.markdown("#### 🖧 Storage Node Status")
+        c1, c2 = st.columns(2)
+
+        with c1:
+            try:
+                local_count  = len(get_user_results(user['id']))
+                local_status = "🟢 Online"
+                local_color  = "#00E5A0"
+            except Exception:
+                local_count  = 0
+                local_status = "🔴 Offline"
+                local_color  = "#E84855"
+
+            st.markdown(f"""
+<div class="cs-card" style="padding:1.2rem;border:1px solid {local_color}44">
+<div style="display:flex;justify-content:space-between">
+  <b>💾 Primary Node</b>
+  <span style="color:{local_color};font-size:.72rem">{local_status}</span>
+</div>
+<div style="font-size:.72rem;color:var(--text2);margin-top:.5rem;line-height:1.9">
+  Host: Streamlit App Server (local)<br>
+  Engine: SQLite · Encryption: AES-256-GCM<br>
+  <span style="color:{local_color};font-weight:600">{local_count} record(s) for current user</span>
+</div></div>""", unsafe_allow_html=True)
+
+        with c2:
+            import urllib.request as _ur2
+            try:
+                _rq = _ur2.Request(
+                    "https://steadywebhosting.com/heartrate/api/backup.php",
+                    data=b'{"record_type":"ping"}',
+                    headers={"Content-Type": "application/json"}, method="POST")
+                with _ur2.urlopen(_rq, timeout=4):
+                    remote_status = "🟢 Online"
+                    remote_color  = "#00E5A0"
+            except Exception:
+                remote_status = "🟡 Unreachable (offline mode active)"
+                remote_color  = "#FFD166"
+
+            st.markdown(f"""
+<div class="cs-card" style="padding:1.2rem;border:1px solid {remote_color}44">
+<div style="display:flex;justify-content:space-between">
+  <b>🌍 Remote Backup Node</b>
+  <span style="color:{remote_color};font-size:.72rem">{remote_status}</span>
+</div>
+<div style="font-size:.72rem;color:var(--text2);margin-top:.5rem;line-height:1.9">
+  Host: steadywebhosting.com<br>
+  Endpoint: /heartrate/api/backup.php<br>
+  Auth: HMAC-SHA256 signed payload<br>
+  Tables: backup_records · backup_users<br>
+  <span style="color:{remote_color};font-weight:600">{remote_status}</span>
+</div></div>""", unsafe_allow_html=True)
+
+        st.markdown("""
+<div class="cs-card" style="margin-top:1rem;padding:1rem">
+<b>🔗 Audit Ledger Node</b>
+<div style="font-size:.75rem;color:var(--text2);margin-top:.5rem;line-height:1.9">
+🟢 Always online — embedded in primary database<br>
+Type: Append-only blockchain-style log<br>
+Hash algorithm: SHA-256 chained (each block hashes previous)<br>
+Schema: audit_log(id, user_id, action, details, timestamp, prev_hash, hash)
+</div></div>""", unsafe_allow_html=True)
+
+    with tab_blockchain:
+        st.markdown("#### 🔗 Blockchain Audit Ledger — Recent Entries")
+        st.markdown("""<div class="cs-card" style="padding:1rem;font-size:.77rem;
+color:var(--text2);line-height:1.8;margin-bottom:1rem">
+Each entry: <code>SHA-256(prev_hash + user_id + action + timestamp + details)</code>.
+Modifying any past entry breaks all subsequent hashes — tampering is detectable.
+</div>""", unsafe_allow_html=True)
+
+        _conn_a = get_db()
+        try:
+            _rows = _conn_a.execute(
+                "SELECT action, details, timestamp FROM audit_log "
+                "WHERE user_id=? ORDER BY id DESC LIMIT 25",
+                (user['id'],)
+            ).fetchall()
+        except Exception:
+            _rows = []
+        _conn_a.close()
+
+        if _rows:
+            _icons = {"TEST_START": "▶️", "RESULT_SAVED": "💾", "LOGIN": "🔑",
+                      "LOGOUT": "🚪", "REGISTER": "📝"}
+            for _action, _details, _ts in _rows:
+                _ic = _icons.get(_action, "📋")
+                st.markdown(
+                    f'<div style="display:flex;gap:.6rem;padding:.3rem 0;'
+                    f'border-bottom:1px solid var(--border);font-size:.75rem">'
+                    f'<span>{_ic}</span>'
+                    f'<span style="color:var(--accent);width:115px;flex-shrink:0">{_action}</span>'
+                    f'<span style="color:var(--text2);flex:1">{str(_details)[:60]}</span>'
+                    f'<span style="color:var(--text3);font-size:.68rem">{str(_ts)[:16]}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info("No audit entries yet.")
+
+    with tab_verify:
+        st.markdown("#### ✅ Verify Record Integrity")
+        st.markdown("""<div style="font-size:.78rem;color:var(--text2);margin-bottom:1rem">
+Select a saved record to re-verify its AES-GCM authentication tag.
+A valid tag proves the ciphertext has not been modified since it was saved.
+</div>""", unsafe_allow_html=True)
+
+        _recs_v = get_user_results(user['id'])
+        if not _recs_v:
+            st.info("No saved records to verify.")
+        else:
+            _opts_v = {f"#{r['test_id']} | {r['test_date'][:16]} | {r['bpm']} BPM": r
+                       for r in _recs_v}
+            _sel_v  = st.selectbox("Select record", list(_opts_v.keys()), key="verify_sel")
+            _rec_v  = _opts_v[_sel_v]
+
+            if st.button("🔍 Verify Integrity", type="primary", key="verify_btn"):
+                try:
+                    from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM
+                    _eh = _rec_v.get('encrypted_hex', '')
+                    _kh = _rec_v.get('key_hex', '')
+                    if _eh and _kh:
+                        _kb = bytes.fromhex(_kh)
+                        _eb = bytes.fromhex(_eh)
+                        _AESGCM(_kb).decrypt(_eb[:12], _eb[12:], None)
+                        st.success(f"✅ Integrity verified — AES-GCM tag valid. Record #{_rec_v['test_id']} is untampered.")
+                    else:
+                        st.warning("⚠️ Encryption metadata not available for this record.")
+                except Exception as _ve:
+                    st.error(f"❌ Integrity FAILED — {_ve}. Record may have been tampered with.")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAGE: DECRYPTION
+# ─────────────────────────────────────────────────────────────────────────────
+
+elif st.session_state.page == "decryption":
+    st.markdown('<div class="section-header">🔓 Decryption Center</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Decrypt and verify AES-256-GCM + ECC encrypted health records</div>', unsafe_allow_html=True)
+
+    _tab_auto, _tab_manual = st.tabs(["🗃️ Decrypt My Records", "🔑 Manual Decryption"])
+
+    with _tab_auto:
+        st.markdown("#### 🗃️ Stored Encrypted Records")
+        _recs_d = get_user_results(user['id'])
+        if not _recs_d:
+            st.info("No saved records yet. Complete a heart rate measurement first.")
+        else:
+            _opts_d = {f"#{r['test_id']} | {r['test_date'][:16]} | {r['bpm']} BPM": r
+                       for r in _recs_d}
+            _sel_d  = st.selectbox("Choose record to decrypt", list(_opts_d.keys()), key="dec_sel")
+            _rec_d  = _opts_d[_sel_d]
+
+            if st.button("🔓 Decrypt Record", type="primary", key="dec_btn"):
+                try:
+                    from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM2
+                    _eh2 = _rec_d.get('encrypted_hex', '')
+                    _kh2 = _rec_d.get('key_hex', '')
+                    if not _eh2 or not _kh2:
+                        st.warning("⚠️ Encryption metadata unavailable for this record.")
+                    else:
+                        _kb2   = bytes.fromhex(_kh2)
+                        _eb2   = bytes.fromhex(_eh2)
+                        _plain = json.loads(_AESGCM2(_kb2).decrypt(_eb2[:12], _eb2[12:], None).decode())
+                        st.success("✅ Decryption successful — AES-GCM authentication tag verified")
+
+                        _dc1, _dc2 = st.columns(2)
+                        with _dc1:
+                            _an2  = _plain.get('analysis', _rec_d.get('analysis', {}))
+                            _bpm2 = _plain.get('bpm', _rec_d['bpm'])
+                            st.markdown(f"""
+<div class="cs-card" style="padding:1.2rem;text-align:center">
+  <div style="font-size:3.5rem;font-weight:700;color:var(--green)">{_bpm2}</div>
+  <div style="color:var(--text2);font-size:.8rem">BPM</div>
+  <div style="margin-top:.6rem;font-size:.85rem;color:var(--text)">{_an2.get('category','—')}</div>
+  <div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">{_an2.get('description','')}</div>
+</div>""", unsafe_allow_html=True)
+                        with _dc2:
+                            st.markdown(f"""
+<div class="cs-card" style="padding:1.2rem;font-size:.75rem;color:var(--text2);line-height:1.9">
+  <div><b>Record ID:</b> #{_rec_d['test_id']}</div>
+  <div><b>Date:</b> {_rec_d['test_date'][:19]}</div>
+  <div><b>Algorithm:</b> AES-256-GCM</div>
+  <div><b>Nonce (12B):</b> {_eh2[:24]}…</div>
+  <div><b>Key (first 16 hex):</b> {_kh2[:16]}…</div>
+  <div><b>GCM Tag:</b> ✅ verified</div>
+</div>""", unsafe_allow_html=True)
+
+                        with st.expander("📄 Full Decrypted JSON Payload"):
+                            st.json(_plain)
+
+                        st.download_button(
+                            "⬇️ Download Decrypted Report",
+                            json.dumps({
+                                "decrypted_by": user['full_name'],
+                                "student_id": "EBSU/PG/PhD/2021/10930",
+                                "decrypted_at": datetime.now().isoformat(),
+                                "record": _plain,
+                            }, indent=2, default=str),
+                            f"decrypted_{_rec_d['test_id']}.json",
+                            "application/json",
+                        )
+                except Exception as _de:
+                    st.error(f"❌ Decryption failed: {_de}")
+
+    with _tab_manual:
+        st.markdown("#### 🔑 Manual Decryption")
+        st.markdown("""<div style="font-size:.78rem;color:var(--text2);margin-bottom:1rem;line-height:1.7">
+Paste raw AES-256-GCM ciphertext (hex) and the AES key (hex) to decrypt manually.
+The first 24 hex chars (12 bytes) are the nonce; the remainder is ciphertext + 16-byte GCM tag.
+</div>""", unsafe_allow_html=True)
+
+        _hex_ct  = st.text_area("🔐 Ciphertext (hex)", key="man_ct",
+                                 placeholder="Paste full ciphertext hex — nonce(12B) + ct + tag(16B)")
+        _hex_key = st.text_input("🗝️ AES-256 Key (64 hex chars)", key="man_key",
+                                  placeholder="64 hex characters = 32 bytes")
+
+        if st.button("🔓 Decrypt", type="primary", key="man_dec_btn"):
+            try:
+                from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM3
+                _kb3   = bytes.fromhex(_hex_key.strip())
+                _eb3   = bytes.fromhex(_hex_ct.strip())
+                _plain3 = _AESGCM3(_kb3).decrypt(_eb3[:12], _eb3[12:], None)
+                st.success("✅ Decryption successful")
+                try:
+                    st.json(json.loads(_plain3.decode()))
+                except Exception:
+                    st.code(_plain3.decode(errors='replace'))
+            except Exception as _me:
+                st.error(f"❌ Failed: {_me}")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # FALLBACK
 # ─────────────────────────────────────────────────────────────────────────────
 
 else:
-    if st.session_state.page not in [p for p,_,_ in ENC_STEPS] and \
-       st.session_state.page not in ["monitor","results","admin_dashboard",
-                                      "admin_users","admin_records","all_records","raw_data","encryption"]:
+    if st.session_state.page not in (
+        [p for p, _, _ in ENC_STEPS] +
+        ["monitor", "results", "admin_dashboard", "admin_users",
+         "admin_records", "all_records", "raw_data", "encryption",
+         "decentral", "decryption"]
+    ):
         st.session_state.page = "monitor"
         st.rerun()
 
@@ -4413,9 +4712,54 @@ else:
 
 st.markdown("""
 <div class="cs-footer">
-  🔒 AES-256-GCM + ECC-SECP256R1 Hybrid Encryption ·
-  🧠 ML-Refined rPPG Heart Rate Detection ·
+  🔗 MedChainSecure · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
+  Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management ·
   EBSU/PG/PhD/2021/10930 · Yunisa Sunday<br>
-  ⚠️ Research & educational purposes only — not a certified medical device
+  ⚠️ Research &amp; educational purposes only — not a certified medical device
 </div>
 """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PWA / OFFLINE SUPPORT
+# Registers a service worker so the app can cache pages and work offline.
+# ─────────────────────────────────────────────────────────────────────────────
+components.html("""
+<script>
+(function(){
+  if(!('serviceWorker' in navigator)) return;
+  var sw = [
+    "const C='medchain-v2';",
+    "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(['/']))));",
+    "self.addEventListener('fetch',e=>e.respondWith(",
+    "  fetch(e.request).catch(()=>caches.match(e.request))",
+    "));"
+  ].join('');
+  var blob = new Blob([sw], {type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(function(){});
+
+  // Web App Manifest for "Add to Home Screen"
+  var m = JSON.stringify({
+    name:'MedChainSecure',
+    short_name:'MedChain',
+    description:'Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management',
+    start_url:'/',
+    display:'standalone',
+    background_color:'#0A0E1A',
+    theme_color:'#E84855',
+    icons:[{
+      src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E❤️%3C/text%3E%3C/svg%3E",
+      sizes:'512x512', type:'image/svg+xml'
+    }]
+  });
+  var ml = document.createElement('link');
+  ml.rel='manifest';
+  ml.href=URL.createObjectURL(new Blob([m],{type:'application/json'}));
+  document.head.appendChild(ml);
+
+  // Meta tags for standalone iOS
+  var mt = document.createElement('meta');
+  mt.name='apple-mobile-web-app-capable'; mt.content='yes';
+  document.head.appendChild(mt);
+})();
+</script>
+""", height=0)
