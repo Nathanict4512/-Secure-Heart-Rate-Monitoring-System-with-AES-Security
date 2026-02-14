@@ -556,7 +556,32 @@ def log_action(user_id, action, details=""):
     finally:
         if conn: conn.close()
 
+# ── Remote backup config ──────────────────────────────────────────────────
+REMOTE_BACKUP_URL = "https://steadywebhosting.com/heartrate/api/backup.php"
+BACKUP_HMAC_KEY   = b"cardiosecure_backup_2025"
+
+def _send_remote_backup(payload: dict) -> tuple:
+    """POST encrypted record to remote server. Never raises — returns (ok, msg)."""
+    try:
+        import urllib.request
+        import hmac as _hmac, hashlib as _hl
+        body = json.dumps(payload, default=str).encode()
+        sig  = _hmac.new(BACKUP_HMAC_KEY, body, _hl.sha256).hexdigest()
+        req  = urllib.request.Request(
+            REMOTE_BACKUP_URL, data=body,
+            headers={"Content-Type": "application/json",
+                     "X-Sig": sig, "User-Agent": "CardioSecure/2.0"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            rb = resp.read().decode()
+            return (True, rb[:80]) if resp.status == 200 else (False, f"HTTP {resp.status}")
+    except Exception as ex:
+        return False, str(ex)[:100]
+
 def save_test_result(user_id, bpm, signal_data, analysis):
+    """Save to local SQLite and attempt remote backup. Raises on local failure.
+    Returns dict(local, remote, remote_msg) so the UI can show backup status."""
     conn = None
     try:
         conn = get_conn(); c = conn.cursor()
@@ -578,6 +603,17 @@ def save_test_result(user_id, bpm, signal_data, analysis):
         if conn:
             try: conn.close()
             except: pass
+
+    # Remote backup — fire-and-forget
+    ok, msg = _send_remote_backup({
+        "user_id": user_id, "bpm": bpm,
+        "category": analysis.get("category",""),
+        "timestamp": ts,
+        "encrypted_hex": enc.hex(),
+        "key_hex": key.hex(),
+        "source": "cardiosecure-streamlit",
+    })
+    return {"local": True, "remote": ok, "remote_msg": msg}
 
 def get_user_results(user_id):
     conn = None
@@ -1838,22 +1874,107 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
     # ── Save handler (outside columns) ────────────────────────────────────────
     if save_btn and st.session_state.last_result:
         r = st.session_state.last_result
+
+        # ── Animated encryption simulation popup ──────────────────────────────
+        popup = st.empty()
+        popup.markdown("""
+        <div style="position:fixed;inset:0;background:rgba(10,14,26,0.85);z-index:9999;
+             display:flex;align-items:center;justify-content:center">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;
+               padding:2.5rem 3rem;max-width:540px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+            <div style="text-align:center;font-size:2.5rem;margin-bottom:.8rem">🔐</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;
+                 color:var(--text);text-align:center;margin-bottom:2rem">
+              Encrypting &amp; Distributing…</div>
+            <div id="sim-steps" style="font-size:.82rem;color:var(--text2);line-height:2.2">
+              <div>⏳ Serialising medical data to JSON…</div>
+              <div style="color:var(--text3)">◻ Generating 256-bit AES session key…</div>
+              <div style="color:var(--text3)">◻ Generating 96-bit GCM nonce…</div>
+              <div style="color:var(--text3)">◻ AES-256-GCM encryption…</div>
+              <div style="color:var(--text3)">◻ GHASH authentication tag…</div>
+              <div style="color:var(--text3)">◻ Writing to local database…</div>
+              <div style="color:var(--text3)">◻ Replicating to Node 1 (EU-West)…</div>
+              <div style="color:var(--text3)">◻ Replicating to Node 2 (US-East)…</div>
+              <div style="color:var(--text3)">◻ Replicating to Node 3 (Remote Backup)…</div>
+              <div style="color:var(--text3)">◻ Logging to audit ledger…</div>
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        import time as _t
+        steps_delay = [0.3, 0.2, 0.2, 0.4, 0.3, 0.4, 0.3, 0.3, 0.5, 0.3]
+        for i, delay in enumerate(steps_delay):
+            _t.sleep(delay)
+
+        # ── Real save ─────────────────────────────────────────────────────────
         try:
-            save_test_result(user['id'], r['bpm'],
-                             list(st.session_state.data_buffer), r['analysis'])
+            result_info = save_test_result(
+                user['id'], r['bpm'],
+                list(st.session_state.data_buffer), r['analysis']
+            )
             log_action(user['id'], "RESULT_SAVED",
-                       f"BPM={r['bpm']}, Cat={r['analysis']['category']}")
-            # Mark as saved so button disables — clear result to prevent double-save
-            st.session_state.test_complete = False
-            st.session_state.last_result   = None
-            st.session_state.data_buffer   = deque(maxlen=60)
-            st.session_state.times         = deque(maxlen=60)
-            st.session_state.bpm           = 0
-            st.session_state.running       = False
-            st.success("✅ Result encrypted and saved! Go to 📊 My Results to view it.")
-            st.rerun()
+                       f"BPM={r['bpm']}, Cat={r['analysis']['category']}, "
+                       f"Remote={'OK' if result_info['remote'] else 'FAIL'}")
+            remote_ok  = result_info['remote']
+            remote_msg = result_info['remote_msg']
         except Exception as save_err:
+            popup.empty()
             st.error(f"❌ Save failed: {save_err}")
+            st.stop()
+
+        # ── Clear state ───────────────────────────────────────────────────────
+        st.session_state.test_complete = False
+        st.session_state.last_result   = None
+        st.session_state.data_buffer   = deque(maxlen=60)
+        st.session_state.times         = deque(maxlen=60)
+        st.session_state.bpm           = 0
+        st.session_state.running       = False
+
+        # ── Show result popup ─────────────────────────────────────────────────
+        remote_badge  = ('<span style="color:var(--green)">✅ Remote backup saved</span>'
+                         if remote_ok else
+                         '<span style="color:var(--yellow)">⚠️ Remote backup unreachable (local copy safe)</span>')
+        remote_detail = f'<div style="font-size:.72rem;color:var(--text3);margin-top:.2rem">{remote_msg}</div>' if not remote_ok else ""
+
+        popup.markdown(f"""
+        <div style="position:fixed;inset:0;background:rgba(10,14,26,0.85);z-index:9999;
+             display:flex;align-items:center;justify-content:center">
+          <div style="background:var(--card);border:1px solid var(--green);border-radius:18px;
+               padding:2.5rem 3rem;max-width:560px;width:90%;
+               box-shadow:0 20px 60px rgba(0,229,160,.15)">
+            <div style="text-align:center;font-size:3rem;margin-bottom:.5rem">✅</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;
+                 color:var(--green);text-align:center;margin-bottom:1.5rem">
+              Record Encrypted &amp; Saved</div>
+
+            <div style="font-size:.82rem;line-height:2">
+              <div>✅ JSON serialised → AES-256-GCM encrypted</div>
+              <div>✅ 128-bit GHASH authentication tag computed</div>
+              <div>✅ Saved to local SQLite database</div>
+              <div>✅ Node 1 replica (EU-West) — simulated</div>
+              <div>✅ Node 2 replica (US-East) — simulated</div>
+              <div>{remote_badge}{remote_detail}</div>
+              <div>✅ Audit log entry written</div>
+            </div>
+
+            <div style="margin-top:1.5rem;padding:1rem;background:var(--card2);
+                 border-radius:10px;font-size:.78rem">
+              <div style="color:var(--text3);text-transform:uppercase;font-size:.68rem;
+                   letter-spacing:.08em;margin-bottom:.5rem">Encrypted Payload Preview</div>
+              <div style="font-family:'DM Mono',monospace;color:var(--text3);
+                   word-break:break-all;font-size:.68rem;line-height:1.6">
+                AES-256-GCM · {r['bpm']} BPM · {r['analysis']['category']}
+              </div>
+            </div>
+
+            <div style="text-align:center;margin-top:1.5rem;color:var(--text3);font-size:.8rem">
+              Closing in 3 seconds…</div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        _t.sleep(3)
+        popup.empty()
+        st.rerun()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE: MY RESULTS
@@ -2378,6 +2499,11 @@ def get_enc_cipher():
     return st.session_state.enc_cipher
 
 # ────────────────────────────────────────────────────────────────────────────
+# Redirect bare "encryption" nav link → first step
+if st.session_state.page == "encryption":
+    st.session_state.page = "enc_step1"
+    st.rerun()
+
 if st.session_state.page == "enc_step1":
     st.markdown('<div class="section-header">🔒 Encryption Laboratory</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Step-by-step walkthrough of AES-GCM + ECC Hybrid Encryption</div>', unsafe_allow_html=True)
