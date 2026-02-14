@@ -1765,13 +1765,13 @@ async function startCam(){
   }
 }
 
-// ─── Stop & send result to Python via Streamlit postMessage protocol ────────
+// ─── Stop & write result to sessionStorage ───────────────────────────────────
 function stopAndSave(){
   running=false;
   if(raf)cancelAnimationFrame(raf);
   if(stream)stream.getTracks().forEach(function(t){t.stop();});
   document.getElementById('bx').disabled=true;
-  document.getElementById('msg').textContent='✅ Result ready — check the panel on the right';
+  document.getElementById('msg').textContent='⏳ Packaging result…';
 
   var avgSt=stHist.length?stHist.reduce(function(a,b){return a+b;},0)/stHist.length:0;
   var stLabels=["Relaxed","Mild Tension","Moderate Stress","High Stress","Acute Stress"];
@@ -1800,16 +1800,17 @@ function stopAndSave(){
     signal:chrom
   };
 
-  // Streamlit component postMessage protocol:
-  // 1. Send componentReady, 2. Send setComponentValue
-  window.parent.postMessage({type:'streamlit:componentReady',apiVersion:1},'*');
-  setTimeout(function(){
-    window.parent.postMessage({
-      type:'streamlit:setComponentValue',
-      value: result,
-      dataType:'json'
-    },'*');
-  }, 50);
+  // Write to sessionStorage — bridge reads it when user clicks Fetch Result
+  try {
+    sessionStorage.setItem('cs_rppg_result', JSON.stringify(result));
+    document.getElementById('msg').textContent =
+      '✅ ' + (result.bpm||'--') + ' BPM ready — click "📥 Fetch Result" above ↑';
+    document.getElementById('bx').textContent = '✅ Done';
+    document.getElementById('bx').style.background = '#00E5A0';
+    document.getElementById('bx').style.color = '#000';
+  } catch(e) {
+    document.getElementById('msg').textContent = '❌ ' + e.message;
+  }
 }
 </script></body></html>
 """
@@ -2296,66 +2297,76 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             # This button is a fallback to reset state if needed
             st.session_state.running = False
 
-    # ── Camera: JS rPPG component via declare_component (supports return value) ──
-    import tempfile, os as _os
-
-    @st.cache_resource
-    def _get_rppg_component():
-        """Register the rPPG component once — returns a callable that renders it
-        and gets back the result dict from JS via setComponentValue."""
-        _tmpdir = tempfile.mkdtemp(prefix="cs_rppg_")
-        return components.declare_component("rppg_monitor", path=_tmpdir)
-
-    _rppg_comp = _get_rppg_component()
-
+    # ── Camera: components.html (works on all Streamlit deployments) ─────────
     with col_cam:
-        if st.session_state.running:
-            _theme = st.session_state.get("theme", "dark")
-            _html_content = _build_rppg_html(_theme)
+        _theme = st.session_state.get('theme', 'dark')
 
-            # Write the HTML as index.html in the component dir
-            # (declare_component serves files from path=)
-            import tempfile, os as _os
-            _tmp_dirs = [d for d in _os.listdir(tempfile.gettempdir())
-                        if d.startswith("cs_rppg_")]
-            if _tmp_dirs:
-                _idx_path = _os.path.join(tempfile.gettempdir(),
-                                          _tmp_dirs[0], "index.html")
-                with open(_idx_path, "w") as _f:
-                    _f.write(_html_content)
-
-            _js_result = _rppg_comp(key="rppg_cam", default=None, height=490)
-
-            # Result arrived from JS via setComponentValue
-            if _js_result and isinstance(_js_result, dict):
-                _bpm_js    = int(_js_result.get("bpm", 0))
-                _qual      = int(_js_result.get("quality", 0))
-                _frames    = int(_js_result.get("frames", 0))
-                _stress_js = _js_result.get("stress")
-                _sig_js    = _js_result.get("signal", [])
-
-                if _bpm_js > 0 and not st.session_state.test_complete:
-                    _bpm_final = stress_adjusted_bpm(
-                        _bpm_js, _stress_js,
-                        user.get("age", 0), user.get("gender", ""),
-                        st.session_state.bpm_history,
-                    )
-                    st.session_state.bpm          = _bpm_final
-                    st.session_state.stress       = _stress_js
-                    st.session_state.last_result  = {
-                        "bpm":         _bpm_final,
-                        "analysis":    analyze_heart_rate(_bpm_final),
-                        "signal_data": _sig_js,
-                        "stress":      _stress_js,
-                        "quality":     _qual,
-                        "frames":      _frames,
-                    }
-                    st.session_state.test_complete = True
-                    st.session_state.running       = False
-                    st.session_state.data_buffer.extend(_sig_js[-60:])
-                    st.rerun()
-
-            st.caption("📡 Keep face still in good light · Click **⏹ Stop & Save** when BPM stabilises")
+        if st.session_state.running or st.session_state.test_complete:
+            components.html(_build_rppg_html(_theme), height=500, scrolling=False)
+            st.markdown('---')
+            _fetch_btn = st.button(
+                '📥 Fetch Result',
+                key='fetch_result_btn',
+                use_container_width=True,
+                type='primary',
+                help='Click after camera shows ✅ Done',
+            )
+            # Hidden textarea receives value injected by JS bridge
+            _raw = st.text_area('rppg_raw', key='rppg_raw_ta',
+                                label_visibility='hidden', height=20)
+            if _fetch_btn:
+                # Bridge reads sessionStorage (same origin) and fills textarea
+                _bridge_js = (
+                    "<script>(function(){"
+                    "var v=sessionStorage.getItem('cs_rppg_result');"
+                    "if(!v)return;"
+                    "var all=window.parent.document.querySelectorAll('textarea');"
+                    "for(var i=0;i<all.length;i++){"
+                    "var t=all[i];"
+                    "var sd=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value');"
+                    "sd.set.call(t,v);"
+                    "t.dispatchEvent(new Event('input',{bubbles:true}));break;}"
+                    "sessionStorage.removeItem('cs_rppg_result');"
+                    "})();</script>"
+                )
+                components.html(_bridge_js, height=0)
+            if _raw and len(_raw) > 10 and not st.session_state.test_complete:
+                try:
+                    _d    = json.loads(_raw)
+                    _bpm  = int(_d.get('bpm', 0))
+                    _qual = int(_d.get('quality', 0))
+                    _frm  = int(_d.get('frames', 0))
+                    _st   = _d.get('stress')
+                    _sig  = _d.get('signal', [])
+                    if _bpm > 0:
+                        _bpm_f = stress_adjusted_bpm(
+                            _bpm, _st,
+                            user.get('age', 0), user.get('gender', ''),
+                            st.session_state.bpm_history,
+                        )
+                        st.session_state.bpm          = _bpm_f
+                        st.session_state.stress       = _st
+                        st.session_state.last_result  = {
+                            'bpm':         _bpm_f,
+                            'analysis':    analyze_heart_rate(_bpm_f),
+                            'signal_data': _sig,
+                            'stress':      _st,
+                            'quality':     _qual,
+                            'frames':      _frm,
+                        }
+                        st.session_state.test_complete = True
+                        st.session_state.running       = False
+                        st.session_state.data_buffer.extend(_sig[-60:])
+                        st.rerun()
+                except Exception:
+                    pass
+        else:
+            st.markdown(
+                '<div style="text-align:center;padding:4rem 1rem;color:var(--text3)">'
+                '<div style="font-size:3rem;margin-bottom:1rem">📷</div>'
+                '<div style="font-size:.9rem">Press ▶ Start to open the camera</div>'
+                '</div>', unsafe_allow_html=True
+            )
 
 
 
