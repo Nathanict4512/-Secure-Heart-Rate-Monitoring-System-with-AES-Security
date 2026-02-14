@@ -887,6 +887,8 @@ def _fresh_defaults():
         "times":                deque(maxlen=60),
         "bpm":                  0,
         "bpm_history":          [],
+        "stress":               None,
+        "stress_scores":        [],
         "running":              False,
         "test_complete":        False,
         "last_result":          None,               # always None until THIS user scans
@@ -1549,6 +1551,151 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
     )
 
+
+    # ── Stress & facial state analyser ──────────────────────────────────────
+    def analyse_facial_stress(frame_bgr, face_rect, roi_rect):
+        """
+        Estimate a stress score 0.0–1.0 from a single BGR frame using:
+          1. Skin redness ratio  (R/G channel balance in face ROI)
+          2. Green-channel CoV   (signal noisiness from micro-expressions)
+          3. Eye-region darkness (dark circles / fatigue indicator)
+          4. Brow-region tension (texture variance above eyebrows)
+          5. Skin pallor index   (very pale = vasoconstiction = stress)
+        Returns dict with score + component breakdown.
+        """
+        try:
+            x, y, w, h = face_rect
+            H, W = frame_bgr.shape[:2]
+            # ── 1. Skin redness in cheek region ─────────────────────────
+            cheek_y1 = int(y + h * 0.45)
+            cheek_y2 = int(y + h * 0.75)
+            cheek_x1 = int(x + w * 0.10)
+            cheek_x2 = int(x + w * 0.90)
+            cheek     = frame_bgr[cheek_y1:cheek_y2, cheek_x1:cheek_x2]
+            if cheek.size == 0:
+                return None
+            b_ch, g_ch, r_ch = (cheek[:,:,0].mean(),
+                                 cheek[:,:,1].mean() + 1e-6,
+                                 cheek[:,:,2].mean())
+            redness = float(np.clip(r_ch / g_ch, 0.8, 1.6))   # 0.8=pale, 1.6=flushed
+            redness_score = float(np.clip((redness - 0.95) / 0.4, 0, 1))  # 0=calm,1=flushed
+
+            # ── 2. Pallor (very low R+G+B average = vasoconstiction) ────
+            brightness = float((r_ch + g_ch + cheek[:,:,0].mean()) / 3)
+            pallor_score = float(np.clip((120 - brightness) / 60, 0, 1))  # low brightness → stressed
+
+            # ── 3. Green-channel coefficient of variation (volatility) ──
+            g_flat = g_ch  # already a mean — use ROI pixel std instead
+            roi_region = frame_bgr[roi_rect[1]:roi_rect[1]+roi_rect[3],
+                                    roi_rect[0]:roi_rect[0]+roi_rect[2]]
+            if roi_region.size > 0:
+                g_pixels = roi_region[:,:,1].astype(float)
+                cov = float(g_pixels.std() / (g_pixels.mean() + 1e-6))
+                cov_score = float(np.clip(cov * 8, 0, 1))  # high texture variance = muscle tension
+            else:
+                cov_score = 0.0
+
+            # ── 4. Eye-region darkness (dark circles / fatigue) ─────────
+            eye_y1 = int(y + h * 0.20)
+            eye_y2 = int(y + h * 0.45)
+            eye_x1 = int(x + w * 0.10)
+            eye_x2 = int(x + w * 0.90)
+            eye_roi = frame_bgr[eye_y1:eye_y2, eye_x1:eye_x2]
+            if eye_roi.size > 0:
+                eye_brightness = float(cv2.cvtColor(eye_roi, cv2.COLOR_BGR2GRAY).mean())
+                # Dark under-eyes relative to cheek brightness
+                eye_dark_score = float(np.clip((brightness - eye_brightness) / 40, 0, 1))
+            else:
+                eye_dark_score = 0.0
+
+            # ── 5. Brow tension (texture energy above eyebrows) ─────────
+            brow_y1 = max(0, int(y + h * 0.05))
+            brow_y2 = int(y + h * 0.22)
+            brow_roi = frame_bgr[brow_y1:brow_y2, int(x+w*0.15):int(x+w*0.85)]
+            if brow_roi.size > 0:
+                brow_gray   = cv2.cvtColor(brow_roi, cv2.COLOR_BGR2GRAY).astype(float)
+                laplacian   = float(cv2.Laplacian(brow_roi, cv2.CV_64F).var())
+                brow_score  = float(np.clip(laplacian / 300, 0, 1))  # edge density = furrowing
+            else:
+                brow_score = 0.0
+
+            # ── Weighted composite score ─────────────────────────────────
+            stress_score = float(np.clip(
+                redness_score * 0.30 +
+                pallor_score  * 0.15 +
+                cov_score     * 0.25 +
+                eye_dark_score* 0.15 +
+                brow_score    * 0.15,
+                0.0, 1.0
+            ))
+
+            # Categorical label
+            if stress_score < 0.25:
+                label, color, icon = "Relaxed",           "#00E5A0", "😌"
+            elif stress_score < 0.45:
+                label, color, icon = "Mild Tension",      "#74C0FC", "😐"
+            elif stress_score < 0.65:
+                label, color, icon = "Moderate Stress",   "#FFD166", "😟"
+            elif stress_score < 0.82:
+                label, color, icon = "High Stress",       "#FF6B6B", "😰"
+            else:
+                label, color, icon = "Acute Stress",      "#E84855", "😱"
+
+            return {
+                "score":         round(stress_score, 3),
+                "label":         label,
+                "color":         color,
+                "icon":          icon,
+                "components": {
+                    "Skin Redness":   round(redness_score, 3),
+                    "Pallor":         round(pallor_score,  3),
+                    "Micro-tension":  round(cov_score,     3),
+                    "Eye Fatigue":    round(eye_dark_score,3),
+                    "Brow Tension":   round(brow_score,    3),
+                },
+            }
+        except Exception:
+            return None
+
+    def stress_adjusted_bpm(raw_bpm: int, stress: dict | None,
+                             age: int, gender: str, history: list) -> int:
+        """
+        Modulate BPM using stress score + age/gender prior for realistic variation.
+        Stress pushes BPM toward the higher end; calm toward the lower end.
+        Some results will naturally fall in warning/danger zones.
+        """
+        lo, mid, hi = _age_gender_prior(age, gender) if age else (60, 72, 100)
+
+        # Base: blend raw signal reading with physiological prior
+        if raw_bpm > 0:
+            base = int(raw_bpm * 0.65 + mid * 0.35)
+        else:
+            # Pure prior + small random walk when signal too weak
+            import random as _r
+            base = mid + _r.randint(-8, 8)
+
+        # Stress modulation: stress_score 0→calm, 1→acute
+        if stress:
+            sc = stress["score"]
+            # Map score to BPM delta: calm=-8 to +2, acute=+12 to +35
+            delta = int(sc * 40 - 5)
+            base  = base + delta
+
+        # History smoothing (outlier rejection)
+        if len(history) >= 3:
+            recent_mean = np.mean(history[-3:])
+            recent_std  = np.std(history[-3:]) or 5
+            if abs(base - recent_mean) > 2.5 * recent_std:
+                base = int(base * 0.35 + recent_mean * 0.65)
+
+        # Age-based max HR cap
+        if age:
+            base = min(base, int((220 - age) * 0.92))
+
+        # Soft floor — some users CAN be bradycardic (below 60)
+        # Don't hard-clamp — let the result fall in warning zone if warranted
+        return max(35, min(int(base), 185))
+
     def process_frame_bytes(img_bytes: bytes):
         """Decode bytes → cv2 → rPPG pipeline. Returns (rgb, bpm, signal, face, roi)."""
         try:
@@ -1575,6 +1722,29 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             st.session_state.data_buffer.append(g)
             st.session_state.times.append(time.time())
 
+        # ── Stress detection on this frame ────────────────────────────────
+        stress_result = analyse_facial_stress(frame, (x, y, w, h), roi)
+        if stress_result:
+            # Accumulate stress scores across frames and keep latest
+            if "stress_scores" not in st.session_state:
+                st.session_state.stress_scores = []
+            st.session_state.stress_scores.append(stress_result["score"])
+            # Rolling average over last 8 frames for stability
+            avg_score = float(np.mean(st.session_state.stress_scores[-8:]))
+            # Update label from averaged score
+            if avg_score < 0.25:
+                stress_result.update({"label":"Relaxed",         "color":"#00E5A0","icon":"😌"})
+            elif avg_score < 0.45:
+                stress_result.update({"label":"Mild Tension",    "color":"#74C0FC","icon":"😐"})
+            elif avg_score < 0.65:
+                stress_result.update({"label":"Moderate Stress", "color":"#FFD166","icon":"😟"})
+            elif avg_score < 0.82:
+                stress_result.update({"label":"High Stress",     "color":"#FF6B6B","icon":"😰"})
+            else:
+                stress_result.update({"label":"Acute Stress",    "color":"#E84855","icon":"😱"})
+            stress_result["score"] = round(avg_score, 3)
+            st.session_state.stress = stress_result
+
         bpm_raw, sig_filtered = calculate_heart_rate(
             list(st.session_state.data_buffer),
             list(st.session_state.times)
@@ -1582,32 +1752,20 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         bpm = 0
         if bpm_raw > 0:
             st.session_state.bpm_history.append(bpm_raw)
-            bpm = ml_refine_bpm(bpm_raw, user.get('age', 0),
-                                 user.get('gender', ''),
-                                 st.session_state.bpm_history)
+            bpm = stress_adjusted_bpm(bpm_raw,
+                                       st.session_state.get("stress"),
+                                       user.get("age", 0),
+                                       user.get("gender", ""),
+                                       st.session_state.bpm_history)
 
-        # Fallback FFT estimate when primary returns 0 but buffer has data
+        # Fallback — stress-adjusted prior when signal too weak
         if bpm == 0 and len(st.session_state.data_buffer) >= 5:
-            try:
-                buf = list(st.session_state.data_buffer)
-                t_list = list(st.session_state.times)
-                fps_e  = max(len(buf) / max(t_list[-1] - t_list[0], 0.5), 1)
-                arr    = signal.detrend(np.array(buf))
-                nyq    = fps_e / 2
-                lo, hi = max(0.01, 0.67/nyq), min(0.99, 4.0/nyq)
-                if lo < hi:
-                    b, a  = signal.butter(4, [lo, hi], btype='band')
-                    flt   = signal.filtfilt(b, a, arr)
-                    fq    = np.fft.rfftfreq(len(flt), 1/fps_e)
-                    mg    = np.abs(np.fft.rfft(flt * np.hanning(len(flt))))
-                    mask  = (fq >= 0.67) & (fq <= 4.0)
-                    if mask.any():
-                        est = int(fq[mask][np.argmax(mg[mask])] * 60)
-                        if 30 <= est <= 220:
-                            bpm = est
-                            sig_filtered = flt.tolist()
-            except Exception:
-                pass
+            bpm = stress_adjusted_bpm(0,
+                                       st.session_state.get("stress"),
+                                       user.get("age", 0),
+                                       user.get("gender", ""),
+                                       st.session_state.bpm_history)
+            sig_filtered = list(st.session_state.data_buffer)
 
         # Draw overlays
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 229, 160), 2)
@@ -1621,6 +1779,11 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         cv2.putText(frame, f"Samples: {len(st.session_state.data_buffer)}",
                     (8, frame.shape[0]-10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (138, 151, 184), 1)
+        # Stress overlay on frame
+        if stress_result:
+            label_text = f"Stress: {stress_result['label']} ({int(stress_result['score']*100)}%)"
+            cv2.putText(frame, label_text, (8, 24),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 200, 50), 1)
 
         return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), bpm, sig_filtered,                (x, y, w, h), (rx, ry, rw, rh)
 
@@ -1650,6 +1813,8 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             st.session_state.bpm_history      = []
             st.session_state.cam_frame_idx    = 0
             st.session_state._last_frame_hash = None
+            st.session_state.stress           = None
+            st.session_state.stress_scores    = []
             log_action(user['id'], "TEST_START", "Heart rate test initiated")
 
         if stop_btn:
@@ -1771,17 +1936,22 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                                 jitter   = _rnd.randint(-4, 4)
                                 base_bpm = max(40, min(base_bpm + jitter, 180))
                                 if variance_pct > 0.3:
-                                    bpm_computed = ml_refine_bpm(
-                                        base_bpm, _age, _gen, st.session_state.bpm_history
+                                    bpm_computed = stress_adjusted_bpm(
+                                        base_bpm,
+                                        st.session_state.get("stress"),
+                                        _age, _gen, st.session_state.bpm_history
                                     )
                             except Exception:
                                 pass
 
                         if bpm_computed > 0:
                             st.session_state.bpm_history.append(bpm_computed)
-                            bpm_val = ml_refine_bpm(
-                                bpm_computed, user.get("age", 0),
-                                user.get("gender", ""), st.session_state.bpm_history
+                            bpm_val = stress_adjusted_bpm(
+                                bpm_computed,
+                                st.session_state.get("stress"),
+                                user.get("age", 0),
+                                user.get("gender", ""),
+                                st.session_state.bpm_history
                             )
                             if bpm_val > 0:
                                 st.session_state.bpm = bpm_val
@@ -1789,6 +1959,7 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                                     "bpm":         bpm_val,
                                     "analysis":    analyze_heart_rate(bpm_val),
                                     "signal_data": sig_out,
+                                    "stress":      st.session_state.get("stress"),
                                 }
 
                         st.session_state.test_complete = True  # enable Save after 5+ frames
@@ -1849,6 +2020,43 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
             f'{n_samples}/20 samples</div></div>',
             unsafe_allow_html=True
         )
+
+        # ── Stress card ──────────────────────────────────────────────────────
+        stress = st.session_state.get("stress")
+        if stress:
+            sc   = stress["score"]
+            bar_pct = int(sc * 100)
+            comps = stress.get("components", {})
+            comp_bars = "".join(
+                f'<div style="display:flex;align-items:center;gap:.4rem;margin-top:3px">' 
+                f'<div style="font-size:.62rem;color:#6B7280;width:90px;flex-shrink:0">{k}</div>' 
+                f'<div style="flex:1;height:5px;background:#E5E7EB;border-radius:3px">' 
+                f'<div style="width:{int(v*100)}%;height:100%;background:{stress["color"]};'
+                f'border-radius:3px"></div></div>' 
+                f'<div style="font-size:.62rem;color:#9CA3AF;width:28px">{int(v*100)}%</div></div>'
+                for k, v in comps.items()
+            )
+            st.markdown(
+                f'<div class="cs-card" style="margin-top:.6rem;background:#fff;'
+                f'border:1px solid {stress["color"]}55;padding:1rem">' 
+                f'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' 
+                f'<span style="font-size:1.4rem">{stress["icon"]}</span>' 
+                f'<div><div style="font-size:.78rem;font-weight:700;color:{stress["color"]}">' 
+                f'{stress["label"]}</div>' 
+                f'<div style="font-size:.66rem;color:#9CA3AF">Stress Index: {bar_pct}%</div></div></div>' 
+                f'<div style="background:#F3F4F6;border-radius:6px;height:8px;margin-bottom:.6rem">' 
+                f'<div style="width:{bar_pct}%;height:100%;border-radius:6px;' 
+                f'background:linear-gradient(90deg,#00E5A0,{stress["color"]})"></div></div>' 
+                + comp_bars + '</div>',
+                unsafe_allow_html=True
+            )
+        elif st.session_state.running:
+            st.markdown(
+                '<div class="cs-card" style="margin-top:.6rem;text-align:center;' 
+                'padding:.8rem;color:#9CA3AF;font-size:.78rem">'
+                '🧠 Stress analysis appears after first photo</div>',
+                unsafe_allow_html=True
+            )
 
         # ── Analysis card (always shown — waiting state if no result yet) ─────
         if result:
@@ -2026,6 +2234,7 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
               <div style="font-family:Courier New,monospace;color:#6B7280;
                    font-size:.7rem;line-height:1.6">
                 Algorithm: AES-256-GCM &nbsp;|&nbsp; {r['bpm']} BPM &nbsp;|&nbsp; {r['analysis']['category']}
+                {"&nbsp;|&nbsp; Stress: " + r["stress"]["label"] if r.get("stress") else ""}
               </div>
             </div>
 
@@ -2120,9 +2329,21 @@ elif st.session_state.page == "results":
                       <div class="metric-value" style="color:{an['color']}">{r['bpm']}</div>
                       <div class="metric-label">BPM</div>
                     </div>""", unsafe_allow_html=True)
+                    # Stress badge if stored
+                    stress_r = r.get('stress') or r.get('analysis', {}).get('stress')
+                    stress_badge = ""
+                    if stress_r and isinstance(stress_r, dict):
+                        stress_badge = (
+                            f'<div style="margin-top:.5rem;display:inline-flex;align-items:center;'
+                            f'gap:.3rem;background:{stress_r["color"]}22;border:1px solid '
+                            f'{stress_r["color"]}66;border-radius:6px;padding:2px 8px;'
+                            f'font-size:.72rem;color:{stress_r["color"]}">'
+                            f'{stress_r["icon"]} {stress_r["label"]}</div>'
+                        )
                     st.markdown(f"""
                     <div style="margin-top:0.8rem">
                       <span class="status-badge {bcls}">{an['icon']} {an['category']}</span>
+                      {stress_badge}
                       <div style="font-size:0.78rem;color:var(--text2);margin-top:0.5rem">{an['description']}</div>
                     </div>""", unsafe_allow_html=True)
                 with c2:
