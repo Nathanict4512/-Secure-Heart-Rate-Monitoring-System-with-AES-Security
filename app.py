@@ -2436,29 +2436,116 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
         if st.session_state.running or st.session_state.test_complete:
             components.html(_build_rppg_html(_theme), height=500, scrolling=False)
             st.markdown('---')
+           
+           # ── Auto-fetch: polls sessionStorage every 500ms and auto-submits ──
+            _auto_fetch = components.html("""
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;height:0;overflow:hidden;background:transparent">
+<script>
+(function(){
+  var POLL_MS = 500;
+  var MAX_WAIT = 120000; // 2 minutes
+  var elapsed = 0;
+  var done = false;
+
+  function tryFetch() {
+    if (done) return;
+    elapsed += POLL_MS;
+    if (elapsed > MAX_WAIT) return;
+
+    var v = sessionStorage.getItem('cs_rppg_result');
+    if (!v) { setTimeout(tryFetch, POLL_MS); return; }
+
+    done = true;
+    sessionStorage.removeItem('cs_rppg_result');
+
+    // Encode result into URL param and navigate parent to trigger Streamlit rerun
+    try {
+      var encoded = btoa(unescape(encodeURIComponent(v)));
+      var url = new URL(window.parent.location.href);
+      url.searchParams.set('rppg_result', encoded);
+      window.parent.location.href = url.toString();
+    } catch(e) {
+      // Fallback: fill textarea + dispatch input event
+      var p = window.parent.document;
+      var areas = p.querySelectorAll('textarea');
+      for (var i = 0; i < areas.length; i++) {
+        var t = areas[i];
+        var desc = Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype, 'value');
+        desc.set.call(t, v);
+        t.dispatchEvent(new Event('input', {bubbles: true}));
+        break;
+      }
+    }
+  }
+
+  // Start polling immediately when this component loads
+  setTimeout(tryFetch, POLL_MS);
+})();
+</script>
+</body></html>
+""", height=0, scrolling=False)
+
+            # Read result from query params (set by the JS above after scan completes)
+            _qp_result = st.query_params.get('rppg_result', '')
+            if _qp_result and not st.session_state.test_complete:
+                try:
+                    import base64
+                    _raw_json = base64.b64decode(_qp_result).decode('utf-8')
+                    _d    = json.loads(_raw_json)
+                    _bpm  = int(_d.get('bpm', 0))
+                    _qual = int(_d.get('quality', 0))
+                    _frm  = int(_d.get('frames', 0))
+                    _st   = _d.get('stress')
+                    _sig  = _d.get('signal', [])
+                    if _bpm > 0:
+                        _bpm_f = stress_adjusted_bpm(
+                            _bpm, _st,
+                            user.get('age', 0), user.get('gender', ''),
+                            st.session_state.bpm_history,
+                        )
+                        st.session_state.bpm          = _bpm_f
+                        st.session_state.stress       = _st
+                        st.session_state.last_result  = {
+                            'bpm':         _bpm_f,
+                            'analysis':    analyze_heart_rate(_bpm_f),
+                            'signal_data': _sig,
+                            'stress':      _st,
+                            'quality':     _qual,
+                            'frames':      _frm,
+                        }
+                        st.session_state.test_complete = True
+                        st.session_state.running       = False
+                        st.session_state.data_buffer.extend(_sig[-60:])
+                        # Clear the query param then rerun
+                        st.query_params.clear()
+                        st.rerun()
+                except Exception:
+                    pass
+
+            # Fallback manual button (in case auto-poll doesn't work in some browsers)
             _fetch_btn = st.button(
                 '📥 Fetch Result',
                 key='fetch_result_btn',
                 use_container_width=True,
                 type='primary',
-                help='Click after camera shows ✅ Done',
+                help='Normally auto-fetches — click only if result did not appear automatically',
             )
-            # Hidden textarea receives value injected by JS bridge
             _raw = st.text_area('rppg_raw', key='rppg_raw_ta',
                                 label_visibility='hidden', height=20)
             if _fetch_btn:
-                # Bridge reads sessionStorage (same origin) and fills textarea
                 _bridge_js = (
                     "<script>(function(){"
                     "var v=sessionStorage.getItem('cs_rppg_result');"
-                    "if(!v)return;"
+                    "if(!v){alert('No result ready yet — wait for ✅ Done in the camera panel');return;}"
+                    "sessionStorage.removeItem('cs_rppg_result');"
                     "var all=window.parent.document.querySelectorAll('textarea');"
                     "for(var i=0;i<all.length;i++){"
                     "var t=all[i];"
                     "var sd=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value');"
                     "sd.set.call(t,v);"
                     "t.dispatchEvent(new Event('input',{bubbles:true}));break;}"
-                    "sessionStorage.removeItem('cs_rppg_result');"
                     "})();</script>"
                 )
                 components.html(_bridge_js, height=0)
@@ -2492,14 +2579,6 @@ A **contextual prior model** then cross-validates the raw FFT estimate against:
                         st.rerun()
                 except Exception:
                     pass
-        else:
-            st.markdown(
-                '<div style="text-align:center;padding:4rem 1rem;color:var(--text3)">'
-                '<div style="font-size:3rem;margin-bottom:1rem">📷</div>'
-                '<div style="font-size:.9rem">Press ▶ Start to open the camera</div>'
-                '</div>', unsafe_allow_html=True
-            )
-
 
 
     with col_stats:
