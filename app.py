@@ -932,7 +932,7 @@ def render_login():
 # ─────────────────────────────────────────────────────────────────────────────
 def render_monitor(user):
     st.markdown('<div class="section-header">❤️ Heart Rate Monitor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Real-time rPPG measurement via webcam · Hybrid-encrypted · Blockchain-anchored</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">rPPG via webcam snapshot · Hybrid-encrypted · Blockchain-anchored</div>', unsafe_allow_html=True)
 
     with st.expander("ℹ️ How Does Webcam Heart Rate Detection Work?", expanded=False):
         st.markdown("""
@@ -940,186 +940,257 @@ def render_monitor(user):
 
 **Face Detection:** Haar Cascade locates your face and isolates the **forehead ROI** — the region with the densest superficial vasculature for maximum signal quality.
 
-**CHROM Signal Extraction:** Each frame's R, G, B channels are combined: `Xs = R – G` and `Ys = R/2 + G/2 – B`. These chrominance signals suppress motion artefacts and skin-tone variance.
+**CHROM Signal Extraction:** Each frame's R, G, B channels are combined: `Xs = R – G` and `Ys = R/2 + G/2 – B`. These chrominance signals suppress motion artefacts.
 
 **Bandpass Filtering:** A 4th-order Butterworth filter (0.67–4.0 Hz = 40–240 BPM) removes noise outside the physiological heart rate range.
 
-**FFT Analysis:** Fast Fourier Transform converts the time-domain signal to frequency domain. The dominant peak × 60 = BPM.
+**FFT Analysis:** Fast Fourier Transform converts the time-domain signal to frequency. The dominant peak × 60 = BPM.
 
-**ML Refinement:** Outlier rejection against rolling history + age-ceiling physiological priors.
-
-**Best conditions:** Even bright lighting · Still posture · 30–60 cm from camera · 30+ seconds collection time.
+**On Streamlit Cloud:** Uses `st.camera_input()` for photo capture. Take multiple photos in quick succession (~15 photos over 30 seconds) to build a signal buffer. For continuous live video, run the app locally: `streamlit run app.py`
 
 > ⚠️ Research demonstration tool only. Not a certified medical device.
 """)
 
     st.divider()
-    col_cam, col_stats = st.columns([3,2], gap="large")
-    with col_cam:
-        st.markdown('<div class="cs-card">', unsafe_allow_html=True)
-        st.markdown("### 📷 Camera Feed")
-        camera_placeholder = st.empty()
-        ctrl1,ctrl2,ctrl3 = st.columns(3)
-        with ctrl1: start_btn=st.button("▶ Start",type="primary",use_container_width=True)
-        with ctrl2: stop_btn=st.button("⏹ Stop",type="secondary",use_container_width=True)
-        with ctrl3: save_btn=st.button("💾 Save + Chain",type="secondary",use_container_width=True,disabled=not st.session_state.test_complete)
-        st.markdown("</div>", unsafe_allow_html=True)
 
-        if start_btn:
-            st.session_state.running=True; st.session_state.test_complete=False
-            st.session_state.data_buffer=deque(maxlen=300); st.session_state.times=deque(maxlen=300)
-            st.session_state.bpm_history=[]; log_action(user['id'],"TEST_START","Heart rate test initiated")
+    # ── Mode selector ──────────────────────────────────────────────────────
+    mode = st.radio("Camera Mode", ["📸 Photo Capture (Streamlit Cloud)", "🎥 Continuous (Local only)"],
+                    horizontal=True, key="monitor_mode")
 
-        if stop_btn:
-            st.session_state.running=False
-            if st.session_state.bpm>0: st.session_state.test_complete=True
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    )
 
-        if save_btn and st.session_state.test_complete and st.session_state.last_result:
-            r=st.session_state.last_result
-            # Mine to blockchain
-            bc=st.session_state.blockchain
-            block_data={"bpm":r['bpm'],"category":r['analysis']['category'],"user":user['username'],"timestamp":datetime.now().isoformat()}
-            with st.spinner("⛏️ Mining block to blockchain…"):
-                new_block=bc.add_block(block_data)
-            # Generate node IDs
-            node_ids=",".join([os.urandom(6).hex() for _ in range(3)])
-            rid=save_test_result(user['id'],r['bpm'],list(st.session_state.data_buffer),r['analysis'],new_block.hash,new_block.index,node_ids)
-            if rid:
-                save_blockchain_log(new_block)
-                log_action(user['id'],"RESULT_SAVED",f"BPM={r['bpm']},Block={new_block.index},Hash={new_block.hash[:16]}")
-                st.success(f"✅ Encrypted, blockchain-anchored! Block #{new_block.index} · Hash: `{new_block.hash[:24]}…`")
-            else:
-                st.error("Save failed — check DB permissions")
+    def process_frame(frame_bgr):
+        """Process a cv2 BGR frame through the rPPG pipeline."""
+        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(60, 60))
+        if len(faces) == 0:
+            cv2.putText(frame_bgr, "No face detected", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (232, 72, 85), 2)
+            return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB), 0, []
+
+        face = max(faces, key=lambda f: f[2] * f[3])
+        x, y, w, h = face
+        roi = get_forehead_roi(face, frame_bgr.shape)
+        g, xs, ys = extract_color_signal(frame_bgr, roi)
+
+        if g is not None:
+            st.session_state.data_buffer.append(g)
+            st.session_state.times.append(time.time())
+
+        bpm_raw, sig_filtered = calculate_heart_rate(
+            list(st.session_state.data_buffer),
+            list(st.session_state.times)
+        )
+        bpm = 0
+        if bpm_raw > 0:
+            st.session_state.bpm_history.append(bpm_raw)
+            bpm = ml_refine_bpm(bpm_raw, user.get('age', 0),
+                                user.get('gender', ''), st.session_state.bpm_history)
+
+        # Annotate frame
+        cv2.rectangle(frame_bgr, (x, y), (x + w, y + h), (0, 229, 160), 2)
+        rx, ry, rw, rh = roi
+        cv2.rectangle(frame_bgr, (rx, ry), (rx + rw, ry + rh), (232, 72, 85), 1)
+        cv2.putText(frame_bgr, "ROI", (rx, max(ry - 5, 12)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (232, 72, 85), 1)
+        if bpm > 0:
+            cv2.putText(frame_bgr, f"{bpm} BPM", (x, max(y - 8, 15)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 229, 160), 2)
+        cv2.putText(frame_bgr, f"Samples: {len(st.session_state.data_buffer)}",
+                    (8, frame_bgr.shape[0] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (138, 151, 184), 1)
+        return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB), bpm, sig_filtered
+
+    # ── Layout ─────────────────────────────────────────────────────────────
+    col_cam, col_stats = st.columns([3, 2], gap="large")
 
     with col_stats:
-        bpm_placeholder=st.empty(); status_placeholder=st.empty(); signal_placeholder=st.empty()
+        bpm_placeholder    = st.empty()
+        status_placeholder = st.empty()
+        signal_placeholder = st.empty()
 
-    # Webcam JS component
-    frame_data = components.html("""
-    <!DOCTYPE html><html><head><style>
-    *{margin:0;padding:0;box-sizing:border-box}body{background:#0A0E1A;font-family:'DM Sans',sans-serif}
-    #container{width:100%;position:relative;border-radius:12px;overflow:hidden;background:#0F1628;border:1px solid #253358}
-    video{width:100%;display:block;border-radius:12px;transform:scaleX(-1)}canvas{display:none}
-    #overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;border-radius:12px}
-    #status-bar{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(10,14,26,0.9));padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem}
-    #dot{width:8px;height:8px;border-radius:50%;background:#4A5578;transition:background .3s}
-    #dot.active{background:#E84855;animation:blink 1s ease-in-out infinite}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-    #label{font-size:.72rem;color:#8A97B8;letter-spacing:.08em;text-transform:uppercase}
-    #fps-label{font-size:.68rem;color:#4A5578;margin-left:auto}
-    #placeholder{height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem}
-    #placeholder .icon{font-size:3rem}#placeholder .msg{color:#8A97B8;font-size:.88rem}#placeholder .sub{color:#4A5578;font-size:.72rem}
-    #err{color:#E84855;font-size:.78rem;padding:.8rem;display:none;text-align:center}
-    </style></head><body>
-    <div id="container">
-      <div id="placeholder"><div class="icon">📷</div><div class="msg">Camera inactive</div><div class="sub">Press ▶ Start to begin</div></div>
-      <video id="vid" autoplay playsinline></video><canvas id="cnv"></canvas><svg id="overlay"></svg>
-      <div id="status-bar" style="display:none"><div id="dot"></div><span id="label">Initialising…</span><span id="fps-label">— fps</span></div>
-      <div id="err"></div>
-    </div>
-    <script>
-    let stream=null,capturing=false,frameTimer=null,frameCount=0,lastFpsTime=performance.now(),fps=0;
-    const vid=document.getElementById('vid'),cnv=document.getElementById('cnv'),ctx=cnv.getContext('2d');
-    const dot=document.getElementById('dot'),label=document.getElementById('label');
-    const fpsLbl=document.getElementById('fps-label'),ph=document.getElementById('placeholder');
-    const sb=document.getElementById('status-bar'),errDiv=document.getElementById('err');
-    const svg=document.getElementById('overlay');
-    window.addEventListener('message',(e)=>{if(e.data==='START_CAMERA')startCamera();if(e.data==='STOP_CAMERA')stopCamera();});
-    window.startCamera=startCamera;window.stopCamera=stopCamera;
-    async function startCamera(){try{stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},frameRate:{ideal:30},facingMode:'user'}});vid.srcObject=stream;await vid.play();ph.style.display='none';vid.style.display='block';sb.style.display='flex';dot.classList.add('active');label.textContent='Camera active — capturing';capturing=true;scheduleCapture();}catch(err){showErr('Camera access denied: '+err.message);}}
-    function stopCamera(){capturing=false;if(frameTimer)clearTimeout(frameTimer);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}vid.style.display='none';ph.style.display='flex';sb.style.display='none';dot.classList.remove('active');clearSVG();}
-    function scheduleCapture(){if(!capturing)return;frameTimer=setTimeout(captureFrame,1000/15);}
-    function captureFrame(){if(!capturing||vid.readyState<2){scheduleCapture();return;}if(cnv.width!==vid.videoWidth||cnv.height!==vid.videoHeight){cnv.width=vid.videoWidth;cnv.height=vid.videoHeight;}ctx.save();ctx.translate(cnv.width,0);ctx.scale(-1,1);ctx.drawImage(vid,0,0);ctx.restore();const b64=cnv.toDataURL('image/jpeg',.7).replace('data:image/jpeg;base64,','');frameCount++;const now=performance.now();if(now-lastFpsTime>=1000){fps=frameCount;frameCount=0;lastFpsTime=now;fpsLbl.textContent=fps+' fps → Python';}window.parent.postMessage({type:'CARDIO_FRAME',frame:b64,width:cnv.width,height:cnv.height,ts:now},'*');scheduleCapture();}
-    window.addEventListener('message',(e)=>{if(e.data&&e.data.type==='CARDIO_OVERLAY')drawOverlay(e.data);});
-    function drawOverlay(data){clearSVG();if(!data.face)return;const scaleX=vid.clientWidth/(cnv.width||640);const scaleY=vid.clientHeight/(cnv.height||480);const mirrorX=(x,w)=>vid.clientWidth-(x+w)*scaleX;const[fx,fy,fw,fh]=data.face;addRect(mirrorX(fx,fw),fy*scaleY,fw*scaleX,fh*scaleY,'#00E5A0',2);if(data.roi){const[rx,ry,rw,rh]=data.roi;addRect(mirrorX(rx,rw),ry*scaleY,rw*scaleX,rh*scaleY,'#E84855',1.5);addText(mirrorX(rx,rw),ry*scaleY-4,'ROI','#E84855');}if(data.bpm>0)addText(mirrorX(fx,fw)+4,fy*scaleY+22,data.bpm+' BPM','#00E5A0',14);}
-    function addRect(x,y,w,h,color,sw){const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);r.setAttribute('fill','none');r.setAttribute('stroke',color);r.setAttribute('stroke-width',sw);r.setAttribute('rx',4);svg.appendChild(r);}
-    function addText(x,y,text,color,size=11){const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('fill',color);t.setAttribute('font-size',size);t.setAttribute('font-family','DM Mono,monospace');t.textContent=text;svg.appendChild(t);}
-    function clearSVG(){while(svg.firstChild)svg.removeChild(svg.firstChild);}
-    function showErr(msg){errDiv.style.display='block';errDiv.textContent='⚠️ '+msg;ph.style.display='none';}
-    </script></body></html>""", height=320, key="webcam_component")
+    with col_cam:
+        st.markdown('<div class="cs-card">', unsafe_allow_html=True)
 
-    st.markdown("""<script>
-    (function(){let lastSent=0;const THROTTLE_MS=67;
-    window.addEventListener('message',function(e){if(!e.data||e.data.type!=='CARDIO_FRAME')return;const now=Date.now();if(now-lastSent<THROTTLE_MS)return;lastSent=now;let inp=document.getElementById('_cardio_frame_input');if(!inp){inp=document.createElement('input');inp.type='hidden';inp.id='_cardio_frame_input';document.body.appendChild(inp);}inp.value=e.data.frame+'|'+e.data.width+'|'+e.data.height;window._cardioFrame={b64:e.data.frame,width:e.data.width,height:e.data.height,ts:e.data.ts};});})();
-    </script>""", unsafe_allow_html=True)
+        # ── PHOTO CAPTURE MODE (works on Streamlit Cloud) ──────────────────
+        if "Photo" in mode:
+            st.markdown("### 📸 Photo Capture Mode")
+            st.info("💡 Take 15–20 photos over ~30 seconds while keeping still in good lighting for best accuracy.")
 
-    frame_data2 = components.html("""<script>
-    function sendFrame(){if(window.parent._cardioFrame){const f=window.parent._cardioFrame;window.parent.postMessage({type:'streamlit:setComponentValue',value:f.b64+'||'+f.width+'||'+f.height+'||'+f.ts},'*');window.parent._cardioFrame=null;}setTimeout(sendFrame,70);}sendFrame();
-    </script>""", height=0, key="frame_receiver")
+            cam_photo = st.camera_input("Capture frame for rPPG analysis", key="cam_input_monitor")
 
-    face_cascade=cv2.CascadeClassifier(cv2.data.haarcascades+'haarcascade_frontalface_default.xml')
+            ctrl1, ctrl2, ctrl3 = st.columns(3)
+            with ctrl1:
+                if st.button("🗑 Reset Buffer", type="secondary", use_container_width=True, key="mon_reset"):
+                    st.session_state.data_buffer = deque(maxlen=300)
+                    st.session_state.times = deque(maxlen=300)
+                    st.session_state.bpm_history = []
+                    st.session_state.bpm = 0
+                    st.session_state.last_result = None
+                    st.session_state.test_complete = False
+                    log_action(user['id'], "TEST_RESET", "Buffer cleared")
+                    st.rerun()
+            with ctrl2:
+                st.markdown(f'<div style="text-align:center;font-family:\'DM Mono\';font-size:.8rem;color:var(--text2);padding:.5rem">Buffer: {len(st.session_state.data_buffer)}/150</div>', unsafe_allow_html=True)
+            with ctrl3:
+                save_btn = st.button("💾 Save + Chain", type="primary", use_container_width=True,
+                                     key="mon_save", disabled=not st.session_state.test_complete)
 
-    def process_frame_b64(b64_str):
-        try:
-            img_bytes=base64.b64decode(b64_str); np_arr=np.frombuffer(img_bytes,np.uint8)
-            frame=cv2.imdecode(np_arr,cv2.IMREAD_COLOR)
-            if frame is None: return None,0,[],None,None
-        except: return None,0,[],None,None
-        gray=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-        faces=face_cascade.detectMultiScale(gray,1.1,5,minSize=(80,80))
-        if len(faces)==0:
-            cv2.putText(frame,"No face detected",(10,30),cv2.FONT_HERSHEY_SIMPLEX,.6,(232,72,85),2)
-            return cv2.cvtColor(frame,cv2.COLOR_BGR2RGB),0,[],None,None
-        face=max(faces,key=lambda f:f[2]*f[3])
-        x,y,w,h=face; roi=get_forehead_roi(face,frame.shape)
-        g,xs,ys=extract_color_signal(frame,roi)
-        if g is not None:
-            st.session_state.data_buffer.append(g); st.session_state.times.append(time.time())
-        bpm_raw,sig_filtered=calculate_heart_rate(list(st.session_state.data_buffer),list(st.session_state.times))
-        bpm=0
-        if bpm_raw>0:
-            st.session_state.bpm_history.append(bpm_raw)
-            bpm=ml_refine_bpm(bpm_raw,user.get('age',0),user.get('gender',''),st.session_state.bpm_history)
-        cv2.rectangle(frame,(x,y),(x+w,y+h),(0,229,160),2)
-        rx,ry,rw,rh=roi; cv2.rectangle(frame,(rx,ry),(rx+rw,ry+rh),(232,72,85),1)
-        cv2.putText(frame,"ROI",(rx,ry-5),cv2.FONT_HERSHEY_SIMPLEX,.35,(232,72,85),1)
-        if bpm>0: cv2.putText(frame,f"{bpm} BPM",(x,y-8),cv2.FONT_HERSHEY_SIMPLEX,.65,(0,229,160),2)
-        cv2.putText(frame,f"Samples: {len(st.session_state.data_buffer)}",(8,frame.shape[0]-10),cv2.FONT_HERSHEY_SIMPLEX,.4,(138,151,184),1)
-        return cv2.cvtColor(frame,cv2.COLOR_BGR2RGB),bpm,sig_filtered,(x,y,w,h),(rx,ry,rw,rh)
+            if cam_photo is not None:
+                file_bytes = np.frombuffer(cam_photo.getvalue(), np.uint8)
+                frame_bgr = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+                if frame_bgr is not None:
+                    rgb_frame, bpm_val, sig_filtered = process_frame(frame_bgr)
+                    st.image(rgb_frame, channels="RGB", use_container_width=True,
+                             caption=f"Frame captured · Buffer: {len(st.session_state.data_buffer)} samples")
+                    if bpm_val > 0:
+                        st.session_state.bpm = bpm_val
+                        analysis = analyze_heart_rate(bpm_val)
+                        st.session_state.last_result = {
+                            "bpm": bpm_val, "analysis": analysis, "signal_data": sig_filtered
+                        }
+                        st.session_state.test_complete = True
+                    elif len(st.session_state.data_buffer) < 150:
+                        st.info(f"📊 Collecting signal… {len(st.session_state.data_buffer)}/150 samples. Keep taking photos!")
+                else:
+                    st.error("Could not decode image — try again.")
 
-    if isinstance(frame_data2,str) and '||' in frame_data2:
-        parts=frame_data2.split('||')
-        if len(parts)>=1 and parts[0]:
-            rgb_frame,bpm_val,sig_filtered,face_box,roi_box=process_frame_b64(parts[0])
-            if rgb_frame is not None:
-                camera_placeholder.image(rgb_frame,channels="RGB",use_container_width=True)
-            if bpm_val>0:
-                st.session_state.bpm=bpm_val; analysis=analyze_heart_rate(bpm_val)
-                st.session_state.last_result={"bpm":bpm_val,"analysis":analysis,"signal_data":sig_filtered}
-                if st.session_state.running: st.session_state.test_complete=True
+        # ── CONTINUOUS MODE (local only) ───────────────────────────────────
+        else:
+            st.markdown("### 🎥 Continuous Camera Mode")
+            st.warning("⚠️ Continuous mode requires running locally: `streamlit run app.py`  \nOn Streamlit Cloud, use **Photo Capture** mode instead.")
 
-    bpm_val=st.session_state.bpm; cls=bpm_class(bpm_val); sample_count=len(st.session_state.data_buffer)
-    bpm_placeholder.markdown(f"""<div class="cs-card" style="text-align:center;padding:1.5rem">
-      <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">{'Heart Rate' if st.session_state.running else 'Last Reading'}</div>
+            ctrl1, ctrl2, ctrl3 = st.columns(3)
+            with ctrl1:
+                start_btn = st.button("▶ Start", type="primary", use_container_width=True, key="mon_start")
+            with ctrl2:
+                stop_btn  = st.button("⏹ Stop",  type="secondary", use_container_width=True, key="mon_stop")
+            with ctrl3:
+                save_btn2 = st.button("💾 Save + Chain", type="secondary", use_container_width=True,
+                                      key="mon_save2", disabled=not st.session_state.test_complete)
+
+            camera_placeholder = st.empty()
+
+            if start_btn:
+                st.session_state.running = True
+                st.session_state.test_complete = False
+                st.session_state.data_buffer = deque(maxlen=300)
+                st.session_state.times = deque(maxlen=300)
+                st.session_state.bpm_history = []
+                log_action(user['id'], "TEST_START", "Continuous mode started")
+
+            if stop_btn:
+                st.session_state.running = False
+                if st.session_state.bpm > 0:
+                    st.session_state.test_complete = True
+
+            if st.session_state.running:
+                cap = cv2.VideoCapture(0)
+                if not cap.isOpened():
+                    st.error("❌ Cannot open webcam. Try Photo Capture mode above, or check camera permissions.")
+                    st.session_state.running = False
+                else:
+                    frames_collected = 0
+                    start_time = time.time()
+                    stop_requested = False
+                    while st.session_state.running and frames_collected < 450:
+                        ret, frame_bgr = cap.read()
+                        if not ret:
+                            break
+                        rgb_frame, bpm_val, sig_filtered = process_frame(frame_bgr)
+                        camera_placeholder.image(rgb_frame, channels="RGB", use_container_width=True)
+                        if bpm_val > 0:
+                            st.session_state.bpm = bpm_val
+                            analysis = analyze_heart_rate(bpm_val)
+                            st.session_state.last_result = {
+                                "bpm": bpm_val, "analysis": analysis, "signal_data": sig_filtered
+                            }
+                            st.session_state.test_complete = True
+                        frames_collected += 1
+                        time.sleep(1 / 15)
+                    cap.release()
+                    st.session_state.running = False
+
+            # unified save reference for continuous mode
+            save_btn = save_btn2
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Save + blockchain anchor (shared for both modes) ───────────────────
+    if save_btn and st.session_state.test_complete and st.session_state.last_result:
+        r = st.session_state.last_result
+        bc = st.session_state.blockchain
+        block_data = {
+            "bpm": r['bpm'],
+            "category": r['analysis']['category'],
+            "user": user['username'],
+            "timestamp": datetime.now().isoformat()
+        }
+        with st.spinner("⛏️ Mining block to blockchain…"):
+            new_block = bc.add_block(block_data)
+        node_ids = ",".join([os.urandom(6).hex() for _ in range(3)])
+        rid = save_test_result(
+            user['id'], r['bpm'],
+            list(st.session_state.data_buffer),
+            r['analysis'],
+            new_block.hash, new_block.index, node_ids
+        )
+        if rid:
+            save_blockchain_log(new_block)
+            log_action(user['id'], "RESULT_SAVED",
+                       f"BPM={r['bpm']},Block={new_block.index},Hash={new_block.hash[:16]}")
+            st.success(f"✅ Saved & blockchain-anchored! Block #{new_block.index} · `{new_block.hash[:28]}…`")
+        else:
+            st.error("Save failed — check DB path/permissions.")
+
+    # ── BPM display & signal chart ─────────────────────────────────────────
+    bpm_val = st.session_state.bpm
+    cls = bpm_class(bpm_val)
+    sample_count = len(st.session_state.data_buffer)
+
+    bpm_placeholder.markdown(f"""
+    <div class="cs-card" style="text-align:center;padding:1.5rem">
+      <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">Heart Rate</div>
       <div class="bpm-display {cls}">{bpm_val if bpm_val else '–'}</div>
       <div style="font-size:.85rem;color:var(--text2);margin-top:.3rem">BPM</div>
-      <div style="margin-top:.6rem"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="height:100%;width:{min(sample_count/150*100,100):.0f}%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:2px;transition:width .3s"></div></div>
-      <div style="font-size:.68rem;color:var(--text3);margin-top:3px">{sample_count}/150 samples</div></div>
-    </div>""", unsafe_allow_html=True)
+      <div style="margin-top:.6rem">
+        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:{min(sample_count/150*100,100):.0f}%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:2px;transition:width .3s"></div>
+        </div>
+        <div style="font-size:.68rem;color:var(--text3);margin-top:3px">{sample_count}/150 samples collected</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if st.session_state.last_result:
-        an=st.session_state.last_result['analysis']; bcls=badge_class(an['status'])
-        status_placeholder.markdown(f"""<div class="cs-card">
+        an = st.session_state.last_result['analysis']
+        bcls = badge_class(an['status'])
+        status_placeholder.markdown(f"""
+        <div class="cs-card">
           <div style="margin-bottom:.6rem"><span class="status-badge {bcls}">{an['icon']} {an['category']}</span></div>
           <div style="font-size:.82rem;color:var(--text2)">{an['description']}</div>
           <div style="font-size:.75rem;color:var(--text3);margin-top:.6rem"><b>Recommendations:</b></div>
           {''.join(f"<div style='font-size:.75rem;color:var(--text2);margin-top:3px'>• {x}</div>" for x in an['recommendations'])}
-        </div>""", unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
+
         if st.session_state.data_buffer:
-            buf=list(st.session_state.data_buffer)[-80:]
-            fig=go.Figure(go.Scatter(y=buf,mode='lines',line=dict(color='#E84855',width=1.5),fill='tozeroy',fillcolor='rgba(232,72,85,0.1)'))
-            fig.update_layout(**plotly_dark(),height=130,title=dict(text="Live rPPG Signal",font=dict(size=11)))
-            signal_placeholder.plotly_chart(fig,use_container_width=True,config={'displayModeBar':False},key=f"live_sig_{sample_count}")
+            buf = list(st.session_state.data_buffer)[-80:]
+            fig = go.Figure(go.Scatter(
+                y=buf, mode='lines',
+                line=dict(color='#E84855', width=1.5),
+                fill='tozeroy', fillcolor='rgba(232,72,85,0.1)'
+            ))
+            fig.update_layout(**plotly_dark(), height=130,
+                              title=dict(text="Live rPPG Signal", font=dict(size=11)))
+            signal_placeholder.plotly_chart(
+                fig, use_container_width=True,
+                config={'displayModeBar': False},
+                key=f"live_sig_{sample_count}"
+            )
 
-    if start_btn:
-        st.markdown("""<script>setTimeout(function(){const iframe=document.querySelector('iframe[title="webcam_component"]')||document.querySelector('iframe');if(iframe)iframe.contentWindow.postMessage('START_CAMERA','*');},400);</script>""", unsafe_allow_html=True)
-    if stop_btn:
-        st.markdown("""<script>setTimeout(function(){const iframe=document.querySelector('iframe[title="webcam_component"]')||document.querySelector('iframe');if(iframe)iframe.contentWindow.postMessage('STOP_CAMERA','*');},100);</script>""", unsafe_allow_html=True)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PAGE: MY RESULTS
-# ─────────────────────────────────────────────────────────────────────────────
 def render_results(user):
     st.markdown('<div class="section-header">📊 My Health History</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="section-sub">All readings for {user["full_name"]} · Blockchain-anchored records</div>', unsafe_allow_html=True)
