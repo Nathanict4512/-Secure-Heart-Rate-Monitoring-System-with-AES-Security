@@ -161,7 +161,7 @@ html,body,.stApp,[class*="css"],
   font-family:'DM Sans',sans-serif !important;
   background-color:{bg} !important;
   color:{text} !important;
-  width:80%;
+  width:97%;
   margin:auto;
 }}
 .stApp {{ background:{app_bg} !important; }}
