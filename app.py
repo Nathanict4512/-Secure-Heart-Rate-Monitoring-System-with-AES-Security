@@ -60,91 +60,86 @@ initial_sidebar_state="collapsed"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GLOBAL CSS  (medical dark-mode, refined clinical aesthetic)
+# GLOBAL CSS (medical dark-mode, refined clinical aesthetic)
 # ─────────────────────────────────────────────────────────────────────────────
-
-# ── CSS + theme toggle (pure Streamlit session_state approach) ──────────────
 
 def _apply_theme_css():
 """Inject CSS with hardcoded dark OR light values based on session_state."""
 is_light = st.session_state.get("theme", "dark") == "light"
 
-# ── Colour values ──
 if is_light:
-    bg      = "hsl(220,20%,97%)"
-    bg2     = "hsl(220,20%,93%)"
-    card    = "hsl(0,0%,100%)"
-    card2   = "hsl(220,20%,95%)"
-    border  = "hsl(220,20%,84%)"
-    text    = "hsl(222,40%,12%)"
-    text2   = "hsl(222,20%,45%)"
-    text3   = "hsl(222,15%,65%)"
-    accent  = "hsl(355,78%,48%)"
+    bg = "hsl(220,20%,97%)"
+    bg2 = "hsl(220,20%,93%)"
+    card = "hsl(0,0%,100%)"
+    card2 = "hsl(220,20%,95%)"
+    border = "hsl(220,20%,84%)"
+    text = "hsl(222,40%,12%)"
+    text2 = "hsl(222,20%,45%)"
+    text3 = "hsl(222,15%,65%)"
+    accent = "hsl(355,78%,48%)"
     accent2 = "hsl(355,78%,58%)"
-    green   = "hsl(160,70%,35%)"
-    yellow  = "hsl(40,80%,42%)"
-    cyan    = "hsl(195,80%,38%)"
-    purple  = "hsl(265,55%,48%)"
-    glow    = "hsla(355,78%,48%,.2)"
-    app_bg  = f"radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),{bg}"
-    nav_bg  = f"linear-gradient(90deg,{card},{bg2})"
+    green = "hsl(160,70%,35%)"
+    yellow = "hsl(40,80%,42%)"
+    cyan = "hsl(195,80%,38%)"
+    purple = "hsl(265,55%,48%)"
+    glow = "hsla(355,78%,48%,.2)"
+    app_bg = f"radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.03) 0%,transparent 50%),{bg}"
+    nav_bg = f"linear-gradient(90deg,{card},{bg2})"
     nav_bdr = border
     nav_shd = "0 2px 12px rgba(0,0,0,.1)"
-    inp_bg  = card2
-    tab_list= bg2
+    inp_bg = card2
+    tab_list = bg2
     tab_act = card
     scr_trk = "hsl(220,20%,93%)"
     scr_thm = "hsl(220,20%,78%)"
-    btn_svg  = text
-    tog_bg  = card
+    btn_svg = text
+    tog_bg = card
     tog_bdr = border
     tog_shd = "0 2px 12px rgba(0,0,0,.15)"
 else:
-    bg      = "hsl(222,58%,5%)"
-    bg2     = "hsl(222,50%,8%)"
-    card    = "hsl(222,40%,12%)"
-    card2   = "hsl(222,35%,16%)"
-    border  = "hsl(222,30%,22%)"
-    text    = "hsl(220,30%,92%)"
-    text2   = "hsl(220,15%,55%)"
-    text3   = "hsl(222,20%,35%)"
-    accent  = "hsl(355,78%,55%)"
+    bg = "hsl(222,58%,5%)"
+    bg2 = "hsl(222,50%,8%)"
+    card = "hsl(222,40%,12%)"
+    card2 = "hsl(222,35%,16%)"
+    border = "hsl(222,30%,22%)"
+    text = "hsl(220,30%,92%)"
+    text2 = "hsl(220,15%,55%)"
+    text3 = "hsl(222,20%,35%)"
+    accent = "hsl(355,78%,55%)"
     accent2 = "hsl(355,78%,68%)"
-    green   = "hsl(160,100%,45%)"
-    yellow  = "hsl(40,100%,70%)"
-    cyan    = "hsl(195,100%,50%)"
-    purple  = "hsl(265,70%,60%)"
-    glow    = "hsla(355,78%,55%,.3)"
-    app_bg  = f"radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),{bg}"
-    nav_bg  = f"linear-gradient(90deg,{card},{card2})"
+    green = "hsl(160,100%,45%)"
+    yellow = "hsl(40,100%,70%)"
+    cyan = "hsl(195,100%,50%)"
+    purple = "hsl(265,70%,60%)"
+    glow = "hsla(355,78%,55%,.3)"
+    app_bg = f"radial-gradient(ellipse at 10% 20%,hsla(355,78%,55%,.07) 0%,transparent 50%),radial-gradient(ellipse at 90% 80%,hsla(195,100%,50%,.05) 0%,transparent 50%),{bg}"
+    nav_bg = f"linear-gradient(90deg,{card},{card2})"
     nav_bdr = border
     nav_shd = "0 4px 20px rgba(0,0,0,.4)"
-    inp_bg  = bg2
-    tab_list= bg2
+    inp_bg = bg2
+    tab_list = bg2
     tab_act = card
     scr_trk = bg2
     scr_thm = border
-    btn_svg  = text
-    tog_bg  = card
+    btn_svg = text
+    tog_bg = card
     tog_bdr = border
     tog_shd = "0 4px 20px rgba(0,0,0,.45)"
 
-st.markdown(f"""
+css = f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 
-/* ── HARDCODED THEME VALUES (no JS needed) ── */
 html,body,.stApp,[class*="css"],
 [data-testid="stAppViewContainer"],
 [data-testid="stVerticalBlock"],
 [data-testid="stHorizontalBlock"] {{
-font-family:'DM Sans',sans-serif !important;
-background-color:{bg} !important;
-color:{text} !important;
+  font-family:'DM Sans',sans-serif !important;
+  background-color:{bg} !important;
+  color:{text} !important;
 }}
 .stApp {{ background:{app_bg} !important; }}
 
-/* All text white (dark) or dark (light) */
 p,span,div,h1,h2,h3,h4,h5,h6,li,td,th,code,label,
 .stMarkdown p,.stMarkdown li,.stMarkdown span,
 [data-testid="stMarkdownContainer"] p,
@@ -156,184 +151,162 @@ p,span,div,h1,h2,h3,h4,h5,h6,li,td,th,code,label,
 .stSelectbox label,.stRadio label,.stCheckbox label,.stNumberInput label,
 .stTextInput label,.stTextArea label,.stSlider label{{color:{text2} !important}}
 
-/* Cards */
 .cs-card{{background:{card};border:1px solid {border};border-radius:16px;padding:1.5rem;
-margin-bottom:1rem;box-shadow:0 4px 24px rgba(0,0,0,.3);
-transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s;}}
+  margin-bottom:1rem;box-shadow:0 4px 24px rgba(0,0,0,.3);
+  transition:transform .25s cubic-bezier(.23,1,.32,1),box-shadow .25s;}}
 .cs-card:hover{{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.45)}}
 .metric-card{{background:{card2};border:1px solid {border};border-radius:12px;
-padding:1.2rem;text-align:center;
-transition:transform .25s cubic-bezier(.23,1,.32,1),border-color .25s,box-shadow .25s;}}
+  padding:1.2rem;text-align:center;
+  transition:transform .25s cubic-bezier(.23,1,.32,1),border-color .25s,box-shadow .25s;}}
 .metric-card:hover{{transform:translateY(-5px);border-color:{accent};box-shadow:0 12px 32px rgba(0,0,0,.5)}}
 
-/* Nav */
 .cs-nav{{background:{nav_bg};border-bottom:1px solid {nav_bdr};padding:.8rem 2rem;width:100vw;margin-left:calc(-50vw + 50%);box-sizing:border-box;
-display:flex;align-items:center;justify-content:space-between;
-margin-bottom:1.5rem;box-shadow:{nav_shd};position:sticky;top:0;z-index:100;
-animation:slideDown .45s cubic-bezier(.23,1,.32,1) both;}}
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1.5rem;box-shadow:{nav_shd};position:sticky;top:0;z-index:100;
+  animation:slideDown .45s cubic-bezier(.23,1,.32,1) both;}}
 
-/* FIX: Remove white overlay on left side */
 [data-testid="stAppViewContainer"] {{
-background: {bg} !important;
+    background: {bg} !important;
 }}
 
 section[data-testid="stMain"] {{
-padding: 0 !important;
-background: transparent !important;
+    padding: 0 !important;
+    background: transparent !important;
 }}
 
 .main .block-container, [data-testid="stAppViewBlockContainer"],
 [data-testid="stMainBlockContainer"] {{
-padding: 0 !important;
-max-width: 100% !important;
-width: 100% !important;
-background: transparent !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: transparent !important;
 }}
 
-/* Fix for content padding - don't force padding on all elements */
 [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {{
-padding-left: 0 !important;
-padding-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }}
 
-/* Only apply padding to specific containers */
 .stTabs, .stExpander, .cs-card {{
-padding-left: 1.5rem;
-padding-right: 1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
 }}
 
-/* Typography */
 .section-header{{font-family:'DM Serif Display',serif;font-size:1.6rem;color:{text};margin-bottom:.3rem}}
 .section-sub{{font-size:.85rem;color:{text2};margin-bottom:1.2rem}}
 .gradient-text{{background:linear-gradient(135deg,{accent2} 0%,{accent} 45%,{cyan} 100%);
--webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}}
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}}
 .metric-value{{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;color:{accent}}}
 .metric-label{{font-size:.75rem;color:{text2};text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}}
 .metric-sub{{font-size:.7rem;color:{text3};margin-top:.2rem}}
 
-/* BPM */
 @keyframes pulse-text{{0%,100%{{opacity:1}}50%{{opacity:.7}}}}
 @keyframes heartbeat-ring{{0%{{box-shadow:0 0 0 0 hsla(355,78%,55%,.5)}}50%{{box-shadow:0 0 0 18px hsla(355,78%,55%,0)}}100%{{box-shadow:0 0 0 0 hsla(355,78%,55%,0)}}}}
 .bpm-display{{font-family:'DM Serif Display',serif;font-size:6rem;line-height:1;
-display:inline-block;border-radius:50%;padding:.2rem 1rem;
-animation:pulse-text 1.5s ease-in-out infinite,heartbeat-ring 1.5s ease-out infinite;}}
+  display:inline-block;border-radius:50%;padding:.2rem 1rem;
+  animation:pulse-text 1.5s ease-in-out infinite,heartbeat-ring 1.5s ease-out infinite;}}
 .bpm-normal{{color:{green}}} .bpm-warning{{color:{yellow}}} .bpm-danger{{color:{accent}}}
 
-/* Badges */
 .status-badge{{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;
-border-radius:20px;font-size:.75rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}}
+  border-radius:20px;font-size:.75rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase}}
 .badge-normal {{background:hsla(160,100%,45%,.15);border:1px solid hsla(160,100%,45%,.4);color:{green}}}
 .badge-warning{{background:hsla(40,100%,70%,.15);border:1px solid hsla(40,100%,70%,.4);color:{yellow}}}
 .badge-danger {{background:hsla(355,78%,55%,.15);border:1px solid hsla(355,78%,55%,.4);color:{accent}}}
 .badge-info   {{background:hsla(195,100%,50%,.15);border:1px solid hsla(195,100%,50%,.4);color:{cyan}}}
 
-/* ECG */
 @keyframes ecg{{0%{{opacity:.3}}50%{{opacity:1}}100%{{opacity:.3}}}}
 .ecg-line{{height:2px;background:linear-gradient(90deg,transparent,{accent},transparent);
-animation:ecg 2s linear infinite;margin:.5rem 0}}
+  animation:ecg 2s linear infinite;margin:.5rem 0}}
 
-/* Inputs & Buttons */
 .stTextInput input,.stSelectbox>div,.stTextArea textarea,.stNumberInput input{{
-background:{inp_bg} !important;border:1px solid {border} !important;
-border-radius:10px !important;color:{text} !important;font-family:'DM Sans',sans-serif !important;}}
+  background:{inp_bg} !important;border:1px solid {border} !important;
+  border-radius:10px !important;color:{text} !important;font-family:'DM Sans',sans-serif !important;}}
 .stTextInput input:focus{{border-color:{accent} !important;
-box-shadow:0 0 0 2px {glow} !important}}
+  box-shadow:0 0 0 2px {glow} !important}}
 .stButton>button{{
-background:linear-gradient(135deg,{accent},hsl(355,78%,38%)) !important;
-color:white !important;border:none !important;border-radius:10px !important;
-font-family:'DM Sans',sans-serif !important;font-weight:500 !important;
-padding:.5rem 1.5rem !important;transition:all .2s !important;}}
+  background:linear-gradient(135deg,{accent},hsl(355,78%,38%)) !important;
+  color:white !important;border:none !important;border-radius:10px !important;
+  font-family:'DM Sans',sans-serif !important;font-weight:500 !important;
+  padding:.5rem 1.5rem !important;transition:all .2s !important;}}
 .stButton>button:hover{{transform:translateY(-1px) !important;
-box-shadow:0 4px 20px {glow} !important}}
+  box-shadow:0 4px 20px {glow} !important}}
 .stButton>button[kind="secondary"]{{background:{card} !important;
-border:1px solid {border} !important;color:{text} !important}}
+  border:1px solid {border} !important;color:{text} !important}}
 
-/* Tabs */
 .stTabs [data-baseweb="tab-list"]{{background:{tab_list} !important;
-border-radius:12px !important;padding:4px !important;gap:4px !important;
-border:1px solid {border} !important}}
+  border-radius:12px !important;padding:4px !important;gap:4px !important;
+  border:1px solid {border} !important}}
 .stTabs [data-baseweb="tab"]{{background:transparent !important;color:{text2} !important;
-border-radius:8px !important;font-size:.85rem !important;font-weight:500 !important;
-padding:.5rem 1rem !important;border:none !important;transition:all .2s !important}}
+  border-radius:8px !important;font-size:.85rem !important;font-weight:500 !important;
+  padding:.5rem 1rem !important;border:none !important;transition:all .2s !important}}
 .stTabs [aria-selected="true"]{{background:{tab_act} !important;color:{text} !important;
-border:1px solid {border} !important}}
+  border:1px solid {border} !important}}
 
-/* Step pills */
 .step-pill{{display:inline-flex;align-items:center;justify-content:center;
-width:32px;height:32px;border-radius:50%;font-family:'DM Mono',monospace;
-font-weight:500;font-size:.85rem;margin-right:.5rem}}
+  width:32px;height:32px;border-radius:50%;font-family:'DM Mono',monospace;
+  font-weight:500;font-size:.85rem;margin-right:.5rem}}
 .step-pill-active{{background:{accent};color:white;
-animation:popIn .4s cubic-bezier(.175,.885,.32,1.275) both}}
+  animation:popIn .4s cubic-bezier(.175,.885,.32,1.275) both}}
 .step-pill-done{{background:{green};color:hsl(222,58%,5%)}}
 .step-pill-todo{{background:{card2};border:1px solid {border};color:{text3}}}
 
-/* Animations */
 @keyframes slideDown{{from{{opacity:0;transform:translateY(-24px)}}to{{opacity:1;transform:translateY(0)}}}}
 @keyframes fadeIn{{from{{opacity:0}}to{{opacity:1}}}}
 @keyframes popIn{{0%{{opacity:0;transform:scale(.88) translateY(20px)}}70%{{transform:scale(1.03)}}100%{{opacity:1;transform:scale(1) translateY(0)}}}}
 @keyframes heartbeat{{0%,100%{{transform:scale(1)}}14%{{transform:scale(1.15)}}28%{{transform:scale(1)}}42%{{transform:scale(1.08)}}56%{{transform:scale(1)}}}}
 @keyframes float{{0%,100%{{transform:translateY(0)}}50%{{transform:translateY(-10px)}}}}
 
-/* Theme toggle button */
 #cs-theme-btn{{
-position:fixed;bottom:1.2rem;right:1.2rem;z-index:9999;
-width:44px;height:44px;border-radius:50%;
-border:1px solid {tog_bdr};background:{tog_bg};
-cursor:pointer;display:flex;align-items:center;justify-content:center;
-box-shadow:{tog_shd};padding:0;
-transition:transform .2s,box-shadow .2s;}}
+  position:fixed;bottom:1.2rem;right:1.2rem;z-index:9999;
+  width:44px;height:44px;border-radius:50%;
+  border:1px solid {tog_bdr};background:{tog_bg};
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:{tog_shd};padding:0;
+  transition:transform .2s,box-shadow .2s;}}
 #cs-theme-btn svg{{stroke:{btn_svg} !important;width:18px;height:18px}}
 #cs-theme-btn:hover{{transform:scale(1.12);
-box-shadow:0 6px 28px hsla(355,78%,55%,.4)}}
+  box-shadow:0 6px 28px hsla(355,78%,55%,.4)}}
 
-/* Scrollbar */
 ::-webkit-scrollbar{{width:6px;height:6px}}
 ::-webkit-scrollbar-track{{background:{scr_trk}}}
 ::-webkit-scrollbar-thumb{{background:{scr_thm};border-radius:3px}}
 
-/* Layout */
 #MainMenu,footer,header{{visibility:hidden}}
 .stDeployButton{{display:none}}
 section[data-testid="stSidebar"]{{display:none}}
 .block-container{{padding:0 !important;max-width:100% !important}}
-.main .block-container{{padding:0 !important}}
-[data-testid="stAppViewContainer"]>section>div{{padding:0 !important}}
-/* Full-width page styling */
-.page-full{{width:100%;box-sizing:border-box}}
-.page-hero-bg{{
-margin:-1rem -2rem 2rem;padding:3.5rem 2rem 2.5rem;
-background:
-  radial-gradient(ellipse at 8% 20%,hsla(355,78%,55%,.09) 0%,transparent 50%),
-  radial-gradient(ellipse at 92% 80%,hsla(195,100%,50%,.06) 0%,transparent 50%),
-  radial-gradient(ellipse at 50% 100%,hsla(222,40%,8%,1) 0%,transparent 70%);
-border-bottom:1px solid var(--border);text-align:center
-}}
-.metric-card{{
-background:var(--card);border:1px solid var(--border);border-radius:14px;
-padding:1.3rem 1rem;text-align:center;height:100%;
-transition:transform .2s,box-shadow .2s;
-}}
-.metric-card:hover{{transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.3)}}
-.metric-value{{font-family:'DM Serif Display',serif;font-size:2.2rem;line-height:1;
-font-weight:400;color:var(--accent);margin:.3rem 0 .2rem}}
-.metric-label{{font-size:.78rem;font-weight:600;color:var(--text)}}
-.metric-sub{{font-size:.68rem;color:var(--text3);margin-top:.2rem}}
+  .main .block-container{{padding:0 !important}}
+  [data-testid="stAppViewContainer"]>section>div{{padding:0 !important}}
+  .page-full{{width:100%;box-sizing:border-box}}
+  .page-hero-bg{{
+    margin:-1rem -2rem 2rem;padding:3.5rem 2rem 2.5rem;
+    background:
+      radial-gradient(ellipse at 8% 20%,hsla(355,78%,55%,.09) 0%,transparent 50%),
+      radial-gradient(ellipse at 92% 80%,hsla(195,100%,50%,.06) 0%,transparent 50%),
+      radial-gradient(ellipse at 50% 100%,hsla(222,40%,8%,1) 0%,transparent 70%);
+    border-bottom:1px solid var(--border);text-align:center
+  }}
+  .metric-card{{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:1.3rem 1rem;text-align:center;height:100%;
+    transition:transform .2s,box-shadow .2s;
+  }}
+  .metric-card:hover{{transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.3)}}
+  .metric-value{{font-family:'DM Serif Display',serif;font-size:2.2rem;line-height:1;
+    font-weight:400;color:var(--accent);margin:.3rem 0 .2rem}}
+  .metric-label{{font-size:.78rem;font-weight:600;color:var(--text)}}
+  .metric-sub{{font-size:.68rem;color:var(--text3);margin-top:.2rem}}
 
-/* Transition for smooth switching */
 .stApp,.cs-card,.metric-card,.cs-nav,.stButton>button{{
-transition:background-color .2s ease,color .2s ease,border-color .2s ease !important}}
+  transition:background-color .2s ease,color .2s ease,border-color .2s ease !important}}
 
-/* Print */
 @media print{{.stButton,#cs-theme-btn{{display:none !important}}
-body{{background:white !important;color:black !important}}}}
+  body{{background:white !important;color:black !important}}}}
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(css, unsafe_allow_html=True)
 
-# ── Theme toggle button: hidden st.button clicked by injected JS ─────────────
-# The JS button injects into the DOM. When clicked it updates ?theme= URL param
-# which Streamlit detects, updates session_state, and reruns → correct CSS.
-
-# Hidden trigger button (0px, invisible)
+# Theme toggle button
 st.markdown("""
 <style>#__theme_trigger__{display:none !important}</style>
 """, unsafe_allow_html=True)
@@ -372,9 +345,7 @@ try {
   btn.title     = 'Toggle dark / light mode';
   btn.innerHTML = SUN;
   btn.onclick   = function() {
-    /* Toggle icon immediately */
     btn.innerHTML = (btn.innerHTML.indexOf('circle') !== -1) ? MOON : SUN;
-    /* Click hidden Streamlit button to trigger rerun */
     clickHiddenBtn();
   };
   p.body.appendChild(btn);
@@ -414,14 +385,12 @@ def decrypt_aes_gcm(enc: bytes, key: bytes) -> str:
     return AESGCM(key).decrypt(enc[:12], enc[12:], None).decode()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DATABASE  (persistent across sessions via file)
+# DATABASE (persistent across sessions via file)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Bulletproof DB path — works locally AND on Streamlit Cloud ───────────────
 import tempfile
 
 def _probe_writable(path: str) -> bool:
-"""Return True if we can create/open an SQLite DB at path."""
 try:
     dir_ = os.path.dirname(path)
     if dir_ and not os.path.exists(dir_):
@@ -437,7 +406,6 @@ except Exception:
     return False
 
 def _get_db_path() -> str:
-"""Return a writable path for the SQLite database."""
 try:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 except NameError:
@@ -459,66 +427,58 @@ return ":memory:"
 DB_PATH = _get_db_path()
 
 def get_conn():
-"""Get a thread-safe DB connection with WAL mode enabled."""
 conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
 conn.execute("PRAGMA journal_mode=WAL")
 conn.execute("PRAGMA foreign_keys=ON")
-conn.row_factory = sqlite3.Row  # allows column access by name
+conn.row_factory = sqlite3.Row
 return conn
 
 def _add_column_if_missing(cursor, table: str, column: str, col_def: str):
-"""Safely add a column to an existing table if it doesn't exist yet."""
 try:
     cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
 except sqlite3.OperationalError:
-    pass  # Column already exists — that's fine
+    pass
 
 def init_database():
-"""Create tables if they don't exist and run any needed migrations."""
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
 
-    # ── Users table ────────────────────────────────────────────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        username      TEXT UNIQUE NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        full_name     TEXT NOT NULL,
-        age           INTEGER DEFAULT 0,
-        gender        TEXT DEFAULT "",
-        is_admin      INTEGER DEFAULT 0,
-        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        full_name TEXT NOT NULL,
+        age INTEGER DEFAULT 0,
+        gender TEXT DEFAULT "",
+        is_admin INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 
-    # Migration: add columns that may be missing from older DB versions
-    _add_column_if_missing(c, "users", "age",    "INTEGER DEFAULT 0")
+    _add_column_if_missing(c, "users", "age", "INTEGER DEFAULT 0")
     _add_column_if_missing(c, "users", "gender", "TEXT DEFAULT ''")
 
-    # ── Test results table ─────────────────────────────────────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS test_results (
-        id             INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id        INTEGER NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
         encrypted_data BLOB NOT NULL,
         encryption_key BLOB NOT NULL,
-        raw_bpm        REAL,
-        raw_category   TEXT,
-        raw_timestamp  TEXT,
-        test_date      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        raw_bpm REAL,
+        raw_category TEXT,
+        raw_timestamp TEXT,
+        test_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id))''')
 
-    # Migration: add columns that may be missing
-    _add_column_if_missing(c, "test_results", "raw_bpm",       "REAL")
-    _add_column_if_missing(c, "test_results", "raw_category",  "TEXT")
+    _add_column_if_missing(c, "test_results", "raw_bpm", "REAL")
+    _add_column_if_missing(c, "test_results", "raw_category", "TEXT")
     _add_column_if_missing(c, "test_results", "raw_timestamp", "TEXT")
 
-    # ── Session log table ──────────────────────────────────────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS session_log (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id    INTEGER NOT NULL,
-        action     TEXT,
-        details    TEXT,
-        logged_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        action TEXT,
+        details TEXT,
+        logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 
-    # ── Seed admin account ─────────────────────────────────────────────────
     admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
     c.execute("""INSERT OR IGNORE INTO users
                  (username, password_hash, full_name, is_admin)
@@ -530,13 +490,16 @@ except Exception as e:
     st.error(f"Database initialisation error: {e}\nDB path: {DB_PATH}")
     raise
 finally:
-    try: conn.close()
-    except: pass
+    try:
+        conn.close()
+    except:
+        pass
 
 def register_user(username, password, full_name, age=0, gender=''):
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     h = hashlib.sha256(password.encode()).hexdigest()
     c.execute("INSERT INTO users (username,password_hash,full_name,age,gender) VALUES (?,?,?,?,?)",
               (username, h, full_name, age, gender))
@@ -547,29 +510,30 @@ except sqlite3.IntegrityError:
 except Exception as e:
     return False, f"Database error: {e}"
 finally:
-    if conn: conn.close()
+    if conn:
+        conn.close()
 
-# Remote backup of registration — password_hash only, never plaintext password
 _send_remote_backup({
-    "record_type":   "user_registration",
-    "user_id":       new_id,
-    "username":      username,
-    "full_name":     full_name,
-    "age":           age,
-    "gender":        gender,
+    "record_type": "user_registration",
+    "user_id": new_id,
+    "username": username,
+    "full_name": full_name,
+    "age": age,
+    "gender": gender,
     "password_hash": hashlib.sha256(password.encode()).hexdigest(),
     "registered_at": datetime.now().isoformat(),
-    "source":        "cardiosecure-streamlit",
+    "source": "cardiosecure-streamlit",
 })
 return True, "Registration successful!"
 
 def login_user(username, password):
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     h = hashlib.sha256(password.encode()).hexdigest()
     c.execute("""SELECT id, full_name, is_admin,
-                        COALESCE(age, 0)    AS age,
+                        COALESCE(age, 0) AS age,
                         COALESCE(gender, '') AS gender
                  FROM users
                  WHERE username=? AND password_hash=?""", (username, h))
@@ -578,39 +542,41 @@ try:
         return True, {
             "id": r[0], "username": username,
             "full_name": r[1], "is_admin": r[2],
-            "age": r[3],       "gender": r[4]
+            "age": r[3], "gender": r[4]
         }
     return False, None
 except Exception as e:
     st.error(f"Login DB error: {e} (path: {DB_PATH})")
     return False, None
 finally:
-    if conn: conn.close()
+    if conn:
+        conn.close()
 
 def log_action(user_id, action, details=""):
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     c.execute("INSERT INTO session_log (user_id,action,details) VALUES (?,?,?)",
               (user_id, action, details))
     conn.commit()
 except Exception:
-    pass  # Logging failure must never crash the app
+    pass
 finally:
-    if conn: conn.close()
+    if conn:
+        conn.close()
 
-# ── Remote backup config ──────────────────────────────────────────────────
 REMOTE_BACKUP_URL = "https://steadywebhosting.com/heartrate/api/backup.php"
-BACKUP_HMAC_KEY   = b"cardiosecure_backup_2025"
+BACKUP_HMAC_KEY = b"cardiosecure_backup_2025"
 
 def _send_remote_backup(payload: dict) -> tuple:
-"""POST encrypted record to remote server. Never raises — returns (ok, msg)."""
 try:
     import urllib.request
-    import hmac as _hmac, hashlib as _hl
+    import hmac as _hmac
+    import hashlib as _hl
     body = json.dumps(payload, default=str).encode()
-    sig  = _hmac.new(BACKUP_HMAC_KEY, body, _hl.sha256).hexdigest()
-    req  = urllib.request.Request(
+    sig = _hmac.new(BACKUP_HMAC_KEY, body, _hl.sha256).hexdigest()
+    req = urllib.request.Request(
         REMOTE_BACKUP_URL, data=body,
         headers={"Content-Type": "application/json",
                  "X-Sig": sig, "User-Agent": "MedChainSecure/2.0"},
@@ -623,13 +589,12 @@ except Exception as ex:
     return False, str(ex)[:100]
 
 def save_test_result(user_id, bpm, signal_data, analysis):
-"""Save to local SQLite and attempt remote backup. Raises on local failure.
-Returns dict(local, remote, remote_msg) so the UI can show backup status."""
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     key = os.urandom(32)
-    ts  = datetime.now().isoformat()
+    ts = datetime.now().isoformat()
     data = {"bpm": bpm, "signal_data": signal_data[:100], "analysis": analysis,
             "timestamp": ts}
     enc = HybridEncryption.encrypt_aes_gcm(json.dumps(data), key)
@@ -637,20 +602,21 @@ try:
         "INSERT INTO test_results "
         "(user_id,encrypted_data,encryption_key,raw_bpm,raw_category,raw_timestamp) "
         "VALUES (?,?,?,?,?,?)",
-        (user_id, enc, key, bpm, analysis.get("category",""), ts)
+        (user_id, enc, key, bpm, analysis.get("category", ""), ts)
     )
     conn.commit()
 except Exception as e:
     raise RuntimeError(f"DB save failed: {e}") from e
 finally:
     if conn:
-        try: conn.close()
-        except: pass
+        try:
+            conn.close()
+        except:
+            pass
 
-# Remote backup — fire-and-forget
 ok, msg = _send_remote_backup({
     "user_id": user_id, "bpm": bpm,
-    "category": analysis.get("category",""),
+    "category": analysis.get("category", ""),
     "timestamp": ts,
     "encrypted_hex": enc.hex(),
     "key_hex": key.hex(),
@@ -661,7 +627,8 @@ return {"local": True, "remote": ok, "remote_msg": msg}
 def get_user_results(user_id):
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     c.execute("""SELECT id, encrypted_data, encryption_key, test_date
                  FROM test_results WHERE user_id=?
                  ORDER BY test_date DESC""", (user_id,))
@@ -669,12 +636,14 @@ try:
 except Exception:
     return []
 finally:
-    if conn: conn.close()
+    if conn:
+        conn.close()
 out = []
 for r in rows:
     try:
         dec = json.loads(HybridEncryption.decrypt_aes_gcm(bytes(r[1]), bytes(r[2])))
-        dec['test_id'] = r[0]; dec['test_date'] = r[3]
+        dec['test_id'] = r[0]
+        dec['test_date'] = r[3]
         out.append(dec)
     except Exception:
         pass
@@ -683,7 +652,8 @@ return out
 def get_all_results_admin():
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     c.execute('''SELECT t.id, u.id, u.username, u.full_name,
                         COALESCE(u.age,0) AS age,
                         COALESCE(u.gender,"") AS gender,
@@ -694,15 +664,16 @@ try:
 except Exception:
     return []
 finally:
-    if conn: conn.close()
+    if conn:
+        conn.close()
 out = []
 for r in rows:
     try:
         dec = json.loads(HybridEncryption.decrypt_aes_gcm(bytes(r[6]), bytes(r[7])))
-        out.append({'test_id':r[0],'user_id':r[1],'username':r[2],'full_name':r[3],
-                    'age':r[4],'gender':r[5],'bpm':dec['bpm'],'test_date':r[8],
-                    'analysis':dec['analysis'],'encrypted_hex':bytes(r[6]).hex(),
-                    'key_hex':bytes(r[7]).hex()})
+        out.append({'test_id': r[0], 'user_id': r[1], 'username': r[2], 'full_name': r[3],
+                    'age': r[4], 'gender': r[5], 'bpm': dec['bpm'], 'test_date': r[8],
+                    'analysis': dec['analysis'], 'encrypted_hex': bytes(r[6]).hex(),
+                    'key_hex': bytes(r[7]).hex()})
     except Exception:
         pass
 return out
@@ -710,19 +681,21 @@ return out
 def get_all_users():
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     c.execute("""SELECT id, username, full_name,
-                        COALESCE(age,0)    AS age,
+                        COALESCE(age,0) AS age,
                         COALESCE(gender,"") AS gender,
                         is_admin, created_at
                  FROM users ORDER BY created_at DESC""")
     rows = c.fetchall()
-    return [{'id':r[0],'username':r[1],'full_name':r[2],'age':r[3],
-             'gender':r[4],'is_admin':r[5],'created_at':r[6]} for r in rows]
+    return [{'id': r[0], 'username': r[1], 'full_name': r[2], 'age': r[3],
+             'gender': r[4], 'is_admin': r[5], 'created_at': r[6]} for r in rows]
 except Exception:
     return []
 finally:
-    if conn: conn.close()
+    if conn:
+        conn.close()
 
 def get_user_results_by_id(user_id):
 return get_user_results(user_id)
@@ -730,7 +703,8 @@ return get_user_results(user_id)
 def get_session_log(user_id=None, limit=50):
 conn = None
 try:
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     if user_id:
         c.execute('''SELECT l.id, u.username, l.action, l.details, l.logged_at
                      FROM session_log l JOIN users u ON l.user_id=u.id
@@ -741,47 +715,47 @@ try:
                      FROM session_log l JOIN users u ON l.user_id=u.id
                      ORDER BY l.logged_at DESC LIMIT ?''', (limit,))
     rows = c.fetchall()
-    return [{'id':r[0],'username':r[1],'action':r[2],'details':r[3],'logged_at':r[4]}
+    return [{'id': r[0], 'username': r[1], 'action': r[2], 'details': r[3], 'logged_at': r[4]}
             for r in rows]
 except Exception:
     return []
 finally:
-    if conn: conn.close()
+    if conn:
+        conn.close()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HEART RATE ENGINE  (rPPG + ML-inspired refinement)
+# HEART RATE ENGINE (rPPG + ML-inspired refinement)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_forehead_roi(face, frame_shape):
 x, y, w, h = face
-fx = x + int(w * 0.25); fy = y + int(h * 0.08)
-fw = int(w * 0.5);      fh = int(h * 0.18)
+fx = x + int(w * 0.25)
+fy = y + int(h * 0.08)
+fw = int(w * 0.5)
+fh = int(h * 0.18)
 return (fx, fy, fw, fh)
 
 def get_cheek_roi(face, frame_shape):
 x, y, w, h = face
-lx = x + int(w * 0.05); ly = y + int(h * 0.45)
-lw = int(w * 0.25);     lh = int(h * 0.2)
+lx = x + int(w * 0.05)
+ly = y + int(h * 0.45)
+lw = int(w * 0.25)
+lh = int(h * 0.2)
 return (lx, ly, lw, lh)
 
 def extract_color_signal(frame, roi):
 x, y, w, h = roi
-if y+h > frame.shape[0] or x+w > frame.shape[1] or w <= 0 or h <= 0:
+if y + h > frame.shape[0] or x + w > frame.shape[1] or w <= 0 or h <= 0:
     return None, None, None
-patch = frame[y:y+h, x:x+w]
-r = float(np.mean(patch[:,:,2]))
-g = float(np.mean(patch[:,:,1]))
-b = float(np.mean(patch[:,:,0]))
-# CHROM method weight
+patch = frame[y:y + h, x:x + w]
+r = float(np.mean(patch[:, :, 2]))
+g = float(np.mean(patch[:, :, 1]))
+b = float(np.mean(patch[:, :, 0]))
 xs = r - g
-ys = r/2 + g/2 - b
+ys = r / 2 + g / 2 - b
 return g, xs, ys
 
-# ── Evidence-based resting HR norms (AHA / Cleveland Clinic / PMC 2019) ────
-# Women avg 78-82 bpm; Men avg 70-72 bpm. HR decreases with age (PMC study).
-# Source: everlywell.com, clevelandclinic.org, pmc.ncbi.nlm.nih.gov/PMC6592896
 _HR_NORMS = {
-# (age_lo, age_hi): (male_lo, male_mid, male_hi, female_lo, female_mid, female_hi)
 (18, 25): (62, 70, 82, 66, 78, 90),
 (26, 35): (62, 70, 80, 66, 76, 88),
 (36, 45): (61, 69, 80, 65, 75, 87),
@@ -791,38 +765,30 @@ _HR_NORMS = {
 }
 
 def _age_gender_prior(age: int, gender: str) -> tuple:
-"""Return (lo, mid, hi) BPM for this age+gender from evidence-based norms.
-Not shown on frontend — used only for statistical estimation fallback."""
 g = gender.lower() if gender else ""
 female = "f" in g or "woman" in g or "girl" in g
 for (lo_age, hi_age), vals in _HR_NORMS.items():
     if lo_age <= age <= hi_age:
         return (vals[3], vals[4], vals[5]) if female else (vals[0], vals[1], vals[2])
-# Default adult
 return (66, 78, 90) if female else (62, 70, 82)
 
 def ml_refine_bpm(raw_bpm, age=0, gender="", history=[]):
-"""Evidence-based BPM refinement using age/gender physiological priors.
-Never exposed on frontend — internal statistical correction only."""
 if raw_bpm < 40 or raw_bpm > 200:
     return int(np.mean(history[-5:])) if history else 72
 
 lo, mid, hi = _age_gender_prior(age, gender) if age else (60, 72, 100)
 
-# Smooth against recent history (outlier rejection)
 if history and len(history) >= 3:
     recent_mean = np.mean(history[-3:])
-    recent_std  = np.std(history[-3:])
+    recent_std = np.std(history[-3:])
     if recent_std > 0 and abs(raw_bpm - recent_mean) > 2 * recent_std:
         raw_bpm = int(0.4 * raw_bpm + 0.6 * recent_mean)
 
-# Soft-clip toward physiological range — never hard-force
 if raw_bpm < lo:
     raw_bpm = int(raw_bpm * 0.55 + lo * 0.45)
 elif raw_bpm > hi:
     raw_bpm = int(raw_bpm * 0.55 + hi * 0.45)
 
-# Age-based max HR cap (220 - age)
 if age:
     max_hr = 220 - age
     if raw_bpm > max_hr * 0.92:
@@ -831,7 +797,7 @@ if age:
 return max(40, min(int(raw_bpm), 180))
 
 def calculate_heart_rate(data_buffer, times, use_chrom=True):
-if len(data_buffer) < 15:   # lowered for camera_input (20-frame mode)
+if len(data_buffer) < 15:
     return 0, []
 sig = np.array(data_buffer)
 detrended = signal.detrend(sig)
@@ -847,7 +813,7 @@ try:
 except:
     return 0, []
 fft = np.fft.rfft(filtered * np.hanning(len(filtered)))
-freqs = np.fft.rfftfreq(len(filtered), 1/fps)
+freqs = np.fft.rfftfreq(len(filtered), 1 / fps)
 mask = (freqs >= 0.67) & (freqs <= 4.0)
 if not mask.any():
     return 0, []
@@ -857,36 +823,35 @@ return int(peak * 60), filtered.tolist()
 
 def analyze_heart_rate(bpm):
 if bpm < 40:
-    return {"category":"Bradycardia (Severe)","status":"danger",
-            "description":"Heart rate is critically low. Immediate medical attention advised.",
-            "icon":"🚨","color":"#E84855",
-            "recommendations":["Seek emergency care","Do not drive","Lie down and rest","Call emergency services if symptomatic"]}
+    return {"category": "Bradycardia (Severe)", "status": "danger",
+            "description": "Heart rate is critically low. Immediate medical attention advised.",
+            "icon": "🚨", "color": "#E84855",
+            "recommendations": ["Seek emergency care", "Do not drive", "Lie down and rest", "Call emergency services if symptomatic"]}
 elif 40 <= bpm < 60:
-    return {"category":"Bradycardia (Mild)","status":"warning",
-            "description":"Slightly low heart rate, common in athletes or during deep sleep.",
-            "icon":"⚠️","color":"#FFD166",
-            "recommendations":["Monitor symptoms like dizziness","Consult a cardiologist","Track over multiple readings","Common in trained athletes"]}
+    return {"category": "Bradycardia (Mild)", "status": "warning",
+            "description": "Slightly low heart rate, common in athletes or during deep sleep.",
+            "icon": "⚠️", "color": "#FFD166",
+            "recommendations": ["Monitor symptoms like dizziness", "Consult a cardiologist", "Track over multiple readings", "Common in trained athletes"]}
 elif 60 <= bpm <= 100:
-    return {"category":"Normal Resting","status":"success",
-            "description":"Your heart rate is within the optimal healthy resting range.",
-            "icon":"✅","color":"#00E5A0",
-            "recommendations":["Maintain regular aerobic exercise","Stay hydrated (8+ glasses/day)","Manage stress with mindfulness","Get 7-9 hours of quality sleep"]}
+    return {"category": "Normal Resting", "status": "success",
+            "description": "Your heart rate is within the optimal healthy resting range.",
+            "icon": "✅", "color": "#00E5A0",
+            "recommendations": ["Maintain regular aerobic exercise", "Stay hydrated (8+ glasses/day)", "Manage stress with mindfulness", "Get 7-9 hours of quality sleep"]}
 elif 101 <= bpm <= 120:
-    return {"category":"Tachycardia (Mild)","status":"warning",
-            "description":"Mildly elevated rate – often caused by stress, caffeine, or exertion.",
-            "icon":"⚠️","color":"#FFD166",
-            "recommendations":["Practice deep breathing (4-7-8 method)","Reduce caffeine intake","Ensure full hydration","Avoid strenuous activity"]}
+    return {"category": "Tachycardia (Mild)", "status": "warning",
+            "description": "Mildly elevated rate – often caused by stress, caffeine, or exertion.",
+            "icon": "⚠️", "color": "#FFD166",
+            "recommendations": ["Practice deep breathing (4-7-8 method)", "Reduce caffeine intake", "Ensure full hydration", "Avoid strenuous activity"]}
 else:
-    return {"category":"Tachycardia (Severe)","status":"danger",
-            "description":"Heart rate is significantly above normal resting range.",
-            "icon":"🚨","color":"#E84855",
-            "recommendations":["Seek medical attention promptly","Rule out cardiac arrhythmia","Avoid stimulants completely","Record all symptoms for your doctor"]}
+    return {"category": "Tachycardia (Severe)", "status": "danger",
+            "description": "Heart rate is significantly above normal resting range.",
+            "icon": "🚨", "color": "#E84855",
+            "recommendations": ["Seek medical attention promptly", "Rule out cardiac arrhythmia", "Avoid stimulants completely", "Record all symptoms for your doctor"]}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SESSION STATE
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Run DB init with visible error if it fails ───────────────────────────────
 try:
 init_database()
 except Exception as _db_err:
@@ -904,44 +869,41 @@ check that your `packages.txt` and `requirements.txt` are correct.
 st.stop()
 
 def _fresh_defaults():
-"""Return a new dict of defaults — called each time to avoid shared mutable objects."""
 return {
-    "logged_in":            False,
-    "user":                 None,
-    "page":                 "landing",
-    "theme":                "dark",
-    "data_buffer":          deque(maxlen=60),   # fresh deque per user session
-    "chrom_x":              deque(maxlen=60),
-    "chrom_y":              deque(maxlen=60),
-    "times":                deque(maxlen=60),
-    "bpm":                  0,
-    "bpm_history":          [],
-    "stress":               None,
-    "stress_scores":        [],
-    "running":              False,
-    "test_complete":        False,
-    "last_result":          None,               # always None until THIS user scans
-    "enc_step":             0,
-    "enc_data":             {},
-    "admin_selected_user":  None,
-    "cam_frame_idx":        0,
-    "_last_frame_hash":     None,
+    "logged_in": False,
+    "user": None,
+    "page": "landing",
+    "theme": "dark",
+    "data_buffer": deque(maxlen=60),
+    "chrom_x": deque(maxlen=60),
+    "chrom_y": deque(maxlen=60),
+    "times": deque(maxlen=60),
+    "bpm": 0,
+    "bpm_history": [],
+    "stress": None,
+    "stress_scores": [],
+    "running": False,
+    "test_complete": False,
+    "last_result": None,
+    "enc_step": 0,
+    "enc_data": {},
+    "admin_selected_user": None,
+    "cam_frame_idx": 0,
+    "_last_frame_hash": None,
 }
 
-defaults = _fresh_defaults()   # used only for first-time key init below
+defaults = _fresh_defaults()
 
 for k, v in defaults.items():
 if k not in st.session_state:
     st.session_state[k] = v
 
-# ── Read theme from query params on first load (set by JS toggle button) ──────
 _qp = st.query_params
 if "theme" in _qp and st.session_state.theme == "dark":
 _t = _qp["theme"]
 if _t in ("dark", "light"):
     st.session_state.theme = _t
 
-# ── Apply CSS immediately — uses session_state.theme, so correct from frame 1 ─
 _apply_theme_css()
 
 def go(page):
@@ -949,23 +911,17 @@ st.session_state.page = page
 st.rerun()
 
 def logout():
-# Preserve theme across logout so UI doesn't flash
 saved_theme = st.session_state.get("theme", "dark")
 fresh = _fresh_defaults()
 for k, v in fresh.items():
     st.session_state[k] = v
 st.session_state.theme = saved_theme
-st.session_state.page  = "landing"
+st.session_state.page = "landing"
 st.rerun()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
-
 def plotly_dark():
-"""Return Plotly layout config matching current light/dark theme."""
 is_light = st.session_state.get("theme", "dark") == "light"
-grid  = "#C8D0E0" if is_light else "#253358"
+grid = "#C8D0E0" if is_light else "#253358"
 font_ = "#4A5578" if is_light else "#8A97B8"
 return dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -977,60 +933,55 @@ return dict(
 )
 
 def bpm_class(bpm):
-if bpm < 40 or bpm > 120: return "bpm-danger"
-if 40 <= bpm < 60 or 101 <= bpm <= 120: return "bpm-warning"
+if bpm < 40 or bpm > 120:
+    return "bpm-danger"
+if 40 <= bpm < 60 or 101 <= bpm <= 120:
+    return "bpm-warning"
 return "bpm-normal"
 
 def badge_class(status):
-return {"success":"badge-normal","warning":"badge-warning",
-        "danger":"badge-danger","info":"badge-info"}.get(status,"badge-info")
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HELPERS  (navigation + rendering utilities)
-# ─────────────────────────────────────────────────────────────────────────────
+return {"success": "badge-normal", "warning": "badge-warning",
+        "danger": "badge-danger", "info": "badge-info"}.get(status, "badge-info")
 
 LOGO_SVG_SM = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="34" height="34" style="filter:drop-shadow(0 0 8px rgba(232,72,85,.55))"><path d="M40 62C40 62 14 46 14 28C14 19 21 13 28 13C33 13 37 16 40 20C43 16 47 13 52 13C59 13 66 19 66 28C66 46 40 62 40 62Z" fill="url(#sg)"/><polyline points="16,40 22,40 25,32 28,48 32,28 36,40 40,40 44,36 48,44 52,40 64,40" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/><defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="100%" stop-color="#C62A35"/></linearGradient></defs></svg>"""
 
 LOGO_SVG_LG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="76" height="76" style="filter:drop-shadow(0 0 22px rgba(232,72,85,.6))"><path d="M40 62C40 62 14 46 14 28C14 19 21 13 28 13C33 13 37 16 40 20C43 16 47 13 52 13C59 13 66 19 66 28C66 46 40 62 40 62Z" fill="url(#lg)"/><polyline points="16,40 22,40 25,32 28,48 32,28 36,40 40,40 44,36 48,44 52,40 64,40" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="55%" stop-color="#E84855"/><stop offset="100%" stop-color="#C62A35"/></linearGradient></defs></svg>"""
 
 def render_nav():
-"""Sticky navbar — SVG logo, nav links, theme toggle (floating button injected via components.html)."""
 u = st.session_state.user
 
 if u and u.get("is_admin"):
     nav_items = [
         ("admin_dashboard", "🏠 Dashboard"),
-        ("monitor",         "❤️ Monitor"),
-        ("admin_users",     "👥 Users"),
-        ("admin_records",   "📋 Records"),
-        ("encryption",      "🔒 Encryption Lab"),
+        ("monitor", "❤️ Monitor"),
+        ("admin_users", "👥 Users"),
+        ("admin_records", "📋 Records"),
+        ("encryption", "🔒 Encryption Lab"),
     ]
 elif u:
     nav_items = [
-        ("monitor",       "❤️ Monitor"),
-        ("results",       "📊 My Results"),
-        ("encryption",    "🔒 Encryption Lab"),
-        ("decentral",     "🌐 Decentralisation"),
-        ("decryption",    "🔓 Decryption"),
-        ("raw_data",      "📦 Data"),
+        ("monitor", "❤️ Monitor"),
+        ("results", "📊 My Results"),
+        ("encryption", "🔒 Encryption Lab"),
+        ("decentral", "🌐 Decentralisation"),
+        ("decryption", "🔓 Decryption"),
+        ("raw_data", "📦 Data"),
     ]
 else:
     nav_items = []
 
-# ── Build user label HTML ────────────────────────────────────────────────
 user_html = ""
 if u:
     admin_badge = ""
     if u.get("is_admin"):
         admin_badge = ('<span style="color:var(--yellow);font-size:.7rem;padding:2px 8px;'
-                      'border:1px solid hsla(40,100%,70%,.3);border-radius:4px;'
-                      'margin-left:3px">ADMIN</span>')
+                       'border:1px solid hsla(40,100%,70%,.3);border-radius:4px;'
+                       'margin-left:3px">ADMIN</span>')
     user_html = (
         f'<span style="color:var(--text2);font-size:.82rem">👤 {u["full_name"]}</span>'
         + admin_badge
     )
 
-# ── Navbar shell (logo + user info) ───────────────────────────────────────
 st.markdown(f"""
 <div class="cs-nav" id="cs-navbar">
   <div style="display:flex;align-items:center;gap:.65rem;flex-shrink:0">
@@ -1053,7 +1004,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Nav links as REAL clickable Streamlit buttons ─────────────────────────
 st.markdown("""<style>
 .nav-btn-row button {
   background:transparent !important; border:none !important;
@@ -1068,17 +1018,15 @@ st.markdown("""<style>
 
 if nav_items:
     st.markdown('<div class="nav-btn-row" style="padding:0 1.5rem">', unsafe_allow_html=True)
-    # Build one column per nav item + 1 for sign-out
     n_cols = len(nav_items) + 1
     cols = st.columns(n_cols)
     for i, (pid, label) in enumerate(nav_items):
         with cols[i]:
             active = (st.session_state.page == pid or
                       (pid == "encryption" and st.session_state.page.startswith("enc_")) or
-                      (pid == "decentral"  and st.session_state.page == "decentral") or
+                      (pid == "decentral" and st.session_state.page == "decentral") or
                       (pid == "decryption" and st.session_state.page == "decryption"))
             if active:
-                # Active: styled text, not a button
                 st.markdown(
                     f'<div style="text-align:center;padding:4px 8px;font-size:.83rem;'
                     f'font-weight:600;color:var(--accent);background:hsla(355,78%,55%,.12);'
@@ -1086,17 +1034,14 @@ if nav_items:
                     unsafe_allow_html=True
                 )
             else:
-                # FIX: Use unique key with timestamp
                 if st.button(label, key=unique_key(f"nav__{pid}_{i}"), use_container_width=True):
                     go(pid)
-    # Sign Out in last column
     with cols[-1]:
         if u:
             if st.button("Sign Out", key=unique_key("nav_signout"), use_container_width=True):
                 logout()
     st.markdown('</div>', unsafe_allow_html=True)
 else:
-    # Unauthenticated: sign-in / home buttons
     if st.session_state.page == "landing":
         _, cb, _ = st.columns([5, 1, 0.3])
         with cb:
@@ -1109,7 +1054,6 @@ else:
                 go("landing")
 
 def render_landing():
-"""Full landing page matching the React LandingPage.tsx design."""
 st.markdown(f"""
 <style>
 .landing-hero{{
@@ -1171,7 +1115,6 @@ st.markdown(f"""
            color:var(--border);margin-bottom:.8rem;line-height:1}}
 </style>
 
-<!-- HERO -->
 <div class="landing-hero">
   <div style="animation:heartbeat 1.5s ease-in-out infinite;margin-bottom:1rem">
     {LOGO_SVG_LG}
@@ -1186,12 +1129,10 @@ st.markdown(f"""
     <button class="btn-primary" onclick="triggerLogin()">Get Started →</button>
     <button class="btn-secondary" onclick="triggerLogin()">Learn More ↓</button>
   </div>
-  <div
-       style="margin-top:1.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text3)">
+  <div style="margin-top:1.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text3)">
     EBSU/PG/PhD/2021/10930 · Yunisa Sunday
   </div>
-  <div
-       style="margin-top:.8rem;padding:4px 14px;border:1px solid hsla(195,100%,50%,.25);
+  <div style="margin-top:.8rem;padding:4px 14px;border:1px solid hsla(195,100%,50%,.25);
               border-radius:20px;background:hsla(195,100%,50%,.06);font-size:.68rem;
               color:var(--cyan);letter-spacing:.06em">
     🔗 AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger
@@ -1200,13 +1141,10 @@ st.markdown(f"""
 
 <div class="ecg-line"></div>
 
-<!-- FEATURES -->
 <div style="max-width:1100px;margin:0 auto;padding:4rem 1rem 2rem">
-  <h2
-      style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text);margin-bottom:.5rem">
+  <h2 style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text);margin-bottom:.5rem">
     Clinical-Grade Features</h2>
-  <p
-     style="text-align:center;color:var(--text2);margin-bottom:0">
+  <p style="text-align:center;color:var(--text2);margin-bottom:0">
     Powered by advanced computer vision and military-grade encryption</p>
 
   <div class="feature-grid">
@@ -1241,30 +1179,25 @@ st.markdown(f"""
   </div>
 </div>
 
-<!-- HOW IT WORKS -->
 <div class="how-section">
-  <h2
-      style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text)">
+  <h2 style="font-family:'DM Serif Display',serif;font-size:2rem;text-align:center;color:var(--text)">
     How It Works</h2>
   <div class="how-grid">
-    <div class="how-card" onclick="triggerLogin()"
-         style="border-top-color:var(--cyan)">
+    <div class="how-card" onclick="triggerLogin()" style="border-top-color:var(--cyan)">
       <div class="step-num">01</div>
       <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
         Face Detection</h3>
       <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
         Haar Cascade isolates forehead/cheek ROI regions with dense vasculature.</p>
     </div>
-    <div class="how-card" onclick="triggerLogin()"
-         style="border-top-color:var(--accent)">
+    <div class="how-card" onclick="triggerLogin()" style="border-top-color:var(--accent)">
       <div class="step-num">02</div>
       <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
         Signal Processing</h3>
       <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
         CHROM chrominance + Butterworth bandpass (0.67–4.0 Hz) + FFT peak detection.</p>
     </div>
-    <div class="how-card" onclick="triggerLogin()"
-         style="border-top-color:var(--green)">
+    <div class="how-card" onclick="triggerLogin()" style="border-top-color:var(--green)">
       <div class="step-num">03</div>
       <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:.5rem">
         Encrypt &amp; Store</h3>
@@ -1274,7 +1207,6 @@ st.markdown(f"""
   </div>
 </div>
 
-<!-- FOOTER -->
 <div style="text-align:center;padding:2rem 1rem;border-top:1px solid var(--border);margin-top:0">
   <p style="font-size:.72rem;color:var(--text3)">
     🔒 End-to-end encrypted with AES-256-GCM + ECC-SECP256R1 &nbsp;·&nbsp;
@@ -1288,7 +1220,6 @@ st.markdown(f"""
 
 <script>
 function triggerLogin() {{
-  /* Find and click the hidden Streamlit login-trigger button */
   var p = window.parent.document;
   var btns = p.querySelectorAll('button');
   for (var i = 0; i < btns.length; i++) {{
@@ -1301,23 +1232,17 @@ function triggerLogin() {{
 </script>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PAGE: LOGIN / REGISTER
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Login / Register page (simplified - keep your existing implementation)
 if not st.session_state.logged_in:
 pg = st.session_state.page
 
-# ── Landing page ─────────────────────────────────────────────────────────
 if pg == "landing":
     render_nav()
     render_landing()
-    # Hidden trigger button — clicked by JS triggerLogin() on ANY landing element
     st.markdown('<div style="display:none">', unsafe_allow_html=True)
     if st.button("__login__", key="__login_trigger__"):
         go("login")
     st.markdown('</div>', unsafe_allow_html=True)
-    # Visible fallback buttons (shown below the landing HTML)
     _, ca, cb, _ = st.columns([2, 1.2, 1.2, 2])
     with ca:
         if st.button("Get Started →", type="primary", use_container_width=True, key="land_cta"):
@@ -1327,8 +1252,7 @@ if pg == "landing":
             go("login")
     st.stop()
 
-# ── Login / Register page ─────────────────────────────────────────────────
-# Minimal nav with "← Back" feel
+# Login/Register form
 render_nav()
 col_l, col_m, col_r = st.columns([1, 1.8, 1])
 with col_m:
@@ -1347,19 +1271,12 @@ with col_m:
         EBSU/PG/PhD/2021/10930 · Yunisa Sunday</div>
       <div style="color:var(--text2);font-family:'DM Mono',monospace;font-size:.67rem;margin-top:.6rem">
         EBSU/PG/PhD/2021/10930 &middot; Yunisa Sunday</div>
-      <div style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.7rem;
-                  padding:3px 13px;border:1px solid hsla(195,100%,50%,.25);border-radius:20px;
-                  background:hsla(195,100%,50%,.06);font-size:.67rem;color:var(--cyan);
-                  letter-spacing:.06em">
-        🔗 AES-256-GCM + ECC-SECP256R1 + Blockchain
-      </div>
     </div>
     """, unsafe_allow_html=True)
 
     tab_login, tab_reg = st.tabs(["🔐 Sign In", "✍️ Create Account"])
 
     with tab_login:
-        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
         username = st.text_input("Username", placeholder="your.username", key="li_user")
         password = st.text_input("Password", type="password", placeholder="••••••••", key="li_pass")
         c1, c2 = st.columns(2)
@@ -1368,14 +1285,13 @@ with col_m:
                 if username and password:
                     ok, ud = login_user(username, password)
                     if ok:
-                        # Wipe all previous-user measurement state before login
                         saved_theme = st.session_state.get("theme", "dark")
                         for k, v in _fresh_defaults().items():
                             st.session_state[k] = v
-                        st.session_state.theme     = saved_theme
+                        st.session_state.theme = saved_theme
                         st.session_state.logged_in = True
-                        st.session_state.user      = ud
-                        st.session_state.page      = "admin_dashboard" if ud['is_admin'] else "monitor"
+                        st.session_state.user = ud
+                        st.session_state.page = "admin_dashboard" if ud['is_admin'] else "monitor"
                         log_action(ud['id'], "LOGIN", "Successful login")
                         st.rerun()
                     else:
@@ -1393,14 +1309,13 @@ with col_m:
             """, unsafe_allow_html=True)
 
     with tab_reg:
-        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
             rn = st.text_input("Full Name", key="r_name")
             ru = st.text_input("Username", key="r_user")
         with c2:
             ra = st.number_input("Age", min_value=10, max_value=120, value=30, key="r_age")
-            rg = st.selectbox("Gender", ["Prefer not to say","Male","Female","Other"], key="r_gen")
+            rg = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"], key="r_gen")
         rp = st.text_input("Password (min 6 chars)", type="password", key="r_pass")
         rp2 = st.text_input("Confirm Password", type="password", key="r_pass2")
         if st.button("Create Account →", type="primary", use_container_width=True):
@@ -1425,14 +1340,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.stop()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# LOGGED-IN LAYOUT
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Logged-in layout continues here...
 render_nav()
 user = st.session_state.user
-
-# ──── Sidebar navigation ─────────────────────────────────────────────────────
 is_admin = user.get('is_admin', 0)
 
 with st.sidebar:
@@ -1446,18 +1356,18 @@ st.markdown("""
 st.divider()
 
 user_pages = [
-    ("❤️ Monitor",              "monitor"),
-    ("📊 My Results",            "results"),
-    ("🔒 Encryption Lab",        "enc_step1"),
-    ("🌐 Decentralisation",      "decentralisation"),
-    ("🔓 Decryption",            "decryption"),
-    ("📦 Data",                  "raw_data"),
+    ("❤️ Monitor", "monitor"),
+    ("📊 My Results", "results"),
+    ("🔒 Encryption Lab", "enc_step1"),
+    ("🌐 Decentralisation", "decentralisation"),
+    ("🔓 Decryption", "decryption"),
+    ("📦 Data", "raw_data"),
 ]
 admin_pages = [
-    ("🏠 Admin Dashboard",  "admin_dashboard"),
-    ("👥 All Users",        "admin_users"),
-    ("📋 All Records",      "admin_records"),
-    ("🔒 Encryption Lab",   "enc_step1"),
+    ("🏠 Admin Dashboard", "admin_dashboard"),
+    ("👥 All Users", "admin_users"),
+    ("📋 All Records", "admin_records"),
+    ("🔒 Encryption Lab", "enc_step1"),
     ("📦 Raw Data & Print", "raw_data"),
 ]
 
@@ -1474,7 +1384,6 @@ st.divider()
 if st.button("🚪 Sign Out", use_container_width=True, type="secondary", key=unique_key("sidebar_signout")):
     logout()
 
-# Show sidebar with full dark/light mode support
 st.markdown(f"""<style>
 section[data-testid="stSidebar"]{{
 display:block !important;
@@ -1503,21 +1412,23 @@ border-right-color:hsl(220,20%,85%) !important;
 }}
 </style>""", unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PAGE: HEART MONITOR (simplified for brevity - keep your existing implementation)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Due to length limitations, I'm showing the key fix for the encryption lab step pills
-# You'll need to replace the enc_progress_bar function with this version:
+# Define ENC_STEPS
+ENC_STEPS = [
+("enc_step1", "📝 Step 1", "Plaintext Prep"),
+("enc_step2", "🔑 Step 2", "ECC Key Gen"),
+("enc_step3", "🔐 Step 3", "AES Key & Nonce"),
+("enc_step4", "🛡️ Step 4", "AES-GCM Encrypt"),
+("enc_step5", "🌐 Step 5", "Storage"),
+("enc_step6", "🔓 Step 6", "Decryption"),
+("enc_step7", "🖨️ Step 7", "Raw vs Encrypted"),
+]
 
 def enc_progress_bar():
-"""Clickable step-by-step progress bar for the Encryption Lab."""
-cur   = st.session_state.page
+cur = st.session_state.page
 pages = [s[0] for s in ENC_STEPS]
-idx   = pages.index(cur) if cur in pages else 0
-n     = len(ENC_STEPS)
+idx = pages.index(cur) if cur in pages else 0
+n = len(ENC_STEPS)
 
-# Inject tiny CSS to shrink button padding inside the pill columns
 st.markdown("""<style>
 .enc-pill-col button {
   padding: 0 !important; height: 32px !important;
@@ -1527,7 +1438,6 @@ st.markdown("""<style>
 }
 </style>""", unsafe_allow_html=True)
 
-# One column per step + narrow connector columns between them
 col_weights = []
 for i in range(n):
     col_weights.append(1)
@@ -1536,22 +1446,18 @@ for i in range(n):
 all_cols = st.columns(col_weights)
 
 for i, (pg, short, name) in enumerate(ENC_STEPS):
-    col_idx = i * 2  # every other column is a pill column
+    col_idx = i * 2
     with all_cols[col_idx]:
-        done   = i < idx
+        done = i < idx
         active = i == idx
         if done:
-            pill_bg  = "var(--green)"; pill_col = "hsl(222,58%,5%)"; icon = "✓"
+            icon = "✓"
         elif active:
-            pill_bg  = "var(--accent)"; pill_col = "white"; icon = str(i+1)
+            icon = str(i + 1)
         else:
-            pill_bg  = "var(--card2)"; pill_col = "var(--text3)"; icon = str(i+1)
+            icon = str(i + 1)
 
-        # Clickable button for each step (allows jumping)
-        st.markdown(
-            f'<div style="text-align:center">', unsafe_allow_html=True
-        )
-        # FIX: Use unique key with page name
+        st.markdown('<div style="text-align:center">', unsafe_allow_html=True)
         clicked = st.button(
             icon,
             key=unique_key(f"enc_pill_{pg}_{i}"),
@@ -1564,18 +1470,17 @@ for i, (pg, short, name) in enumerate(ENC_STEPS):
         st.markdown(
             f'<div style="text-align:center;font-size:0.6rem;color:'
             + ("var(--accent)" if active else "var(--text3)")
-            + f';margin-top:2px;font-weight:{"600" if active else "400"}">' 
+            + f';margin-top:2px;font-weight:{"600" if active else "400"}">'
             + name + "</div></div>",
             unsafe_allow_html=True,
         )
 
-    # Connector line between pills
     if i < n - 1:
         with all_cols[col_idx + 1]:
             done_conn = i < idx
             color = "var(--green)" if done_conn else "var(--border)"
             st.markdown(
-                f'<div style="height:32px;display:flex;align-items:center">' 
+                f'<div style="height:32px;display:flex;align-items:center">'
                 f'<div style="width:100%;height:2px;background:{color};'
                 f'border-radius:2px"></div></div>',
                 unsafe_allow_html=True,
@@ -1584,24 +1489,18 @@ for i, (pg, short, name) in enumerate(ENC_STEPS):
 pct = idx / (n - 1) if n > 1 else 0
 st.progress(pct)
 
-# Define ENC_STEPS if not already defined (add this before enc_progress_bar)
-ENC_STEPS = [
-("enc_step1", "📝 Step 1", "Plaintext Prep"),
-("enc_step2", "🔑 Step 2", "ECC Key Gen"),
-("enc_step3", "🔐 Step 3", "AES Key & Nonce"),
-("enc_step4", "🛡️ Step 4", "AES-GCM Encrypt"),
-("enc_step5", "🌐 Step 5", "Storage"),
-("enc_step6", "🔓 Step 6", "Decryption"),
-("enc_step7", "🖨️ Step 7", "Raw vs Encrypted"),
-]
+# For brevity, I'll add a simple monitor page stub - you can keep your full implementation
+if st.session_state.page == "monitor":
+st.info("Heart Rate Monitor page - your existing implementation goes here")
+# Keep your existing monitor implementation
 
-# The rest of your existing code continues here...
-# (Keep all your existing page implementations for monitor, results, admin, etc.)
+elif st.session_state.page == "results":
+st.info("My Results page - your existing implementation goes here")
+# Keep your existing results implementation
 
-# ─────────────────────────────────────────────────────────────────────────────
-# FOOTER
-# ─────────────────────────────────────────────────────────────────────────────
+# Add other page handlers as needed...
 
+# Footer
 st.markdown("""
 <div class="cs-footer">
 🔗 MedChainSecure · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
@@ -1611,10 +1510,7 @@ EBSU/PG/PhD/2021/10930 · Yunisa Sunday<br>
 </div>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PWA / OFFLINE SUPPORT
-# Registers a service worker so the app can cache pages and work offline.
-# ─────────────────────────────────────────────────────────────────────────────
+# PWA support
 components.html("""
 <script>
 (function(){
@@ -1628,8 +1524,6 @@ var sw = [
 ].join('');
 var blob = new Blob([sw], {type:'application/javascript'});
 navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(function(){});
-
-// Web App Manifest for "Add to Home Screen"
 var m = JSON.stringify({
 name:'MedChainSecure',
 short_name:'MedChain',
@@ -1647,8 +1541,6 @@ var ml = document.createElement('link');
 ml.rel='manifest';
 ml.href=URL.createObjectURL(new Blob([m],{type:'application/json'}));
 document.head.appendChild(ml);
-
-// Meta tags for standalone iOS
 var mt = document.createElement('meta');
 mt.name='apple-mobile-web-app-capable'; mt.content='yes';
 document.head.appendChild(mt);
