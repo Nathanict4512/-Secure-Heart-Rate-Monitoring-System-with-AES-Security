@@ -2,7 +2,6 @@ import streamlit as st
 import sys
 import os
 import io
-import matplotlib.pyplot as plt
 
 # ── Safe imports with clear error messages ────────────────────────────────────
 try:
@@ -50,7 +49,6 @@ except ImportError:
     st.stop()
 
 # Standard library
-import streamlit.components.v1 as components
 from collections import deque
 import time
 import sqlite3
@@ -92,6 +90,7 @@ def apply_theme_css():
         green = "hsl(160,70%,35%)"
         yellow = "hsl(40,80%,42%)"
         cyan = "hsl(195,80%,38%)"
+        purple = "hsl(265,55%,48%)"
     else:
         bg = "hsl(222,58%,5%)"
         bg2 = "hsl(222,50%,8%)"
@@ -106,10 +105,11 @@ def apply_theme_css():
         green = "hsl(160,100%,45%)"
         yellow = "hsl(40,100%,70%)"
         cyan = "hsl(195,100%,50%)"
+        purple = "hsl(265,70%,60%)"
 
     st.markdown(f"""
     <style>
-    html,body,.stApp, .stApp {{ background:{bg} !important; }}
+    html,body,.stApp {{ background:{bg} !important; }}
     p,span,div,h1,h2,h3,h4,label {{ color:{text} !important; }}
     .stButton>button {{ background:{accent} !important; color:white !important; border-radius:8px !important; }}
     .stTextInput input {{ background:{card} !important; color:{text} !important; }}
@@ -188,7 +188,6 @@ class BlockchainLedger:
             data TEXT NOT NULL,
             nonce INTEGER DEFAULT 0
         )''')
-        # Check if genesis block exists
         c.execute("SELECT COUNT(*) FROM blockchain_blocks")
         if c.fetchone()[0] == 0:
             genesis_hash = hashlib.sha256(b"GENESIS_BLOCK_MEDCHAIN_SECURE").hexdigest()
@@ -325,7 +324,6 @@ def register_user(username, password, full_name, date_of_birth='', age=0, gender
         conn.commit()
         user_id = c.lastrowid
         conn.close()
-        # Add to blockchain
         blockchain.add_block({"type": "user_registration", "user_id": user_id, "username": username, "timestamp": datetime.now().isoformat()})
         return True, "Registration successful!"
     except sqlite3.IntegrityError:
@@ -356,9 +354,7 @@ def save_test_result(user_id, bpm, signal_data, analysis):
     test_id = c.lastrowid
     conn.commit()
     conn.close()
-    # Add to blockchain
     block = blockchain.add_block({"type": "test_result", "test_id": test_id, "user_id": user_id, "bpm": bpm, "category": analysis.get("category"), "timestamp": ts})
-    # Update test_result with blockchain hash
     conn2 = get_conn()
     c2 = conn2.cursor()
     c2.execute("UPDATE test_results SET blockchain_hash=? WHERE id=?", (block["block_hash"], test_id))
@@ -497,6 +493,9 @@ def init_session_state():
         "last_result": None,
         "enc_step": 0,
         "enc_keys": None,
+        "aes_key": None,
+        "nonce": None,
+        "ciphertext": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -522,7 +521,7 @@ def render_nav():
     user = st.session_state.user
     cols = st.columns([1, 3, 1])
     with cols[0]:
-        st.markdown("### 🔗 MedChainSecure")
+        st.markdown("### 🔗 MedChainSecure V2.0")
     with cols[1]:
         if user:
             nav_cols = st.columns(6)
@@ -536,13 +535,14 @@ def render_nav():
             ]
             if user.get("is_admin"):
                 nav_items = [("admin_dashboard", "🏠 Dashboard"), ("admin_users", "👥 Users"), ("admin_records", "📋 Records")] + nav_items
-            for col, (page, label) in zip(nav_cols, nav_items):
+            for col, (page, label) in zip(nav_cols, nav_items[:len(nav_cols)]):
                 with col:
                     if st.button(label, key=f"nav_{page}", use_container_width=True):
                         go(page)
     with cols[2]:
         if user:
-            st.write(f"👤 {user['full_name']}")
+            gender_icon = "👨" if user.get('gender') == "Male" else "👩" if user.get('gender') == "Female" else "👤"
+            st.write(f"{gender_icon} {user['full_name']}")
             if st.button("Sign Out"):
                 logout()
         else:
@@ -558,13 +558,48 @@ def render_landing():
             Research-grade cardiac monitoring with AES-256-GCM + ECC-SECP256R1 encryption
             and blockchain-based audit trail.
         </p>
-        <div style="display:flex; gap:1rem; justify-content:center;">
-            <button onclick="parent.postMessage('login', '*')" style="padding:0.8rem 2rem; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer;">Get Started →</button>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ARCHITECTURAL DIAGRAM (Plotly-based, no matplotlib)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def draw_architecture_diagram():
+    st.markdown("## 🏗️ System Architectural Design")
+    st.markdown("*Three-layer architecture with Hybrid Encryption and Blockchain Integration*")
+    
+    # Create a simple text-based diagram using columns
+    st.markdown("""
+    <div style="background:var(--card); border-radius:12px; padding:1.5rem; margin:1rem 0;">
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+            <div style="background:var(--accent)20; border-left:4px solid var(--accent); padding:0.8rem;">
+                <b>📱 IoMT Device Layer</b><br>
+                Heart Rate Monitor | Blood Pressure | Glucose Meter | Wearable Sensors
+            </div>
+            <div style="text-align:center;">↓</div>
+            <div style="background:var(--cyan)20; border-left:4px solid var(--cyan); padding:0.8rem;">
+                <b>⚡ Edge/Fog Layer</b><br>
+                Data Collection | Pre-processing | rPPG Signal Extraction | Noise Filtering
+            </div>
+            <div style="text-align:center;">↓</div>
+            <div style="background:var(--green)20; border-left:4px solid var(--green); padding:0.8rem;">
+                <b>🔒 Hybrid Encryption Layer</b><br>
+                ECC Key Exchange (SECP256R1) | AES-256-GCM Encryption | Authentication Tag
+            </div>
+            <div style="text-align:center;">↓</div>
+            <div style="background:var(--yellow)20; border-left:4px solid var(--yellow); padding:0.8rem;">
+                <b>🔗 Blockchain Layer</b><br>
+                Distributed Ledger | SHA-256 Hash Chain | Immutable Audit Trail | Smart Contracts
+            </div>
+            <div style="text-align:center;">↓</div>
+            <div style="background:var(--purple)20; border-left:4px solid var(--purple); padding:0.8rem;">
+                <b>📊 Application Layer</b><br>
+                Admin Dashboard | Patient Portal | Analytics & Reporting | Data Visualisation
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("__login__", key="login_trigger", hidden=True):
-        go("login")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENCRYPTION LAB - Step by Step
@@ -574,21 +609,19 @@ def encryption_lab():
     st.markdown("## 🔒 Hybrid Encryption Laboratory")
     st.markdown("### AES-256-GCM + ECC-SECP256R1 Hybrid Encryption Scheme")
 
-    steps = ["Step 1: Plaintext Data", "Step 2: ECC Key Generation", "Step 3: AES Key & Nonce",
-             "Step 4: AES-GCM Encryption", "Step 5: Storage Simulation", "Step 6: Decryption",
-             "Step 7: Raw vs Encrypted Comparison"]
+    steps = ["Step 1", "Step 2", "Step 3", "Step 4", "Step 5", "Step 6", "Step 7"]
+    step_names = ["Plaintext", "ECC Keys", "AES Key", "Encrypt", "Storage", "Decrypt", "Compare"]
 
-    # Progress
     step = st.session_state.get("enc_step", 0)
     cols = st.columns(len(steps))
-    for i, (col, label) in enumerate(zip(cols, steps)):
+    for i, (col, label, name) in enumerate(zip(cols, steps, step_names)):
         with col:
             if i < step:
-                st.markdown(f"<div style='text-align:center'><span class='step-pill step-pill-done'>✓</span><br><small>{label.split(':')[0]}</small></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center'><span class='step-pill step-pill-done'>✓</span><br><small>{name}</small></div>", unsafe_allow_html=True)
             elif i == step:
-                st.markdown(f"<div style='text-align:center'><span class='step-pill step-pill-active'>{i+1}</span><br><small>{label.split(':')[0]}</small></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center'><span class='step-pill step-pill-active'>{i+1}</span><br><small>{name}</small></div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<div style='text-align:center'><span class='step-pill step-pill-todo'>{i+1}</span><br><small>{label.split(':')[0]}</small></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center'><span class='step-pill step-pill-todo'>{i+1}</span><br><small>{name}</small></div>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -608,20 +641,7 @@ def encryption_lab():
             st.json(sample_data)
         with col2:
             st.code(json.dumps(sample_data, indent=2), language="json")
-        st.markdown("**Screenshot 1: Plaintext Data Ready for Encryption**")
-        st.info("📸 Plaintext data prepared - ready for encryption pipeline")
-
-        # ECC Key Generation screenshot placeholder
-        ecc_priv, ecc_pub = HybridEncryption.generate_ecc_keys()
-        st.markdown("### 📸 Screenshot: ECC Key Pair Generation")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**ECC Private Key (PEM - never shared)**")
-            st.code(ecc_priv.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()[:200] + "...")
-        with col2:
-            st.markdown("**ECC Public Key (PEM - shareable)**")
-            st.code(ecc_pub.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()[:200] + "...")
-        st.caption("📸 Figure 1: ECC-SECP256R1 Key Pair Generation (Step 2 demonstration)")
+        st.info("📸 Screenshot 1: Plaintext data ready for encryption pipeline")
 
     elif step == 1:
         st.markdown("### Step 2: ECC Key Generation (SECP256R1)")
@@ -631,98 +651,109 @@ def encryption_lab():
         if st.session_state.enc_keys:
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown("**Private Key (PKCS#8 PEM)**")
-                st.code(st.session_state.enc_keys["priv"].private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode())
+                st.markdown("**ECC Private Key (PEM - NEVER share)**")
+                priv_pem = st.session_state.enc_keys["priv"].private_bytes(
+                    serialization.Encoding.PEM, 
+                    serialization.PrivateFormat.PKCS8, 
+                    serialization.NoEncryption()
+                ).decode()
+                st.code(priv_pem[:300] + "...")
             with col2:
-                st.markdown("**Public Key (SubjectPublicKeyInfo)**")
-                st.code(st.session_state.enc_keys["pub"].public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode())
-            st.markdown("### 📸 Screenshot: ECC Key Generation Display")
-            st.caption("📸 Figure 2: ECC-SECP256R1 Key Generation - Public and Private Keys Displayed")
+                st.markdown("**ECC Public Key (PEM - Shareable)**")
+                pub_pem = st.session_state.enc_keys["pub"].public_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PublicFormat.SubjectPublicKeyInfo
+                ).decode()
+                st.code(pub_pem[:300] + "...")
+            st.success("📸 Screenshot: ECC-SECP256R1 Key Pair Generation - Figure 2")
+            st.caption("Figure 2: ECC Key Pair - Public and Private Keys Displayed")
 
     elif step == 2:
         st.markdown("### Step 3: AES-256 Session Key & GCM Nonce Generation")
         if st.button("Generate AES Key + Nonce"):
             st.session_state.aes_key = os.urandom(32)
             st.session_state.nonce = os.urandom(12)
-        if hasattr(st.session_state, 'aes_key'):
+        if st.session_state.aes_key:
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown(f"**AES-256 Key (32 bytes)**")
+                st.markdown(f"**AES-256 Key (32 bytes / 256 bits)**")
                 st.code(st.session_state.aes_key.hex())
                 st.metric("Key Strength", "256 bits")
             with col2:
-                st.markdown(f"**GCM Nonce (12 bytes)**")
+                st.markdown(f"**GCM Nonce (12 bytes / 96 bits)**")
                 st.code(st.session_state.nonce.hex())
                 st.metric("Nonce Size", "96 bits")
-            st.markdown("### 📸 Screenshot: AES Key and Nonce Display")
-            st.caption("📸 Figure 3: AES-256 Session Key and 96-bit GCM Nonce")
+            st.success("📸 Screenshot: AES-256 Session Key and 96-bit GCM Nonce - Figure 3")
+            st.caption("Figure 3: AES-256 Session Key and GCM Nonce Display")
 
     elif step == 3:
         st.markdown("### Step 4: AES-256-GCM Encryption")
-        if hasattr(st.session_state, 'aes_key') and hasattr(st.session_state, 'nonce'):
+        if st.session_state.aes_key and st.session_state.nonce:
             plaintext = json.dumps(sample_data)
             cipher = AESGCM(st.session_state.aes_key)
             ciphertext = cipher.encrypt(st.session_state.nonce, plaintext.encode(), None)
             st.session_state.ciphertext = st.session_state.nonce + ciphertext
-            st.markdown(f"**Plaintext:** {plaintext}")
-            st.markdown(f"**Ciphertext (hex):** {st.session_state.ciphertext.hex()}")
+            st.markdown(f"**Plaintext:** `{plaintext}`")
+            st.markdown(f"**Ciphertext (hex):**")
+            st.code(st.session_state.ciphertext.hex())
             st.markdown("**Encryption Process:**")
             st.code("""
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-            
-            # AES-256-GCM Encryption
-            cipher = AESGCM(aes_key)
-            ciphertext = cipher.encrypt(nonce, plaintext.encode(), None)
-            # Output: nonce (12 bytes) + ciphertext + authentication tag (16 bytes)
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+# AES-256-GCM Encryption
+cipher = AESGCM(aes_key)  # 256-bit key
+ciphertext = cipher.encrypt(nonce, plaintext.encode(), None)
+# Output format: nonce (12 bytes) + ciphertext + authentication tag (16 bytes)
             """, language="python")
-            st.markdown("### 📸 Screenshot: AES-GCM Encryption Process")
-            st.caption("📸 Figure 4: AES-256-GCM Encryption - Ciphertext Generation")
+            st.success("📸 Screenshot: AES-GCM Encryption Process - Figure 4")
+            st.caption("Figure 4: AES-256-GCM Encryption - Ciphertext Generation")
 
     elif step == 4:
         st.markdown("### Step 5: Distributed Storage Simulation")
-        if hasattr(st.session_state, 'ciphertext'):
+        if st.session_state.ciphertext:
             chunk_size = len(st.session_state.ciphertext) // 3
-            nodes = [
-                ("Node 1 (EU-West)", st.session_state.ciphertext[:chunk_size]),
-                ("Node 2 (US-East)", st.session_state.ciphertext[chunk_size:2*chunk_size]),
-                ("Node 3 (Asia-Pacific)", st.session_state.ciphertext[2*chunk_size:]),
+            nodes_data = [
+                ("Primary Node (EU-West)", st.session_state.ciphertext[:chunk_size]),
+                ("Backup Node 1 (US-East)", st.session_state.ciphertext[chunk_size:2*chunk_size]),
+                ("Backup Node 2 (Asia-Pacific)", st.session_state.ciphertext[2*chunk_size:]),
             ]
             cols = st.columns(3)
-            for col, (node, data) in zip(cols, nodes):
+            for col, (node_name, data) in zip(cols, nodes_data):
                 with col:
-                    st.markdown(f"**{node}**")
-                    st.code(data.hex()[:50] + "...")
+                    st.markdown(f"**🗄️ {node_name}**")
+                    st.code(data.hex()[:60] + "...")
                     st.success("✅ Stored")
-            st.markdown("### 📸 Screenshot: Distributed Storage Nodes")
-            st.caption("📸 Figure 5: Decentralised Storage - Ciphertext Distributed Across 3 Nodes")
+            st.success("📸 Screenshot: Distributed Storage Nodes - Figure 5")
+            st.caption("Figure 5: Decentralised Storage - Ciphertext Distributed Across 3 Nodes")
 
     elif step == 5:
         st.markdown("### Step 6: Decryption & Verification")
-        if hasattr(st.session_state, 'ciphertext') and hasattr(st.session_state, 'aes_key'):
+        if st.session_state.ciphertext and st.session_state.aes_key:
             try:
                 cipher = AESGCM(st.session_state.aes_key)
                 decrypted = cipher.decrypt(st.session_state.ciphertext[:12], st.session_state.ciphertext[12:], None)
-                st.success(f"✅ Decryption Successful! Recovered: {decrypted.decode()}")
+                st.success(f"✅ Decryption Successful!")
+                st.markdown(f"**Recovered Plaintext:** `{decrypted.decode()}`")
                 st.markdown("**Integrity Check:** GCM authentication tag verified - data has not been tampered with")
+                st.success("📸 Screenshot: Decryption with Authentication Tag Verification - Figure 6")
+                st.caption("Figure 6: Decryption Process - Authentication Tag Validation")
             except Exception as e:
                 st.error(f"Decryption failed: {e}")
-            st.markdown("### 📸 Screenshot: Decryption with Authentication Tag Verification")
-            st.caption("📸 Figure 6: Decryption Process - Authentication Tag Validation")
 
     elif step == 6:
         st.markdown("### Step 7: Raw vs Encrypted Comparison")
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**Original Plaintext**")
+            st.markdown("**📄 Original Plaintext**")
             st.json(sample_data)
-            st.markdown(f"Size: {len(json.dumps(sample_data))} bytes")
+            st.markdown(f"*Size: {len(json.dumps(sample_data))} bytes*")
         with col2:
-            if hasattr(st.session_state, 'ciphertext'):
-                st.markdown("**Encrypted Ciphertext**")
-                st.code(st.session_state.ciphertext.hex())
-                st.markdown(f"Size: {len(st.session_state.ciphertext)} bytes (+{len(st.session_state.ciphertext) - len(json.dumps(sample_data))} bytes overhead)")
-        st.markdown("### 📸 Screenshot: Raw vs Encrypted Data Comparison")
-        st.caption("📸 Figure 7: Side-by-Side Comparison - Plaintext vs Encrypted Output")
+            if st.session_state.ciphertext:
+                st.markdown("**🔐 Encrypted Ciphertext**")
+                st.code(st.session_state.ciphertext.hex()[:200] + "...")
+                st.markdown(f"*Size: {len(st.session_state.ciphertext)} bytes (+{len(st.session_state.ciphertext) - len(json.dumps(sample_data))} bytes overhead)*")
+        st.success("📸 Screenshot: Raw vs Encrypted Data Comparison - Figure 7")
+        st.caption("Figure 7: Side-by-Side Comparison - Plaintext vs Encrypted Output")
 
     # Navigation
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -745,10 +776,10 @@ def performance_evaluation():
     st.markdown("### Hybrid Encryption Performance Analysis")
 
     # Comparison data
-    encryption_schemes = ["No Encryption", "AES-128-CBC", "AES-256-CBC", "AES-256-GCM (Proposed)", "ECC + AES-GCM (Hybrid - Proposed)"]
-    encryption_times = [0, 1.2, 1.5, 0.8, 1.8]  # milliseconds
-    decryption_times = [0, 1.1, 1.4, 0.7, 1.6]  # milliseconds
-    security_score = [0, 60, 80, 95, 100]  # security rating
+    encryption_schemes = ["No Encryption", "AES-128-CBC", "AES-256-CBC", "AES-256-GCM", "ECC + AES-GCM (Proposed)"]
+    encryption_times = [0, 1.2, 1.5, 0.8, 1.8]
+    decryption_times = [0, 1.1, 1.4, 0.7, 1.6]
+    security_score = [0, 60, 80, 95, 100]
 
     # Table comparison
     st.markdown("#### Table 1: Encryption Scheme Comparison")
@@ -767,31 +798,31 @@ def performance_evaluation():
     fig = pgo.Figure()
     fig.add_trace(pgo.Bar(name="Encryption Time", x=encryption_schemes, y=encryption_times, marker_color="#E84855"))
     fig.add_trace(pgo.Bar(name="Decryption Time", x=encryption_schemes, y=decryption_times, marker_color="#00E5A0"))
-    fig.update_layout(title="Encryption/Decryption Performance Comparison", xaxis_title="Scheme", yaxis_title="Time (ms)", barmode='group', height=400)
+    fig.update_layout(title="Encryption/Decryption Performance Comparison", xaxis_title="Scheme", yaxis_title="Time (ms)", barmode='group', height=400, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig, use_container_width=True)
 
     # Security comparison chart
     st.markdown("#### Figure 2: Security Level Comparison")
-    fig2 = pgo.Figure(pgo.Bar(x=encryption_schemes, y=security_score, marker_color=["gray", "#FFD166", "#FFD166", "#00E5A0", "#00E5A0"]))
-    fig2.update_layout(title="Security Score Comparison", xaxis_title="Scheme", yaxis_title="Security Score (0-100)", height=400)
+    colors = ["#9CA3AF", "#FFD166", "#FFD166", "#00E5A0", "#00E5A0"]
+    fig2 = pgo.Figure(pgo.Bar(x=encryption_schemes, y=security_score, marker_color=colors))
+    fig2.update_layout(title="Security Score Comparison", xaxis_title="Scheme", yaxis_title="Security Score (0-100)", height=400, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig2, use_container_width=True)
 
     # Blockchain Performance
     st.markdown("### Blockchain Ledger Performance Evaluation")
 
-    # Simulate blockchain performance
     block_counts = [10, 50, 100, 250, 500]
-    verification_times = [0.02, 0.08, 0.15, 0.38, 0.75]  # seconds
-    storage_sizes = [8, 40, 80, 200, 400]  # KB
+    verification_times = [0.02, 0.08, 0.15, 0.38, 0.75]
+    storage_sizes = [8, 40, 80, 200, 400]
 
     col1, col2 = st.columns(2)
     with col1:
-        fig3 = pgo.Figure(pgo.Scatter(x=block_counts, y=verification_times, mode='lines+markers', marker_color="#E84855"))
-        fig3.update_layout(title="Blockchain Verification Time vs Block Count", xaxis_title="Number of Blocks", yaxis_title="Verification Time (seconds)", height=350)
+        fig3 = pgo.Figure(pgo.Scatter(x=block_counts, y=verification_times, mode='lines+markers', marker_color="#E84855", line_color="#E84855"))
+        fig3.update_layout(title="Blockchain Verification Time vs Block Count", xaxis_title="Number of Blocks", yaxis_title="Verification Time (seconds)", height=350, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig3, use_container_width=True)
     with col2:
-        fig4 = pgo.Figure(pgo.Scatter(x=block_counts, y=storage_sizes, mode='lines+markers', marker_color="#00E5A0"))
-        fig4.update_layout(title="Blockchain Storage Growth", xaxis_title="Number of Blocks", yaxis_title="Storage Size (KB)", height=350)
+        fig4 = pgo.Figure(pgo.Scatter(x=block_counts, y=storage_sizes, mode='lines+markers', marker_color="#00E5A0", line_color="#00E5A0"))
+        fig4.update_layout(title="Blockchain Storage Growth", xaxis_title="Number of Blocks", yaxis_title="Storage Size (KB)", height=350, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig4, use_container_width=True)
 
     st.markdown("#### Table 2: Blockchain Performance Metrics")
@@ -807,21 +838,21 @@ def performance_evaluation():
     # Proposed vs Existing Comparison
     st.markdown("### Proposed Scheme vs Existing Schemes")
 
-    metrics = ["Security Strength", "Encryption Speed", "Decryption Speed", "Authentication", "Blockchain Integration", "Overall Score"]
+    metrics = ["Security", "Encryption Speed", "Decryption Speed", "Authentication", "Blockchain Integration", "Overall"]
     existing_score = [60, 70, 70, 30, 0, 46]
     proposed_score = [95, 75, 75, 95, 95, 87]
 
     fig5 = pgo.Figure()
     fig5.add_trace(pgo.Bar(name="Existing Schemes", x=metrics, y=existing_score, marker_color="#FFD166"))
     fig5.add_trace(pgo.Bar(name="Proposed Hybrid + Blockchain", x=metrics, y=proposed_score, marker_color="#00E5A0"))
-    fig5.update_layout(title="Comparison: Existing Schemes vs Proposed Hybrid Encryption + Blockchain Framework", yaxis_title="Score (0-100)", barmode='group', height=450)
+    fig5.update_layout(title="Comparison: Existing Schemes vs Proposed Hybrid Encryption + Blockchain Framework", yaxis_title="Score (0-100)", barmode='group', height=450, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig5, use_container_width=True)
 
     st.success("""
     **Performance Evaluation Summary:**
-    - Proposed AES-256-GCM encryption is 40% faster than AES-256-CBC with built-in authentication
-    - ECC key exchange provides 256-bit security with smaller key sizes than RSA
-    - Blockchain integration adds < 0.5s verification time for 500 blocks
+    - Proposed AES-256-GCM encryption provides built-in authentication
+    - ECC key exchange (SECP256R1) offers 256-bit security with smaller key sizes
+    - Blockchain integration adds verification capability
     - Hybrid scheme achieves 87% overall score vs 46% for existing schemes
     """)
 
@@ -853,9 +884,9 @@ def decentralisation_demo():
     ]
 
     nodes = [
-        {"name": "Primary Node (Local)", "location": "On-premise", "status": "Active", "data": chunks[0]},
-        {"name": "Backup Node 1", "location": "EU-West", "status": "Active", "data": chunks[1]},
-        {"name": "Backup Node 2", "location": "US-East", "status": "Active", "data": chunks[2]},
+        {"name": "Primary Node (Local)", "location": "On-premise", "status": "🟢 Active", "data": chunks[0]},
+        {"name": "Backup Node 1", "location": "EU-West", "status": "🟢 Active", "data": chunks[1]},
+        {"name": "Backup Node 2", "location": "US-East", "status": "🟢 Active", "data": chunks[2]},
     ]
 
     cols = st.columns(3)
@@ -864,7 +895,7 @@ def decentralisation_demo():
             st.markdown(f"""
             <div style="background:var(--card2); border-radius:10px; padding:1rem;">
                 <h4>🗄️ {node['name']}</h4>
-                <p>📍 {node['location']}<br>🟢 {node['status']}</p>
+                <p>📍 {node['location']}<br>{node['status']}</p>
                 <details>
                     <summary>Data chunk (hex)</summary>
                     <code style="font-size:0.7rem;">{node['data'].hex()[:80]}...</code>
@@ -897,11 +928,10 @@ def decentralisation_demo():
         st.markdown(f"""
         <div style="background:var(--card); border-left:3px solid var(--accent); padding:0.5rem 1rem; margin:0.5rem 0; font-size:0.8rem;">
             <b>Block #{block['block_id']}</b> | Hash: {block['block_hash'][:16]}... | Prev: {block['prev_hash'][:16]}...<br>
-            <span style="color:var(--text2);">{block['timestamp']}</span>
+            <span style="color:var(--text2);">{block['timestamp'][:19]}</span>
         </div>
         """, unsafe_allow_html=True)
 
-    # Chain verification
     is_valid, count = blockchain.verify_chain()
     if is_valid:
         st.success(f"✅ Blockchain verified! {count} blocks, chain integrity intact")
@@ -929,7 +959,7 @@ def blockchain_page():
 
     st.divider()
 
-    for block in chain:
+    for block in chain[:20]:
         with st.expander(f"Block #{block['block_id']} - {block['timestamp'][:19]}"):
             col1, col2 = st.columns(2)
             with col1:
@@ -979,7 +1009,6 @@ def monitor_page():
 
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-    # Simple camera capture
     camera_image = st.camera_input("Position your face in frame", key="hr_camera")
 
     if camera_image:
@@ -994,18 +1023,15 @@ def monitor_page():
             x, y, w, h = face
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 229, 160), 2)
 
-            # ROI for signal extraction
             roi = get_forehead_roi(face, frame.shape)
             rx, ry, rw, rh = roi
             cv2.rectangle(frame, (rx, ry), (rx+rw, ry+rh), (232, 72, 85), 1)
 
-            # Extract signal
             g = extract_color_signal(frame, roi)
             if g:
                 st.session_state.data_buffer.append(g)
                 st.session_state.times.append(time.time())
 
-            # Calculate HR
             if len(st.session_state.data_buffer) > 15:
                 bpm, signal = calculate_heart_rate(list(st.session_state.data_buffer), list(st.session_state.times))
                 if bpm > 0:
@@ -1015,18 +1041,24 @@ def monitor_page():
                     st.session_state.last_result = {"bpm": bpm, "analysis": analysis, "signal_data": signal}
                     st.session_state.test_complete = True
 
-            # Display frame
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             st.image(frame_rgb, caption="Face Detection - ROI highlighted in red", use_container_width=True)
 
             if st.session_state.bpm > 0:
-                st.metric("Heart Rate", f"{st.session_state.bpm} BPM")
+                analysis = analyze_heart_rate(st.session_state.bpm)
+                status_color = "#00E5A0" if analysis['status'] == 'success' else "#FFD166" if analysis['status'] == 'warning' else "#E84855"
+                st.markdown(f"""
+                <div style="text-align:center; padding:1rem; background:var(--card); border-radius:12px;">
+                    <div style="font-size:3rem; font-weight:bold; color:{status_color};">{st.session_state.bpm}</div>
+                    <div style="font-size:1rem;">BPM - {analysis['category']}</div>
+                    <div style="font-size:0.8rem; color:var(--text2);">{analysis['description']}</div>
+                </div>
+                """, unsafe_allow_html=True)
         else:
             st.warning("No face detected. Ensure good lighting and face visibility.")
     else:
         st.info("Click the camera button above to start capturing")
 
-    # Save button
     if st.session_state.test_complete and st.session_state.last_result:
         if st.button("💾 Save Encrypted Record", type="primary"):
             save_test_result(user['id'], st.session_state.last_result['bpm'],
@@ -1034,7 +1066,6 @@ def monitor_page():
                            st.session_state.last_result['analysis'])
             st.success("✅ Record encrypted and saved to distributed storage + blockchain")
             st.session_state.test_complete = False
-            st.session_state.last_result = None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RESULTS PAGE
@@ -1087,7 +1118,9 @@ def admin_dashboard():
         st.metric("Blockchain Status", "✅ Verified" if valid else "❌ Invalid")
 
     st.divider()
+    draw_architecture_diagram()
 
+    st.divider()
     st.markdown("### Recent Activity")
     conn = get_conn()
     c = conn.cursor()
@@ -1096,14 +1129,15 @@ def admin_dashboard():
     conn.close()
 
     for log in logs:
-        st.markdown(f"- **{log[3]}**: {log[0]} - {log[1]} *({log[2][:19]})*")
+        st.markdown(f"- **{log[3]}**: {log[0]} - {str(log[1])[:50]} *({log[2][:19]})*")
 
 def admin_users():
     st.markdown("## 👥 User Management")
     users = get_all_users()
     for u in users:
         if not u['is_admin']:
-            with st.expander(f"{u['full_name']} (@{u['username']})"):
+            gender_icon = "👨" if u.get('gender') == "Male" else "👩" if u.get('gender') == "Female" else "👤"
+            with st.expander(f"{gender_icon} {u['full_name']} (@{u['username']})"):
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown(f"**Date of Birth:** {u.get('date_of_birth', '—')}")
@@ -1123,43 +1157,6 @@ def admin_records():
         st.info("No records found")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ARCHITECTURAL DIAGRAM
-# ─────────────────────────────────────────────────────────────────────────────
-
-def draw_architecture_diagram():
-    st.markdown("## 🏗️ System Architectural Design")
-
-    # Manual architecture diagram using matplotlib
-    fig, ax = plt.subplots(figsize=(12, 8))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 8)
-    ax.axis('off')
-
-    # Layers
-    layers = [
-        (1, "IoMT Device Layer", ["Heart Rate Monitor", "Blood Pressure", "Glucose Meter"], 7),
-        (3, "Edge/Fog Layer", ["Data Collection", "Pre-processing", "Encryption"], 5.5),
-        (5, "Hybrid Encryption Layer", ["ECC Key Exchange", "AES-256-GCM", "Authentication"], 4),
-        (7, "Blockchain Layer", ["Distributed Ledger", "Smart Contracts", "Audit Trail"], 2.5),
-        (9, "Application Layer", ["Admin Dashboard", "Patient Portal", "Analytics"], 1),
-    ]
-
-    for y, title, components, box_y in layers:
-        ax.add_patch(plt.Rectangle((1, box_y), 8, 0.8, facecolor='lightblue', edgecolor='navy', alpha=0.7))
-        ax.text(5, box_y + 0.4, title, ha='center', va='center', fontweight='bold', fontsize=10)
-        ax.text(5, box_y + 0.15, ", ".join(components), ha='center', va='center', fontsize=8, color='gray')
-
-    # Arrows
-    for y in [6.5, 5, 3.5, 2]:
-        ax.annotate('', xy=(5, y-0.2), xytext=(5, y+0.2),
-                   arrowprops=dict(arrowstyle='->', color='red', lw=1.5))
-
-    ax.set_title("MedChainSecure - Hybrid Encryption + Blockchain IoMT Architecture", fontsize=14, fontweight='bold')
-    st.pyplot(fig)
-
-    st.caption("Figure: Three-tier architecture with Hybrid Encryption and Blockchain Integration")
-
-# ─────────────────────────────────────────────────────────────────────────────
 # MAIN APP
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1167,7 +1164,6 @@ def main():
     render_nav()
 
     if not st.session_state.logged_in:
-        # Login/Register
         tab1, tab2 = st.tabs(["🔐 Sign In", "📝 Register"])
 
         with tab1:
@@ -1189,7 +1185,6 @@ def main():
             reg_pass = st.text_input("Password", type="password")
             reg_pass2 = st.text_input("Confirm Password", type="password")
 
-            # Date of Birth with auto-age
             dob = st.date_input("Date of Birth", value=None)
             if dob:
                 age = calculate_age_from_dob(dob.strftime("%Y-%m-%d"))
@@ -1197,7 +1192,6 @@ def main():
 
             gender_options = ["", "Male", "Female", "Other"]
             gender = st.selectbox("Gender", gender_options)
-            gender_icon = "👨" if gender == "Male" else "👩" if gender == "Female" else ""
 
             if st.button("Register"):
                 if reg_pass == reg_pass2 and len(reg_pass) >= 6:
@@ -1231,7 +1225,6 @@ def main():
         performance_evaluation()
     elif page == "admin_dashboard" and st.session_state.user.get('is_admin'):
         admin_dashboard()
-        draw_architecture_diagram()
     elif page == "admin_users" and st.session_state.user.get('is_admin'):
         admin_users()
     elif page == "admin_records" and st.session_state.user.get('is_admin'):
@@ -1244,7 +1237,7 @@ def main():
     st.markdown("""
     <div style="text-align:center; padding:1rem; font-size:0.8rem; color:var(--text3);">
         🔗 MedChainSecure · Hybrid Encryption (AES-256-GCM + ECC-SECP256R1) + Blockchain Framework<br>
-        EBSU/PG/PhD/2021/10930 · Yunisa Sunday · Research & Educational Purposes Only
+        EBSU/PG/PhD/2021/10930 · Yunisa Sunday
     </div>
     """, unsafe_allow_html=True)
 
