@@ -2086,7 +2086,7 @@ html,body{{margin:0;background:#eef2f7;min-height:100vh;
 
 
 
-    render_page_hero("❤️","Heart Rate Monitor",
+    render_page_hero("❤️","Heart Rate Data Capturing for Encryption",
     "Continuous 30fps rPPG · AES-256-GCM encrypted · Blockchain-logged",
     badge="IoMT biometric capture")
     page_padding()
