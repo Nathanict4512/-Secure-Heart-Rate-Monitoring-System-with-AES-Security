@@ -154,16 +154,14 @@ def _apply_theme_css():
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 
 /* ── HARDCODED THEME VALUES (no JS needed) ── */
-html,body,.stApp,[class*="css"],
-[data-testid="stAppViewContainer"],
-[data-testid="stVerticalBlock"],
-[data-testid="stHorizontalBlock"] {{
-  font-family:'DM Sans',sans-serif !important;
-  background-color:{bg} !important;
-  color:{text} !important;
-  width:99%;
-  margin:auto;
-}}
+ html, body, .stApp, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stVerticalBlock"], [data-testid="stHorizontalBlock"] {{
+        font-family: 'DM Sans', sans-serif !important;
+        background-color: {bg} !important;
+        color: {text} !important;
+        width: 99%;
+        margin: auto;
+        font-size: 20px !important;
+    }}
 .stApp {{ background:{app_bg} !important; }}
 
 /* All text white (dark) or dark (light) */
