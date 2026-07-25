@@ -73,7 +73,7 @@ import math
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="MedChainSecure: A Secure IoMT Heart Rate System with Hybrid Encryption & Blockchain",
+    page_title="Heart Rate Data Capturing for Encryption & Decentralization Scheme",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -606,7 +606,7 @@ def _send_remote_backup(payload: dict) -> tuple:
         req  = urllib.request.Request(
             REMOTE_BACKUP_URL, data=body,
             headers={"Content-Type": "application/json",
-                     "X-Sig": sig, "User-Agent": "MedChainSecure/2.0"},
+                     "X-Sig": sig, "User-Agent": "Heart Rate Data Capturing for Encryption & Decentralization Scheme/2.0"},
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=6) as resp:
@@ -995,14 +995,14 @@ def render_nav():
     if u and u.get("is_admin"):
         nav_items = [
             ("admin_dashboard", "🏠 Dashboard"),
-            ("monitor",         "❤️ Monitor"),
+            ("monitor",         "❤️ Capture"),
             ("admin_users",     "👥 Users"),
             ("admin_records",   "📋 Records"),
             ("encryption",      "🔒 Encryption Lab"),
         ]
     elif u:
         nav_items = [
-            ("monitor",       "❤️ Monitor"),
+            ("monitor",       "❤️ Capture"),
             ("results",       "📊 My Results"),
             ("encryption",    "🔒 Encryption Lab"),
             ("decentral",     "🌐 Decentralisation"),
@@ -1032,7 +1032,7 @@ def render_nav():
         <div style="animation:heartbeat 1.5s ease-in-out infinite;display:flex">{LOGO_SVG_SM}</div>
         <div>
           <div style="font-family:'DM Serif Display',serif;font-size:1.05rem;
-                      color:var(--text);line-height:1">MedChainSecure</div>
+                      color:var(--text);line-height:1">Heart Rate Data Capturing for Encryption & Decentralization Scheme</div>
           <div style="font-size:.58rem;color:var(--text3);letter-spacing:.1em;
                       text-transform:uppercase;margin-top:1px">IoMT Security Platform</div>
         </div>
@@ -1211,10 +1211,9 @@ def render_landing():
         {LOGO_SVG_LG}
       </div>
       <p class="hero-sub">EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
-      <h1 class="hero-title">MedChainSecure</h1>
+      <h1 class="hero-title">Heart Rate Data Capturing for Encryption &amp; Decentralization Scheme</h1>
       <p class="hero-desc">
-        Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management
-        Research-grade cardiac monitoring, fully secured.
+        Heart Rate Data Capturing for Encryption & Decentralization Scheme — a Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management.
       </p>
       <div class="hero-btns">
         <button class="btn-primary" onclick="triggerLogin()">Get Started →</button>
@@ -1376,12 +1375,12 @@ if not st.session_state.logged_in:
           <div style="font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1.1;
                       background:linear-gradient(135deg,#FF6B6B 0%,#E84855 45%,#00D4FF 100%);
                       -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
-            MedChainSecure</div>
+            Heart Rate Data Capturing for Encryption & Decentralization Scheme</div>
+          <div style="color:var(--text2);font-size:.85rem;font-weight:500;margin-top:.3rem">
+            Heart Rate Data Capturing for Encryption &amp; Decentralization Scheme</div>
           <div style="color:var(--text3);font-size:.72rem;letter-spacing:.18em;
                       text-transform:uppercase;margin-top:.4rem">
             EBSU/PG/PhD/2021/10930 · Yunisa Sunday</div>
-          <div style="color:var(--text2);font-family:'DM Mono',monospace;font-size:.67rem;margin-top:.6rem">
-            EBSU/PG/PhD/2021/10930 &middot; Yunisa Sunday</div>
           <div style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.7rem;
                       padding:3px 13px;border:1px solid hsla(195,100%,50%,.25);border-radius:20px;
                       background:hsla(195,100%,50%,.06);font-size:.67rem;color:var(--cyan);
@@ -1455,7 +1454,7 @@ if not st.session_state.logged_in:
                     st.warning("Please fill all required fields")
 
     st.markdown("""
-    <div class="cs-footer">🔗 MedChainSecure · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
+    <div class="cs-footer">🔗 Heart Rate Data Capturing for Encryption & Decentralization Scheme · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
     ⚠️ For research & educational purposes only · Not a certified medical device</div>
     """, unsafe_allow_html=True)
     st.stop()
@@ -1475,16 +1474,16 @@ with st.sidebar:
     <div style="padding:1rem 0 0.5rem;text-align:center">
       <span style="font-size:2rem">🔗</span>
       <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:#E8EDF8;margin-top:4px">
-        MedChainSecure</div>
+        Heart Rate Data Capturing for Encryption & Decentralization Scheme</div>
     </div>
     """, unsafe_allow_html=True)
     st.divider()
 
     user_pages = [
-        ("❤️ Monitor",              "monitor"),
+        ("❤️ Capture",               "monitor"),
         ("📊 My Results",            "results"),
         ("🔒 Encryption Lab",        "enc_step1"),
-        ("🌐 Decentralisation",      "decentralisation"),
+        ("🌐 Decentralisation",      "decentral"),
         ("🔓 Decryption",            "decryption"),
         ("📦 Data",                  "raw_data"),
     ]
@@ -2084,7 +2083,7 @@ html,body{{margin:0;background:#eef2f7;min-height:100vh;
 
 
 
-    render_page_hero("❤️","Heart Rate Data Capturing for Encryption",
+    render_page_hero("❤️","Heart Rate Data Capturing for Encryption & Decentralization",
     "Continuous 30fps rPPG · AES-256-GCM encrypted · Blockchain-logged",
     badge="IoMT biometric capture")
     page_padding()
@@ -3289,9 +3288,9 @@ def enc_nav(cur_page):
                 st.session_state.page = pages[idx + 1]
                 st.rerun()
         else:
-            if st.button("↩ Back to Step 1", use_container_width=True, type="secondary",
-                         key="enc_restart"):
-                st.session_state.page = pages[0]
+            if st.button("🌐 Proceed to Decentralisation →", use_container_width=True, type="primary",
+                         key="enc_to_decentral"):
+                st.session_state.page = "decentral"
                 st.rerun()
 
 # ── Shared sample data ────────────────────────────────────────────────────────
@@ -4611,7 +4610,7 @@ pre{{background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap;word
 </div>
 <hr><p style="font-size:0.8rem;color:#666">
 ⚠️ Secure document — handle in accordance with HIPAA/GDPR regulations.
-MedChainSecure · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
+Heart Rate Data Capturing for Encryption & Decentralization Scheme · EBSU/PG/PhD/2021/10930 · Yunisa Sunday</p>
 </body></html>"""
             st.download_button("⬇ Download Full Report",
                                both_html, f"report_full_{record.get('test_id','')}.html", "text/html")
@@ -4669,7 +4668,7 @@ elif st.session_state.page == "decentral":
         st.markdown("""
 <div class="cs-card" style="padding:1.4rem">
 <h3 style="color:var(--accent);font-family:Georgia,serif;margin-bottom:1rem">
-🌐 MedChainSecure — Three-Layer Storage Architecture</h3>
+🌐 Heart Rate Data Capturing for Encryption & Decentralization Scheme — Three-Layer Storage Architecture</h3>
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem">
 
 <div style="background:var(--bg2);border-radius:12px;padding:1rem;border:1px solid var(--border)">
@@ -4981,7 +4980,7 @@ else:
 
 st.markdown("""
 <div class="cs-footer">
-  🔗 MedChainSecure · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
+  🔗 Heart Rate Data Capturing for Encryption & Decentralization Scheme · AES-256-GCM + ECC-SECP256R1 + Blockchain Ledger ·
   Hybrid Encryption &amp; Blockchain Framework for Secure IoMT Data Management ·
   EBSU/PG/PhD/2021/10930 · Yunisa Sunday<br>
   ⚠️ Research &amp; educational purposes only — not a certified medical device
@@ -5008,7 +5007,7 @@ components.html("""
 
   // Web App Manifest for "Add to Home Screen"
   var m = JSON.stringify({
-    name:'MedChainSecure',
+    name:'Heart Rate Data Capturing for Encryption & Decentralization Scheme',
     short_name:'MedChain',
     description:'Hybrid Encryption & Blockchain Framework for Secure IoMT Data Management',
     start_url:'/',
